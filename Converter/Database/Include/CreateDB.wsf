@@ -1,0 +1,88 @@
+<package>
+<job id="VBCreateDB">
+<script language="VBScript" src="Common.vbs" />
+<script language="VBScript">
+
+Sub SetRecoveryModel(objDatabase, strDatabaseName)
+    Dim strSQL    
+    strSQL = "Alter database [" & strDatabaseName & "] set recovery Simple"
+    objDatabase.ExecuteImmediate strSQL
+End Sub
+
+' Expect: Server, Database
+
+Set objArgs = WScript.Arguments
+If (objArgs.Count <> 2) Then
+    WSCript.Echo "ERROR: Invalid parameter."
+    WSCript.Quit ErrorInvalidArgs
+End If
+strServerName = objArgs(0)
+strDatabaseName = objArgs(1)
+
+CheckServerName strServerName
+CheckDatabaseName strDatabaseName
+
+set objSQLServer = Nothing
+GetSQLServer objSQLServer
+Connect objSQLServer, strServerName
+
+' Check to see if the database already exists.
+set objDatabase = Nothing
+On Error Resume Next
+set objDatabase = objSQLServer.Databases(strDatabaseName)
+On Error Goto 0
+If (Not (objDatabase is Nothing)) Then
+	WScript.Echo "ERROR: Database name already exists. Please choose a new name, or run DeleteDB.bat to delete the database before proceeding."
+	WScript.Quit ErrorDatabaseAlreadyExists
+End If
+
+' Create the new database.
+set objDatabase = CreateObject("SQLDMO.Database")
+objDatabase.Name = strDatabaseName
+On Error Resume Next
+objSQLServer.Databases.Add objDatabase
+If (Err.Number <> 0) Then
+	WScript.Echo "ERROR: Failed to create a new database: " & strDatabaseName
+	If (Len(Trim(Err.Description)) > 0) Then
+		Err.Description
+	End If
+	WScript.Quit ErrorCreateDatabase
+End If
+On Error Goto 0
+
+'Change the recovery model of the database to Simple
+SetRecoveryModel objDatabase, strDatabaseName
+
+' Open Provisioning File
+Dim provisionFile
+strProvisionFileName = ".\Include\ProvisionDB.sql"
+On Error Resume Next
+Set provisionFile = g_fso.OpenTextFile(strProvisionFileName, ForReading, False, FormatASCII)
+If (Err.Number <> 0) Then
+	WScript.Echo "ERROR: Failed to open provisioning file: " & strProvisionFileName
+	If (Len(Trim(Err.Description)) > 0) Then
+		Err.Description
+	End If
+	WScript.Quit ErrorOpenProvisioningFile
+End If
+
+' Provision the Database
+strSQL = ""
+Do While (Not provisionFile.AtEndOfStream)
+    strLine = provisionFile.ReadLine
+    If(strLine = "GO") Then
+        objDatabase.ExecuteImmediate strSQL 
+        strSQL = ""
+    Else
+        strSQL = strSQL + vbCrLf + strLine
+    End If
+Loop
+
+' We're through.
+Set objSQLServer = Nothing
+Set objDatabase = Nothing
+Set g_fso = Nothing
+
+</script>
+</job>
+</package>

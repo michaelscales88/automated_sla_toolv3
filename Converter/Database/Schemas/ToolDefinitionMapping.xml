@@ -1,0 +1,68 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<xsd:schema attributeFormDefault="unqualified" elementFormDefault="qualified" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:sql="urn:schemas-microsoft-com:mapping-schema">
+
+  <xsd:annotation>
+    <xsd:appinfo>
+      <sql:relationship name="Issues"
+          parent="tempOmTool"
+          parent-key="ToolId"
+          child="tempOmIssue"
+          child-key="ToolId" />
+      <sql:relationship name="FileCategories"
+        parent="tempOmTool"
+        parent-key="ToolId"
+        child="tempOmFileCategory"
+        child-key="ToolId" />
+    </xsd:appinfo>
+  </xsd:annotation>
+
+  <xsd:element name="OMPMTools" sql:is-constant="1">
+    <xsd:complexType>
+      <xsd:sequence>
+        <xsd:element maxOccurs="unbounded" name="Tool" sql:relation="tempOmTool" >
+          <xsd:complexType>
+            <xsd:sequence>
+              <xsd:element name="ToolId" type="xsd:unsignedInt" />
+              <xsd:element name="Title" type="xsd:string" />
+              <xsd:element name="Description" type="xsd:string" />
+              <xsd:element name="HelpURL" type="xsd:string" />
+              <xsd:element name="Version" type="xsd:string" />
+              <xsd:element name="Issues" sql:is-constant="1">
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element maxOccurs="unbounded" name="Issue" sql:relation="tempOmIssue" sql:relationship="Issues">
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="IssueId" type="xsd:unsignedInt" />
+                          <xsd:element name="Title" type="xsd:string" />
+                          <xsd:element name="Description" type="xsd:string" />
+                          <xsd:element name="HelpURL" type="xsd:string" />
+                          <xsd:element name="LevelId" type="xsd:unsignedInt" sql:field="IssueLevelId" />
+                          <xsd:element name="IssueTypeId" type="xsd:unsignedInt" />
+                        </xsd:sequence>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                </xsd:complexType>
+              </xsd:element>
+              <xsd:element name="OutputFileCategories" sql:is-constant="1" >
+                <xsd:complexType>
+                  <xsd:sequence>
+                    <xsd:element maxOccurs="unbounded" name="OutputFileCategory" sql:relation="tempOmFileCategory" sql:relationship="FileCategories">
+                      <xsd:complexType>
+                        <xsd:sequence>
+                          <xsd:element name="FileCategoryId" type="xsd:unsignedInt" />
+                          <xsd:element name="Description" type="xsd:string" />
+                        </xsd:sequence>
+                      </xsd:complexType>
+                    </xsd:element>
+                  </xsd:sequence>
+                </xsd:complexType>
+              </xsd:element>
+            </xsd:sequence>
+          </xsd:complexType>
+        </xsd:element>
+      </xsd:sequence>
+    </xsd:complexType>
+  </xsd:element>
+</xsd:schema>

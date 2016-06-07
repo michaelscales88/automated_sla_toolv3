@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<OMPMTools>
+	<Tool>
+		<ToolId>8787</ToolId>
+		<Title><![CDATA[Microsoft Office Word Version Extraction Tool]]></Title>
+		<Description><![CDATA[Extracts versions from Word 97-2003 documents]]></Description>
+		<HelpURL/>
+		<Version><![CDATA[1.0]]></Version>
+		<Issues>
+			<Issue>
+				<IssueId>9098</IssueId>
+				<Title><![CDATA[Document Timed Out]]></Title>
+				<Description>
+					<![CDATA[The extraction of versions for this Word document timed out.]]>					
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>2</IssueTypeId>				
+			</Issue>
+			<Issue>
+				<IssueId>9097</IssueId>
+				<Title><![CDATA[No Versions Detected]]></Title>
+				<Description>
+					<![CDATA[Although this Word document was flagged as having versions, Word found no versions.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>2</IssueLevelId>
+				<IssueTypeId>4</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9096</IssueId>
+				<Title><![CDATA[Version Count Failure]]></Title>
+				<Description>
+					<![CDATA[An error occurred while accessing the version count of this Word document.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>2</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9095</IssueId>
+				<Title><![CDATA[Version Save Failure]]></Title>
+				<Description>
+					<![CDATA[A particular version from this Word document failed to save as a new Word document.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>2</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9094</IssueId>
+				<Title><![CDATA[Version Open Failure]]></Title>
+				<Description>
+					<![CDATA[A particular version from this Word document could not be opened.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>2</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9093</IssueId>
+				<Title><![CDATA[Version Access Failure]]></Title>
+				<Description>
+					<![CDATA[A particular version from this Word document could not be accessed.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>2</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9092</IssueId>
+				<Title><![CDATA[Directory Create Failure]]></Title>
+				<Description>
+					<![CDATA[Could not create a directory to hold versions for this Word document.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>4</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9091</IssueId>
+				<Title><![CDATA[Directory Delete Failure]]></Title>
+				<Description>
+					<![CDATA[Could not delete previous instance of the folder which holds extracted versions for the given Word document.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>4</IssueTypeId>
+			</Issue>
+			<Issue>
+				<IssueId>9090</IssueId>
+				<Title><![CDATA[Document Open Failure]]></Title>
+				<Description>
+					<![CDATA[Word failed to open this document.]]>
+				</Description>
+				<HelpURL/>
+				<IssueLevelId>1</IssueLevelId>
+				<IssueTypeId>2</IssueTypeId>
+			</Issue>
+		</Issues>
+		<OutputFileCategories>
+			<OutputFileCategory>
+				<FileCategoryId>4242</FileCategoryId>
+				<Description><![CDATA[Extracted Versions]]></Description>
+			</OutputFileCategory>
+		</OutputFileCategories>
+	</Tool>
+</OMPMTools>
