@@ -16,7 +16,6 @@ from openpyxl.compat import range
 
 from src import (Client)
 from src.CONSTANTS import (CALL_DETAILS_FIRST_PAGE_NAME,
-                           CLIENT_LIST_SHEET,
                            ARG_PATH,
                            EXC_PATH,
                            SELF_PATH,
@@ -24,24 +23,23 @@ from src.CONSTANTS import (CALL_DETAILS_FIRST_PAGE_NAME,
 from src.email_reader import (get_voice_mail, get_downloads)
 from src.extractor import (find_duplicates_abandon_group_report, process_hunt_group_report, process_abandon_calls,
                            process_call_details_report, parse_chronicall_report)
-from src.utils import (initialize_reports, process_duplicates, remove_voice_mail_calls,
-                       white_wash, prepare_raw_call_details, check_date,
-                       get_client_dictionary, process_report)
 from src.input_valididation import valid_input
+from src.utils import (initialize_reports, process_duplicates, remove_voice_mail_calls, white_wash,
+                       prepare_raw_call_details, check_date, get_client_dictionary, process_report)
 
-# !/usr/bin/env python
+# !/usr/bin/env python3
 # Add the executing directory to the class path
 sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
-
 print("Daily SLA Program... Created by Michael Scales")
 
 
 def calc_data(hunt_grp, abandon_grp, details,
               client, voice_mail_dict, client_dict):
     client_name = client.get_name()
-    client_name_verbose = client_dict[int(client_name)]
+    client_name_verbose = client_dict[client_name]
 
     lost_calls, avg_wait_lost_call = process_abandon_calls(abandon_grp, client_name)
+
     client.set_abandon_grp(lost_calls, avg_wait_lost_call)
     # Everything from Abandon Calls report
 
@@ -110,24 +108,25 @@ def calc_data(hunt_grp, abandon_grp, details,
             client.set_longest_wait_answered(call_details_longest_hold_ans)
 
 
-def create_client_report(clients):
+def create_client_report(client_list_info):
     client_report = []
     hunt_groups = []
-    for row_number in range(1, clients.max_row + 1):
-        client = Client(valid_input('A', row_number, clients, 'N'))
-        client.set_24hr(valid_input('C', row_number, clients, 'N'))
-        hunt_group_path = valid_input('B', row_number, clients, 'S')
+    for row_number in range(1, client_list_info.max_row + 1):
+        client = Client(valid_input('A', row_number, client_list_info, 'N'))
+        client.set_24hr(valid_input('C', row_number, client_list_info, 'N'))
+        hunt_group_path = valid_input('B', row_number, client_list_info, 'S')
         client_report.append(client)
         hunt_groups.append(hunt_group_path)
     return client_report, hunt_groups
 
 
-def run_report(abandon_group_file, new_call_details_file, date, client_report,
+def run_report(abandon_group_file, new_call_details_file, report_date_datetime, client_report,
                hunt_groups, voice_mail_dict, client_dict):
     print("Attempting to collate data.")
+    date_string = report_date_datetime.strftime("%m%d%Y")
     for index, client in enumerate(client_report):
         hunt = openpyxl.load_workbook(SELF_PATH + (hunt_groups[index]))
-        check_date(hunt, date, 'hunt')
+        check_date(hunt, date_string, 'hunt')
         calc_data(hunt,
                   abandon_group_file,
                   new_call_details_file,
@@ -136,8 +135,7 @@ def run_report(abandon_group_file, new_call_details_file, date, client_report,
                   client_dict)
 
 
-def main():
-    report_date = datetime.datetime.today() - datetime.timedelta(days=1)
+def main(report_date_datetime):
     try:
         white_wash()
         client_dict = get_client_dictionary()
@@ -145,12 +143,12 @@ def main():
         # Pre-condition: correct data in client_dict.xlsx
         # Post-condition: Returns a dictionary for converting between client number and client name
         # Ex. Client Number (int) : Client Name (string)
-        print("report date: %s" % report_date)
-        get_downloads(report_date, 'Archive')
+        print("report date: %s" % report_date_datetime)
+        get_downloads(report_date_datetime)
         # Downloads hunt group reports, call details, cradle 2 grave and abandon group files
         # Pre-condition: None
         # Post-condition: Saves contents to Archives
-        get_downloads(report_date, 'raw')
+        get_downloads(report_date_datetime, 'raw')
         # Downloads hunt group reports, call details, cradle 2 grave and abandon group files
         # Pre-condition: None
         # Post-condition: Saves contents to \raw\ for program use
@@ -159,21 +157,15 @@ def main():
         # Pre-condition: None
         # Post-condition: Any .xls files located in \raw\ are converted to .xlsx. Files are saved to:
         # \converted_files_come_here\Desktop\development\Daily SLA Parser - Automated Version\raw
-        (client_list_file,
+        (client_list_info,
          call_details_file,
          abandon_group_file,
-         cradle_to_grave_file,
-         date) = initialize_reports(report_date)
+         cradle_to_grave_file) = initialize_reports(report_date_datetime)
         # Opens and stores Call Details.xlsx, Cradle 2 Grave.xlsx and Abandon Group Reports.xlsx
         # Pre-condition: The file date matches the report_date
         # Post-condition: Returns file variables and date for use in program execution
-        voice_mail_dict = get_voice_mail(report_date)
+        voice_mail_dict = get_voice_mail(report_date_datetime)
         # Creates a dictionary collection of voicemails received for the report_date
-        # Pre-condition: None
-        # Post-condition: Returns a default_dict(list) which stores the client, last 4 of the phone number,
-        # call time. Ex. Key: AAP Value List: ['9063 + 09:29:25', '3619 + 13:21:14', '2071 + 16:10:25']
-        clients = client_list_file.get_sheet_by_name(CLIENT_LIST_SHEET)
-        # Creates a collection of voicemails received for the report_date
         # Pre-condition: None
         # Post-condition: Returns a default_dict(list) which stores the client, last 4 of the phone number,
         # call time. Ex. Key: AAP Value List: ['9063 + 09:29:25', '3619 + 13:21:14', '2071 + 16:10:25']
@@ -191,7 +183,7 @@ def main():
         # Pre-condition: None
         # Post-condition: Returns a default_dict(list) which stores the client, last 4 of the phone number,
         # + call time. Ex. Key: AAP Value List: ['9063 + 09:29:25', '3619 + 13:21:14', '2071 + 16:10:25']
-        client_report, hunt_groups = create_client_report(clients)
+        client_report, hunt_groups = create_client_report(client_list_info)
         # List of Call ID's to be used for calculations. Program generated report "Call Details"
         # Pre-condition: None
         # Post-condition: Returns a default_dict(list) which stores the client, last 4 of the phone number,
@@ -201,7 +193,7 @@ def main():
         # Pre-condition: None
         # Post-condition: Returns a default_dict(list) which stores the client, last 4 of the phone number,
         # + call time. Ex. Key: AAP Value List: ['9063 + 09:29:25', '3619 + 13:21:14', '2071 + 16:10:25']
-        run_report(abandon_group_file, new_call_details_file, date,
+        run_report(abandon_group_file, new_call_details_file, report_date_datetime,
                    client_report, hunt_groups, voice_mail_dict, client_dict)
         # List of Call ID's to be used for calculations. Program generated report "Call Details"
         # Pre-condition: None
@@ -216,7 +208,8 @@ def main():
         # Removes duplicate abandoned calls. (Same Tel. # within 1 Hr)
         # Pre-condition: None
         # Post-condition: Duplicate calls are removed from the data for the final report.
-        process_report(client_report, abandon_group_file, new_call_details_file, date, voice_mail_dict)
+        process_report(client_report, abandon_group_file, new_call_details_file,
+                       report_date_datetime, voice_mail_dict)
         # Produces the spreadsheet with all collated data.
         # Pre-condition: None
         # Post-condition: An archive of the files used is saved into the \Archive\[This date]
@@ -228,16 +221,30 @@ def main():
     except Exception as err:
         now = datetime.datetime.now()
         error = traceback.format_exc()
-        error_log = open(SELF_PATH + '\\error_logs\\%s_error_log.txt' %
-                         report_date.strftime("%m%d%Y"), 'a')
-        error_log.write('%r Exception Occurred: %s\n File Date: %r\n%s ' % (now.strftime("%m/%d/%Y %H:%M:%S"),
-                                                                            err,
-                                                                            report_date.strftime("%m/%d/%Y"),
-                                                                            error))
+        error_log = open(SELF_PATH + '\\error_logs\\%s_error_log.txt' % report_date_datetime.strftime("%m%d%Y"), 'a')
+        error_log.write("\n%r Exception Occurred: %s\n File Date: %r\n%s " % (now.strftime("%m/%d/%Y %H:%M:%S"),
+                                                                              err,
+                                                                              report_date_datetime.strftime("%m/%d/%Y"),
+                                                                              error))
         error_log.close()
     finally:
         print("Packing up the tools to quit.")  # Just cause.
 
 
 if __name__ == "__main__":
-    main()
+    main(datetime.datetime.today() - datetime.timedelta(days=1))
+else:
+    from os import sys, path
+
+    sys.path.append(path.dirname(path.dirname(path.abspath(__file__))))
+    number_of_runs = int(input("How many days?"))
+    while number_of_runs > 0:
+        try:
+            date_text = input("Month") + input("Day") + input("Year")
+            report_date = datetime.datetime.strptime(date_text, '%m%d%Y')
+        except ValueError:
+            raise ValueError("Incorrect data format, should be %m%d%Y")
+        else:
+            main(report_date)
+        finally:
+            number_of_runs -= 1

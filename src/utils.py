@@ -7,7 +7,8 @@ from collections import defaultdict
 from src.CONSTANTS import (CALL_DETAILS_FIRST_PAGE_NAME,
                            ABANDON_CALLS_GROUP_PAGE_NAME,
                            SUMMARY_PAGE,
-                           SELF_PATH)
+                           SELF_PATH,
+                           TEMPLATE_LOCATION)
 from .abandongrp import AbandonGrp
 from .outfile import (write_outfile)
 from .input_valididation import valid_input
@@ -96,8 +97,8 @@ def make_row_dictionary(work_sheet):
 
 
 def process_report(client_report, abandon_group_file, new_call_details_file,
-                   date, voice_mail_dict):  # Writes the output file and fills it with information
-    wb = openpyxl.load_workbook('%s/bin/Incoming DID Summary (Mike Template).xlsx' % SELF_PATH)
+                   report_date, voice_mail_dict):
+    wb = openpyxl.load_workbook('%s/%s' % (SELF_PATH, TEMPLATE_LOCATION))
     data_page = wb.get_sheet_by_name('data')
     report_page = wb.get_sheet_by_name('REPORT')
     report_page_rows = make_row_dictionary(report_page)
@@ -105,7 +106,8 @@ def process_report(client_report, abandon_group_file, new_call_details_file,
     write_outfile(client_report,
                   abandon_group_file,
                   new_call_details_file,
-                  date, voice_mail_dict,
+                  report_date,
+                  voice_mail_dict,
                   report_page_rows,
                   data_page_rows,
                   wb,
@@ -209,42 +211,35 @@ def process_duplicates(duplicate_dictionary_calls_to_remove, client_report):
 
 
 def get_sec(time_string):
-    # returns time provided as as string in hours, minutes, sec
     try:
         h, m, s = [int(float(i)) for i in time_string.split(':')]
     except TypeError:
         return 0
     return convert_sec(h, m, s)
-    # Converts hours, minutes, sec to seconds
 
 
 def convert_sec(h, m, s):
-    # Converts hours, minutes, sec to seconds
     return (3600 * int(h)) + (60 * int(m)) + int(s)
 
 
 def convert_time_stamp(convert_seconds):
-    # Converts seconds into a time stamp to be printed in a workbook.
     minutes, seconds = divmod(convert_seconds, 60)
     hours, minutes = divmod(minutes, 60)
     return "%d:%02d:%02d" % (hours, minutes, seconds)
 
 
 def binary_search(call_details_file, call_id):
-    # Search function to find Call ID.
-    # Used to collate data from other workbooks into the Call Details report used for the final report
     ws = call_details_file.get_sheet_by_name(CALL_DETAILS_FIRST_PAGE_NAME)
     first = 3
     last = ws.max_row
     found = False
     midpoint = 0
 
-    while (first <= last) & (not found):
+    while first <= last and not found:
         midpoint = (first + last) // 2
         call_id_number = call_id[9:]
         id_to_inspect = ws['A%d' % midpoint].value[9:]
         if id_to_inspect == call_id_number:
-            # Slice ensures that only the number portion of the Call ID is checked
             found = True
         else:
             if call_id_number < id_to_inspect:
@@ -252,7 +247,6 @@ def binary_search(call_details_file, call_id):
             else:
                 first = midpoint + 1
     return found, midpoint
-    # midpoint is the row that the Call ID was found in
 
 
 def show_contents(client_report):
@@ -271,7 +265,7 @@ def prepare_raw_call_details(ws, call_details_file, cradle_grave_call_id_list):
             c_value = valid_input('C', calc_m_row_position, ws, 'N')
             j_value = valid_input('J', calc_m_row_position, ws, 'N')
             ws['M%d' % calc_m_row_position] = convert_time_stamp(c_value - j_value)
-        except ValueError:  # If unanswered this field will remain blank
+        except ValueError:
             pass
 
     for call_id, index in enumerate(cradle_grave_call_id_list):
@@ -328,25 +322,26 @@ def check_date(wb, date, page_name):
         raise ValueError(e)
 
 
-def initialize_reports(now):
+def initialize_reports(report_date_datetime):
     print("Ensure files are placed in their proper directory before proceeding.")
     while True:
         try:
-            date = now.strftime("%m%d%Y")
+            date_string = report_date_datetime.strftime("%m%d%Y")
             print("Attempting to to load data files from the directory.")
-            client_list_file = openpyxl.load_workbook(SELF_PATH + '/bin/client_list_file.xlsx')
-            call_details_file = openpyxl.load_workbook(SELF_PATH + '/raw/Call Details.xlsx')
-            check_date(call_details_file, date, CALL_DETAILS_FIRST_PAGE_NAME)
+            client_list_file = openpyxl.load_workbook(SELF_PATH + '\\bin\\CONFIG.xlsx')
+            client_list_info = client_list_file.get_sheet_by_name("CLIENT LIST INFO")
+            call_details_file = openpyxl.load_workbook(SELF_PATH + '\\raw\\Call Details.xlsx')
+            check_date(call_details_file, date_string, CALL_DETAILS_FIRST_PAGE_NAME)
             abandon_group_file = open_abandon_grp_report()
-            check_date(abandon_group_file, date, ABANDON_CALLS_GROUP_PAGE_NAME)
-            chronicall_report = openpyxl.load_workbook(SELF_PATH + '/raw/Cradle to Grave.xlsx')
-            check_date(chronicall_report, date, 'Cradle_to_Grave')
+            check_date(abandon_group_file, date_string, ABANDON_CALLS_GROUP_PAGE_NAME)
+            chronicall_report = openpyxl.load_workbook(SELF_PATH + '\\raw\\Cradle to Grave.xlsx')
+            check_date(chronicall_report, date_string, 'Cradle_to_Grave')
             abandon_group_file.get_sheet_by_name("ECA GEN")
         except ValueError:
             raise ValueError("**There was an issue with loading one of the files in Add_CDetails_AbandonGRP_C2Grave**")
         else:
             print("Data files successfully loaded.")
-            return client_list_file, call_details_file, abandon_group_file, chronicall_report, date
+            return client_list_info, call_details_file, abandon_group_file, chronicall_report
 
 
 def custom_input(input_string, return_type, value_to_find='X'):
