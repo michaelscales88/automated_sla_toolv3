@@ -5,26 +5,6 @@ from PyQt5.QtGui import QColor
 from PyQt5.QtCore import Qt
 from datetime import datetime
 from collections import defaultdict
-from .DockWidget import DockWidget
-
-
-class GraphicsDockWidget(DockWidget):
-    def __init__(self, parent, window_name=None,
-                 widget1=None, widget2=None,
-                 button=None, hide_button_name=None):
-        super(GraphicsDockWidget, self).__init__(parent, window_name, widget1,
-                                                 widget2, button, hide_button_name)
-
-    def make_graph(self, date1, date2):
-        graph = GraphData()
-        graph.create_graph(date1, date2)
-        graph.show()
-        self.setWidget(graph)
-        self.show()
-
-    def add_curve(self, plot_data):
-        self.children()[-1].set_y_axis(plot_data)
-        # print(self.children())
 
 
 class MyStringAxis(pg.AxisItem):

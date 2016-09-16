@@ -1,0 +1,185 @@
+import datetime
+import pyexcel as pe
+from collections import defaultdict
+from PyQt5.QtWidgets import (QMainWindow, QDesktopWidget, QPushButton)
+from PyQt5.QtCore import (pyqtSignal, Qt)
+from automated_sla_tool.program_files.bin import sla_report, sla_slicer
+from automated_sla_tool.program_files.src import (DockWidget, GraphData, SplitterFrameWidget,
+                                                  ProcessObject, ProcessWorker)
+
+
+class ProcessMenu(QMainWindow):
+    exit_status = pyqtSignal(str, name='exit_status')
+    save_items = pyqtSignal(defaultdict, name='save_items')
+    return_save_info = pyqtSignal(defaultdict, name='return_save_info')
+    progress_update = pyqtSignal(float, name='progress_made')
+    tab_data = pyqtSignal(pe.sheets.sheet.Sheet, name='tab_data')
+
+    def __init__(self, parent=None, process=None, constants=None):
+        super().__init__(parent)
+
+        # Member Attributes
+        self.constants = constants
+        self.process = self.init_process(process)
+
+        # Bindings
+        self.__excel_dock = ExcelDockWidget(self,
+                                            excl_title='Excel Dock',
+                                            excl_widget=self.process.get_data_widget(),
+                                            excl_shw_btn='Show Excel')
+        self.__buttons = ButtonsDockWidget(self,
+                                           btn_title='Button Dock',
+                                           prcs_widget=self.process.get_ui(),
+                                           prcs_shw_btn='Show Buttons')
+        self.__graph_dock = GraphicsDockWidget(self,
+                                               grph_title='Graphics Dock',
+                                               grph_widget=GraphData('Graph'),
+                                               graph_shw_btn='Show Graph')
+        self.__calendar_dock = CalendarDockWidget(self,
+                                                  cal_title='Calendar Dock',
+                                                  cal_one=self.process.get_cal_one(),
+                                                  cal_two=self.process.get_cal_two(),
+                                                  run_btn=QPushButton('Run Report'),
+                                                  cal_shw_btn='Show Calendars')
+        self.__save_dock = SaveDockWidget(self,
+                                          save_title='File Saver Dock',
+                                          save_widget=self.process.get_save_widget(),
+                                          run_btn=QPushButton('Save'),
+                                          save_shw_btn='Save Files')
+
+        # Connections
+        self.__calendar_dock.ready_to_send.connect(self.execute_process)
+        self.tab_data.connect(self.process.add_data)
+
+        # Widget Layout
+        splitter = SplitterFrameWidget(self,
+                                       widget1=self.process.get_progress_bar(),
+                                       widget2=self.process.get_err(),
+                                       orientation='Vertical',
+                                       arrow_direction='left')
+        self.setCentralWidget(splitter)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.__buttons)
+        self.addDockWidget(Qt.RightDockWidgetArea, self.__save_dock)
+        self.addDockWidget(Qt.LeftDockWidgetArea, self.__graph_dock)
+        self.addDockWidget(Qt.TopDockWidgetArea, self.__excel_dock)
+        self.addDockWidget(Qt.TopDockWidgetArea, self.__calendar_dock)
+        self.tabifyDockWidget(self.__save_dock, self.__buttons)
+        self.tabifyDockWidget(self.__excel_dock, self.__calendar_dock)
+
+        # Display
+        self.setDockOptions(QMainWindow.AnimatedDocks |
+                            QMainWindow.AllowTabbedDocks |
+                            QMainWindow.ForceTabbedDocks)
+        self.center_frame()
+        self.show()
+
+    def init_process(self, proc):
+        return ProcessObject(process=proc)
+
+    def execute_process(self):
+        proc_worker = ProcessWorker(proc=sla_report, date_range=[self.process.get_date_one(),
+                                                                 self.process.get_date_two()])
+        proc_worker.start()
+        proc_worker.transmit_report.connect(self.tab_data.emit)
+
+    def closeEvent(self, event):
+        self.exit_status.emit(self.process.get_name())
+        event.accept()
+
+    def center_frame(self):
+        screen_dimensions = self.frameGeometry()
+        center_dimensions = QDesktopWidget().availableGeometry().center()
+        screen_dimensions.moveCenter(center_dimensions)
+        self.move(screen_dimensions.topLeft())
+
+
+class ButtonsDockWidget(DockWidget):
+    # TODO: add args for programs
+    # 1. override for sla program's check_report_completed
+    def __init__(self, parent,
+                 btn_title=None,
+                 prcs_widget=None,
+                 prcs_shw_btn=None):
+        super().__init__(parent, window_name=btn_title, widget1=prcs_widget,
+                         widget2=None, button=None, hide_button_name=prcs_shw_btn)
+
+
+class GraphicsDockWidget(DockWidget):
+    def __init__(self, parent,
+                 grph_title=None,
+                 grph_widget=None,
+                 graph_shw_btn=None):
+        super().__init__(parent, window_name=grph_title, widget1=grph_widget,
+                         widget2=None, button=None, hide_button_name=graph_shw_btn)
+
+    def make_graph(self, date1, date2):
+        graph = GraphData()
+        graph.create_graph(date1, date2)
+        graph.show()
+        self.setWidget(graph)
+        self.show()
+
+    def add_curve(self, plot_data):
+        self.children()[-1].set_y_axis(plot_data)
+        # print(self.children())
+
+
+class CalendarDockWidget(DockWidget):
+    calendar_date_range = pyqtSignal(datetime.date, datetime.date, name='calendar_date_range')
+    ready_to_send = pyqtSignal(bool, name='ready_to_send')
+
+    def __init__(self, parent,
+                 cal_title=None,
+                 cal_one=None,
+                 cal_two=None,
+                 run_btn=None,
+                 cal_shw_btn=None):
+        super().__init__(parent=parent, window_name=cal_title, widget1=cal_one,
+                         widget2=cal_two, button=run_btn, hide_button_name=cal_shw_btn)
+        # self.__date1 = None
+        # self.__date2 = None
+        # cal_one.updated_date.connect(self.update_dates)
+        # cal_two.updated_date.connect(self.update_dates)
+        # run_btn.setEnabled(False)
+        run_btn.clicked.connect(self.close)
+        run_btn.clicked.connect(self.ready_to_send.emit)
+        # self.ready_to_send.connect(run_btn.setEnabled)
+
+    # def update_dates(self, date, chc):
+    #     if chc == 'date1':
+    #         self.__date1 = date.toPyDate()
+    #         self.ready_to_send.emit(True)
+    #     if chc == 'date2':
+    #         self.__date2 = date.toPyDate()
+    #
+    # def emit_dates(self):
+    #     if self.__date2 is None:
+    #         self.__date2 = self.__date1
+    #     if self.__date1 <= self.__date2:
+    #         self.hide()
+    #         print('hid calendar')
+    #         print('about to start')
+    #         self.calendar_date_range.emit(self.__date1, self.__date2)
+    #         print('just finished')
+
+
+class ExcelDockWidget(DockWidget):
+    tab_container_data = pyqtSignal(list, name='tab_container_data')
+
+    def __init__(self, parent,
+                 excl_title=None,
+                 excl_widget=None,
+                 excl_shw_btn=None):
+        super().__init__(parent, window_name=excl_title, widget1=excl_widget,
+                         widget2=None, button=None, hide_button_name=excl_shw_btn)
+        excl_widget.emit_dict.connect(lambda stuff: self.tab_container_data.emit(stuff))
+
+
+class SaveDockWidget(DockWidget):
+    def __init__(self, parent,
+                 save_title=None,
+                 save_widget=None,
+                 run_btn=None,
+                 save_shw_btn=None):
+        super().__init__(parent, window_name=save_title, widget1=save_widget,
+                         widget2=None, button=run_btn, hide_button_name=save_shw_btn)

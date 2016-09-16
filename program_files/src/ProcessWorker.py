@@ -1,24 +1,33 @@
+import pyexcel as pe
+from datetime import timedelta
 from PyQt5.QtCore import QThread, pyqtSignal
 
 
-class ProgressBarWorker(QThread):
-    update_progress = pyqtSignal(float, name='update_progress')
+class ProcessWorker(QThread):
+    transmit_report = pyqtSignal(pe.sheets.sheet.Sheet, name='sheet')
 
-    def __init__(self, parent, proc):
-        super().__init__(parent)
+    def __init__(self, proc=None, date_range=None):
+        super().__init__()
         self.proc = proc
-        self.proc.finished_signal.connect(
-            lambda: self.update_progress.emit(self.total))
-        self.progress = 0
-        self.buffer = 0
-        self.total = 12056
+        self.dates = self.validate_dates(date_range)
+
+    def __del__(self):
+        self.wait()
+
+    def validate_dates(self, date_range):
+        if None in date_range:
+            if date_range[0] is not None:
+                date_range[1] = date_range[0]
+            else:
+                date_range[0] = date_range[1]
+        else:
+            pass
+        return date_range
 
     def run(self):
-        while (self.progress <= self.total) and self.proc.qprocess.pid() is not None:
-            if self.progress <= self.buffer:
-                self.progress += self.buffer * .01
-            self.update_progress.emit(self.progress)
-            # time.sleep(0.2)
-
-    def accumulate_std_out(self, std_out):
-        self.buffer += len(std_out)
+        start_date = self.dates[0]
+        end_date = self.dates[1]
+        while start_date <= end_date:
+            report = self.proc.main(start_date)
+            self.transmit_report.emit(report)
+            start_date += timedelta(days=1)
