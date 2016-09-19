@@ -22,7 +22,7 @@ def main(report_date_datetime):
         file.scrutinize_abandon_group()
         file.extract_report_information()
         file.process_report()
-        file.save_report()
+        # file.save_report()
         print("Program ran successfully for date: %r" % report_date_datetime.strftime("%m%d%Y"))
     except SystemExit:
         pass
@@ -34,6 +34,6 @@ if __name__ == "__main__":
     from os import sys, path
 
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
-    main(datetime.datetime.now() - datetime.timedelta(days=3))
+    main(datetime.datetime.now() - datetime.timedelta(days=2))
 else:
     print('inside else')

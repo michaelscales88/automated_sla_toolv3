@@ -209,42 +209,53 @@ class SlaReport(AReport):
             self.final_report.row += headers
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
+            is_weekend = self.dates.isoweekday() in (6, 7)
             for client in sorted(self.clients.keys()):
-                answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
-                this_row = dict((value, 0) for value in headers[1:])
-                this_row['I/C Presented'] = answered + lost + voicemails
-                this_row['Label'] = '{0} {1}'.format(client, self.clients[client].name)
-                if this_row['I/C Presented'] > 0:
-                    ticker_stats = self.sla_report[client].get_call_ticker()
-                    this_row['I/C Answered'] = answered
-                    this_row['I/C Lost'] = lost
-                    this_row['Voice Mails'] = voicemails
-                    this_row['Incoming Answered (%)'] = (answered / this_row['I/C Presented'])
-                    this_row['Incoming Lost (%)'] = ((lost + voicemails) / this_row['I/C Presented'])
-                    this_row['Average Incoming Duration'] = self.sla_report[client].get_avg_call_duration()
-                    this_row['Average Wait Answered'] = self.sla_report[client].get_avg_wait_answered()
-                    this_row['Average Wait Lost'] = self.sla_report[client].get_avg_lost_duration()
-                    this_row['Calls Ans Within 15'] = ticker_stats[15]
-                    this_row['Calls Ans Within 30'] = ticker_stats[30]
-                    this_row['Calls Ans Within 45'] = ticker_stats[45]
-                    this_row['Calls Ans Within 60'] = ticker_stats[60]
-                    this_row['Calls Ans Within 999'] = ticker_stats[999]
-                    this_row['Call Ans + 999'] = ticker_stats[999999]
-                    this_row['Longest Waiting Answered'] = self.sla_report[client].get_longest_answered()
-                    try:
-                        this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / answered)
-                    except ZeroDivisionError:
-                        this_row['PCA'] = 0
+                full_service = self.sla_report[client].is_full_service()
+                print(client)
+                print(full_service)
+                print(is_weekend)
+                if is_weekend is False or full_service is True:
+                    answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
+                    this_row = dict((value, 0) for value in headers[1:])
+                    this_row['I/C Presented'] = answered + lost + voicemails
+                    this_row['Label'] = '{0} {1}'.format(client, self.clients[client].name)
+                    if this_row['I/C Presented'] > 0:
+                        if client == 7592:
+                            print('inside put i shouldn\'t be')
+                        ticker_stats = self.sla_report[client].get_call_ticker()
+                        this_row['I/C Answered'] = answered
+                        this_row['I/C Lost'] = lost
+                        this_row['Voice Mails'] = voicemails
+                        this_row['Incoming Answered (%)'] = (answered / this_row['I/C Presented'])
+                        this_row['Incoming Lost (%)'] = ((lost + voicemails) / this_row['I/C Presented'])
+                        this_row['Average Incoming Duration'] = self.sla_report[client].get_avg_call_duration()
+                        this_row['Average Wait Answered'] = self.sla_report[client].get_avg_wait_answered()
+                        this_row['Average Wait Lost'] = self.sla_report[client].get_avg_lost_duration()
+                        this_row['Calls Ans Within 15'] = ticker_stats[15]
+                        this_row['Calls Ans Within 30'] = ticker_stats[30]
+                        this_row['Calls Ans Within 45'] = ticker_stats[45]
+                        this_row['Calls Ans Within 60'] = ticker_stats[60]
+                        this_row['Calls Ans Within 999'] = ticker_stats[999]
+                        this_row['Call Ans + 999'] = ticker_stats[999999]
+                        this_row['Longest Waiting Answered'] = self.sla_report[client].get_longest_answered()
+                        try:
+                            this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / answered)
+                        except ZeroDivisionError:
+                            this_row['PCA'] = 0
 
-                    self.accumulate_total_row(this_row, total_row)
-                    self.format_row(this_row)
-                    self.final_report.row += self.return_row_as_list(this_row)
+                        self.accumulate_total_row(this_row, total_row)
+                        self.format_row(this_row)
+                        self.final_report.row += self.return_row_as_list(this_row)
+                    else:
+                        self.format_row(this_row)
+                        self.final_report.row += self.return_row_as_list(this_row)
                 else:
-                    self.format_row(this_row)
-                    self.final_report.row += self.return_row_as_list(this_row)
-            self.finalize_total_row(total_row)
-            self.format_row(total_row)
-            self.final_report.row += self.return_row_as_list(total_row)
+                    print('i passed')
+            print(self.final_report)
+                # self.finalize_total_row(total_row)
+                # self.format_row(total_row)
+                # self.final_report.row += self.return_row_as_list(total_row)
 
     def save_report(self):
         the_directory = os.path.dirname(self.path)
@@ -756,3 +767,6 @@ class Client:
 
     def get_call_ticker(self):
         return self.call_details_ticker
+
+    def is_full_service(self):
+        return self.full_service

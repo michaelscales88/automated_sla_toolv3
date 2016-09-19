@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/.idea/automated_sla_tool.iml" filepath="$PROJECT_DIR$/.idea/automated_sla_tool.iml" />
+      <module fileurl="file://$PROJECT_DIR$/program_files/.idea/program_files.iml" filepath="$PROJECT_DIR$/program_files/.idea/program_files.iml" />
     </modules>
   </component>
 </project>
