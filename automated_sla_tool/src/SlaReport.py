@@ -1,4 +1,5 @@
 import os
+import operator
 import pyexcel as pe
 from datetime import time, timedelta
 from dateutil.parser import parse
@@ -8,27 +9,20 @@ from automated_sla_tool.src.AReport import AReport
 
 
 class SlaReport(AReport):
-
     def __init__(self, report_date=None):
         super(SlaReport, self).__init__(report_dates=report_date)
-        self.finished = False
-        finished, report = self.report_finished(report_date_datetime=report_date)
-        if finished:
+        self.finished, report = self.report_finished()
+        if self.finished:
             self.final_report = pe.get_sheet(file_name=report)
             self.final_report.name = r'{}_Incoming DID Summary'.format(report_date.strftime('%m%d%Y'))
-            self.finished = finished
             print('Report Complete.')
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
-            self.src_doc_path = None
             self.login_type = r'imap.gmail.com'
             self.user_name = r'mindwirelessreporting@gmail.com'
             self.password = r'7b!2gX4bD3'
-            self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
-            self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
-            self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
             self.voicemail = defaultdict(list)
             self.orphaned_voicemails = None
             self.sla_report = {}
@@ -36,24 +30,12 @@ class SlaReport(AReport):
     '''
     UI Section
     '''
-    # def __decorator(self, func):
-    #     if self.finished:
-    #         print('finished. returning')
-    #         return
-    #     else:
-    #         print('returning process')
-    #         return func
-    #
-    # @__decorator
-    def download_documents(self):
-        '''
 
-        :return:
-        '''
+    def download_documents(self):
         if self.finished:
             return
         else:
-            self.download_src_files()
+            self.download_chronicall_files()
             src_file_directory = os.listdir(self.src_doc_path)
             for file in src_file_directory:
                 if file.endswith(".xls"):
@@ -86,6 +68,7 @@ class SlaReport(AReport):
             abandon_group = self.merge_sheets(abandon_group)
             self.abandon_group = self.make_distinct_and_sort(abandon_group)
             self.abandon_group.name_columns_by_row(0)
+            self.filter_abandon_group(self.abandon_group)
             self.abandon_group.name = 'abandon_group'
 
             cradle_to_grave = pe.get_book(file_name=cradle_to_grave_file)
@@ -97,7 +80,6 @@ class SlaReport(AReport):
                 sheet.filter(cradle_filter)
                 sheet.name_columns_by_row(0)
             self.cradle_to_grave = cradle_to_grave
-
             self.get_voicemails()
 
     def compile_call_details(self):
@@ -203,68 +185,80 @@ class SlaReport(AReport):
             return
         else:
             headers = [self.dates.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
-                       'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration', 'Average Wait Answered',
+                       'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
+                       'Average Wait Answered',
                        'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
-                       'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered', 'PCA']
+                       'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
+                       'PCA']
             self.final_report.row += headers
+            self.final_report.name_columns_by_row(0)
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
-            is_weekend = self.dates.isoweekday() in (6, 7)
             for client in sorted(self.clients.keys()):
-                full_service = self.sla_report[client].is_full_service()
-                print(client)
-                print(full_service)
-                print(is_weekend)
-                if is_weekend is False or full_service is True:
-                    answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
-                    this_row = dict((value, 0) for value in headers[1:])
-                    this_row['I/C Presented'] = answered + lost + voicemails
-                    this_row['Label'] = '{0} {1}'.format(client, self.clients[client].name)
-                    if this_row['I/C Presented'] > 0:
-                        if client == 7592:
-                            print('inside put i shouldn\'t be')
-                        ticker_stats = self.sla_report[client].get_call_ticker()
-                        this_row['I/C Answered'] = answered
-                        this_row['I/C Lost'] = lost
-                        this_row['Voice Mails'] = voicemails
-                        this_row['Incoming Answered (%)'] = (answered / this_row['I/C Presented'])
-                        this_row['Incoming Lost (%)'] = ((lost + voicemails) / this_row['I/C Presented'])
-                        this_row['Average Incoming Duration'] = self.sla_report[client].get_avg_call_duration()
-                        this_row['Average Wait Answered'] = self.sla_report[client].get_avg_wait_answered()
-                        this_row['Average Wait Lost'] = self.sla_report[client].get_avg_lost_duration()
-                        this_row['Calls Ans Within 15'] = ticker_stats[15]
-                        this_row['Calls Ans Within 30'] = ticker_stats[30]
-                        this_row['Calls Ans Within 45'] = ticker_stats[45]
-                        this_row['Calls Ans Within 60'] = ticker_stats[60]
-                        this_row['Calls Ans Within 999'] = ticker_stats[999]
-                        this_row['Call Ans + 999'] = ticker_stats[999999]
-                        this_row['Longest Waiting Answered'] = self.sla_report[client].get_longest_answered()
-                        try:
-                            this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / answered)
-                        except ZeroDivisionError:
-                            this_row['PCA'] = 0
+                answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
+                this_row = dict((value, 0) for value in headers[1:])
+                this_row['I/C Presented'] = answered + lost + voicemails
+                this_row['Label'] = '{0} {1}'.format(client, self.clients[client].name)
+                if this_row['I/C Presented'] > 0:
+                    ticker_stats = self.sla_report[client].get_call_ticker()
+                    this_row['I/C Answered'] = answered
+                    this_row['I/C Lost'] = lost
+                    this_row['Voice Mails'] = voicemails
+                    this_row['Incoming Answered (%)'] = (answered / this_row['I/C Presented'])
+                    this_row['Incoming Lost (%)'] = ((lost + voicemails) / this_row['I/C Presented'])
+                    this_row['Average Incoming Duration'] = self.sla_report[client].get_avg_call_duration()
+                    this_row['Average Wait Answered'] = self.sla_report[client].get_avg_wait_answered()
+                    this_row['Average Wait Lost'] = self.sla_report[client].get_avg_lost_duration()
+                    this_row['Calls Ans Within 15'] = ticker_stats[15]
+                    this_row['Calls Ans Within 30'] = ticker_stats[30]
+                    this_row['Calls Ans Within 45'] = ticker_stats[45]
+                    this_row['Calls Ans Within 60'] = ticker_stats[60]
+                    this_row['Calls Ans Within 999'] = ticker_stats[999]
+                    this_row['Call Ans + 999'] = ticker_stats[999999]
+                    this_row['Longest Waiting Answered'] = self.sla_report[client].get_longest_answered()
+                    try:
+                        this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / answered)
+                    except ZeroDivisionError:
+                        this_row['PCA'] = 0
 
-                        self.accumulate_total_row(this_row, total_row)
-                        self.format_row(this_row)
-                        self.final_report.row += self.return_row_as_list(this_row)
-                    else:
-                        self.format_row(this_row)
-                        self.final_report.row += self.return_row_as_list(this_row)
+                    self.accumulate_total_row(this_row, total_row)
+                    self.add_row(this_row)
                 else:
-                    print('i passed')
-            print(self.final_report)
-                # self.finalize_total_row(total_row)
-                # self.format_row(total_row)
-                # self.final_report.row += self.return_row_as_list(total_row)
+                    self.add_row(this_row)
+            self.finalize_total_row(total_row)
+            self.add_row(total_row)
 
     def save_report(self):
+        self.validate_final_report()
         the_directory = os.path.dirname(self.path)
+        the_other_dir = r'M:\Help Desk\Daily SLA Report\2016'
         the_file = r'{0}_Incoming DID Summary.xlsx'.format(self.dates.strftime("%m%d%Y"))
         self.final_report.save_as(r'{0}\Output\{1}'.format(the_directory, the_file))
+        self.final_report.save_as(r'{0}\{1}'.format(the_other_dir, the_file))
 
     '''
     Utilities Section
     '''
+    def validate_final_report(self):
+        col_index = self.final_report.colnames
+        for row in self.final_report.rows():
+            ticker_total = 0
+            answered = row[col_index.index('I/C Answered')]
+            ticker_total += row[col_index.index('Calls Ans Within 15')]
+            ticker_total += row[col_index.index('Calls Ans Within 30')]
+            ticker_total += row[col_index.index('Calls Ans Within 45')]
+            ticker_total += row[col_index.index('Calls Ans Within 60')]
+            ticker_total += row[col_index.index('Calls Ans Within 999')]
+            ticker_total += row[col_index.index('Call Ans + 999')]
+            if answered != ticker_total:
+                raise ValueError('Validation error ->'
+                                 'ticker total != answered for: '
+                                 '{0}'.format(row[0]))
+
+    def add_row(self, a_row):
+        self.format_row(a_row)
+        self.final_report.row += self.return_row_as_list(a_row)
+
     def format_row(self, row):
         row['Average Incoming Duration'] = self.convert_time_stamp(row['Average Incoming Duration'])
         row['Average Wait Answered'] = self.convert_time_stamp(row['Average Wait Answered'])
@@ -312,12 +306,21 @@ class SlaReport(AReport):
             tr['Longest Waiting Answered'] = row['Longest Waiting Answered']
 
     def finalize_total_row(self, tr):
-        tr['Incoming Answered (%)'] = tr['I/C Answered'] / tr['I/C Presented']
-        tr['Incoming Lost (%)'] = (tr['I/C Lost'] + tr['Voice Mails']) / tr['I/C Presented']
-        tr['Average Incoming Duration'] //= tr['I/C Answered']
-        tr['Average Wait Answered'] //= tr['I/C Answered']
-        tr['Average Wait Lost'] //= tr['I/C Lost']
-        tr['PCA'] = (tr['Calls Ans Within 15'] + tr['Calls Ans Within 30']) / tr['I/C Presented']
+        if tr['I/C Presented'] > 0:
+            tr['Incoming Answered (%)'] = operator.truediv(tr['I/C Answered'],
+                                                           tr['I/C Presented'])
+            tr['Incoming Lost (%)'] = operator.truediv(tr['I/C Lost'] + tr['Voice Mails'],
+                                                       tr['I/C Presented'])
+            tr['PCA'] = operator.truediv(tr['Calls Ans Within 15'] + tr['Calls Ans Within 30'],
+                                         tr['I/C Presented'])
+            if tr['I/C Answered'] > 0:
+                tr['Average Incoming Duration'] = operator.floordiv(tr['Average Incoming Duration'],
+                                                                    tr['I/C Answered'])
+                tr['Average Wait Answered'] = operator.floordiv(tr['Average Wait Answered'],
+                                                                tr['I/C Answered'])
+            if tr['I/C Lost'] > 0:
+                tr['Average Wait Lost'] = operator.floordiv(tr['Average Wait Lost'],
+                                                            tr['I/C Lost'])
 
     def check_valid_date(self, doc_date):
         try:
@@ -332,89 +335,6 @@ class SlaReport(AReport):
 
     def make_verbose_dict(self):
         return dict((value.name, key) for key, value in self.clients.items())
-
-    def download_src_files(self):
-        # TODO: remove my email from this once live
-        '''
-        Temporary
-        self.login_type = r'imap.gmail.com'
-        self.user_name = r'mindwirelessreporting@gmail.com'
-        self.password = r'7b!2gX4bD3'
-        '''
-        import email
-        import imaplib
-        file_dir = r'{0}\{1}\{2}'.format(os.path.dirname(self.path), 'Attachment Archive', self.dates.strftime('%m%d'))
-        try:
-            os.chdir(file_dir)
-        except FileNotFoundError:
-            try:
-                os.makedirs(file_dir, exist_ok=True)
-                os.chdir(file_dir)
-            except OSError:
-                pass
-
-        self.src_doc_path = os.getcwd()
-        if not os.listdir(self.src_doc_path):
-            try:
-                imap_session = imaplib.IMAP4_SSL(r'secure.emailsrvr.com')
-                status, account_details = imap_session.login(r'mscales@mindwireless.com', r'wireless1!')
-                if status != 'OK':
-                    raise ValueError('Not able to sign in!')
-
-                imap_session.select("Inbox")
-                on = "ON " + (self.dates + timedelta(days=1)).strftime("%d-%b-%Y")
-                status, data = imap_session.uid('search', on, 'FROM "Chronicall Reports"')
-                if status != 'OK':
-                    raise ValueError('Error searching Inbox.')
-
-                # Iterating over all emails
-                for msg_id in data[0].split():
-                    status, message_parts = imap_session.uid('fetch', msg_id, '(RFC822)')
-                    if status != 'OK':
-                        raise ValueError('Error fetching mail.')
-
-                    mail = email.message_from_bytes(message_parts[0][1])
-                    for part in mail.walk():
-                        if part.get_content_maintype() == 'multipart':
-                            continue
-                        if part.get('Content-Disposition') is None:
-                            continue
-                        file_name = part.get_filename()
-
-                        if bool(file_name):
-                            file_path = os.path.join(file_name)
-                            if not os.path.isfile(file_path):
-                                fp = open(file_path, 'wb')
-                                fp.write(part.get_payload(decode=True))
-                                fp.close()
-
-                imap_session.close()
-                imap_session.logout()
-
-            except Exception as err:
-                raise ValueError('Not able to download all attachments. Error: {}'.format(err))
-        else:
-            print("Files already downloaded.")
-
-    def copy_and_convert(self, file_location, directory):
-        from shutil import move
-        for src_file in directory:
-            if src_file.endswith(".xls"):
-                src = os.path.join(file_location, src_file)
-                des = os.path.join(self.active_directory, src_file)
-                move(src, des)
-
-        import subprocess as proc
-        proc.run([self.converter_exc, self.converter_arg])
-        filelist = [f for f in os.listdir(self.active_directory) if f.endswith(".xls")]
-        for f in filelist:
-            f = os.path.join(self.active_directory, f)
-            os.remove(f)
-
-        for src_file in os.listdir(self.active_directory):
-            src = os.path.join(self.active_directory, src_file)
-            des = os.path.join(file_location, src_file)
-            move(src, des)
 
     def merge_sheets(self, workbook):
         merged_sheet = pe.Sheet()
@@ -438,6 +358,13 @@ class SlaReport(AReport):
         result = [element for element in row[3] if element != '']
         return len(result) == 0
 
+    def answered_filter(self, row):
+        try:
+            answered = row[-5]
+        except ValueError:
+            answered = False
+        return answered
+
     def inbound_call_filter(self, row):
         return row[1] not in "Inbound 'Call Direction'"
 
@@ -446,21 +373,11 @@ class SlaReport(AReport):
         return len(result) == 0
 
     def remove_internal_inbound_filter(self, row):
-        return row[-2] == row[-3] == row[-4]
+        return row[-2] == row[-3]
 
     def cradle_report_row_filter(self, row):
         result = row[0].split(' ')
         return result[0] != 'Event'
-
-    def make_distinct_and_sort(self, worksheet):
-        worksheet.name_rows_by_column(0)
-        sorted_list = [item for item in sorted(worksheet.rownames, reverse=False) if '-' not in item]
-        new_sheet = pe.Sheet()
-        for item in sorted_list:
-            temp_list = worksheet.row[item]
-            temp_list.insert(0, item)
-            new_sheet.row += temp_list
-        return new_sheet
 
     def find(self, lst, a):
         return [i for i, x in enumerate(lst) if x == a]
@@ -514,6 +431,10 @@ class SlaReport(AReport):
         internal_inbound = pe.RowValueFilter(self.remove_internal_inbound_filter)
         call_details.filter(internal_inbound)
         return call_details
+
+    def filter_abandon_group(self, abandon_group):
+        rm_ans_calls_filter = pe.RowValueFilter(self.answered_filter)
+        abandon_group.filter(rm_ans_calls_filter)
 
     def remove_duplicate_calls(self):
         internal_parties = self.abandon_group.column['Internal Party']
@@ -619,21 +540,30 @@ class SlaReport(AReport):
         settings_file = r'{0}\{1}'.format(self.path, r'settings\report_settings.xlsx')
         settings = pe.get_sheet(file_name=settings_file, name_columns_by_row=0)
         return_dict = {}
+        is_weekend = self.dates.isoweekday() in (6, 7)
         for row in range(settings.number_of_rows()):
-            this_client = client(name=settings[row, 'Client Name'],
-                                 full_service=settings[row, 'Full Service'])
-            return_dict[settings[row, 'Client Number']] = this_client
+            is_fullservice = self.str_to_bool(settings[row, 'Full Service'])
+            if is_weekend:
+                if is_fullservice is True:
+                    this_client = client(name=settings[row, 'Client Name'],
+                                         full_service=is_fullservice)
+                    return_dict[settings[row, 'Client Number']] = this_client
+            else:
+                this_client = client(name=settings[row, 'Client Name'],
+                                     full_service=is_fullservice)
+                return_dict[settings[row, 'Client Number']] = this_client
         return return_dict
 
     def __str__(self):
         for arg in vars(self):
             print(arg)
 
-    def report_finished(self, report_date_datetime=None, return_file=None):
-        date_string = report_date_datetime.strftime("%m%d%Y")
+    def report_finished(self, return_file=None):
+        date_string = self.dates.strftime("%m%d%Y")
         the_directory = r'{0}\Output'.format(os.path.dirname(self.path))
         the_file = r'\{0}_Incoming DID Summary.xlsx'.format(date_string)
-        if the_file in os.listdir(the_directory):
+        self.change_dir(the_directory)
+        if the_file in os.listdir(os.getcwd()):
             file_exists = True
             return_file = r'{0}{1}'.format(the_directory, the_file)
         else:
@@ -709,7 +639,7 @@ class Client:
         start_time_index = col_index.index('Start Time')
         call_duration_index = col_index.index('Call Duration')
         duration_counter = timedelta(seconds=0)
-        for call in call_group:
+        for call in reversed(call_group):
             row_index = call_ids.index(call)
             start_time = report[row_index, start_time_index]
             if self.valid_time(parse(start_time)) or self.full_service:

@@ -6,39 +6,43 @@
 
 # -*- coding: utf-8 -*-
 # !/usr/bin/env python3
-import pickle
-import io
-from os import path, sys
-sys.path.append(r'C:\Users\mscales\Desktop\Development\automated_sla_tool')
-
+import traceback
 from automated_sla_tool.src.SlaSlicer import SlaSlicer
 
 
-# print("Sla Slicing Program... Created by Michael Scales")
+def main(report_date_delta, report_clients=None, report_values=('I/C Answered', 'Voice Mails')):
+    print('inside main')
+    if report_clients is None:
+        report_clients = {7506: 'AAP', 7507: 'Ameren'}
+    try:
+        file = SlaSlicer(report_clients=report_clients,
+                         report_delta=report_date_delta,
+                         report_values=report_values)
+        file.prepare_final_report()
+        file.open_reports()
+        file.compile_report_details()
+    except:
+        import sys
+        error = traceback.format_exc()
+        traceback.print_exc(file=sys.stderr)
+        raise Exception(error)
+    else:
+        return [file.get_final_report()]
 
-
-def main(report_date_datetime, report_clients, report_values):
-    # sys.stdout = io.TextIOWrapper(sys.stdout.detach(), encoding='latin-1')
-    file = SlaSlicer(report_clients=report_clients,
-                     report_dates=[report_date_datetime - datetime.timedelta(days=1), report_date_datetime],
-                     report_values=report_values)
-    file.open_reports()
-    file.compile_report_details()
-    report = file.get_final_report()
-    # print(report)
-    # print(type(report))
-    d = pickle.dumps(obj=report, protocol=0)
-    print(d)
-    obj = pickle.loads(data=d, encoding='latin-1')
-    print(obj)
-    # print("Program ran successfully for date: %r" % report_date_datetime.strftime("%m%d%Y"))
 
 if __name__ == "__main__":
-    import datetime
     from os import sys, path
 
-    report_cli = {7506: 'AAP', 7517: 'Humana', 7553: 'Infosys'}
-    report_val = ['I/C Presented', 'Average Wait Lost', 'Calls Ans Within 45']
-    # print(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
-    main(datetime.datetime.now() - datetime.timedelta(days=1), report_cli, report_val)
+
+    try:
+        report_dates = sys.argv[1]
+        report_cli = sys.argv[2]
+        report_val = sys.argv[3]
+    except:
+        raise ImportError('__name__Main... sla_slicer.py ->'
+                          'No file data provided...')
+    else:
+        main(report_dates, report_cli, report_val)
+else:
+    print('entered from else')

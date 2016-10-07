@@ -6,16 +6,18 @@ from .TextWindowWidget import TextWindowWidget as TextOut
 from .SaveWidget import SaveWidget
 from .ExcelTabContainer import ExcelTabContainer as TabContainer
 from .MyCalendarWidget import MyCalendarWidget as CalWidget
+from automated_sla_tool.bin import (sla_report, sla_slicer)
 
 
 class ProcessObject(QObject):
     def __init__(self, parent=None, process=None):
         super().__init__(parent)
         self.__process_info = {
-            'sla_report.py': ['download_documents()', 'load_documents()', 'compile_call_details()',
+            'sla_report.py': [sla_report, 'download_documents()', 'load_documents()', 'compile_call_details()',
                               'scrutinize_abandon_group()', 'extract_report_information()', 'process_report()',
                               'save_report()'],
-            'sla_slicer.py': []
+            'sla_slicer.py': [sla_slicer, 'get_final_report()', 'prepare_final_report()', 'compile_report_details()',
+                              'open_reports()']
         }
         try:
             proc_args = self.__process_info[process]
@@ -25,9 +27,10 @@ class ProcessObject(QObject):
         else:
             self.date1 = None
             self.date2 = None
-            Node = namedtuple('Node', 'name args buttons progress text_out, err_out file_saver cal1 cal2')
+            Node = namedtuple('Node', 'name proc args buttons progress text_out, err_out file_saver cal1 cal2')
             Node.__new__.__defaults__ = (None,) * len(Node._fields)
             self.sub_proc = Node(name=process,
+                                 proc=proc_args.pop(0),
                                  args=proc_args,
                                  buttons=self.init_btns(proc_args),
                                  progress=self.init_prgrs(),
@@ -42,6 +45,9 @@ class ProcessObject(QObject):
 
     def get_name(self):
         return self.sub_proc.name
+
+    def get_proc(self):
+        return self.sub_proc.proc
 
     def update_date1(self, new_date):
         self.date1 = new_date

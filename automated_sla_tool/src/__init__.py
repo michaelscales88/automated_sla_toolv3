@@ -12,3 +12,4 @@ from .TextWindowWidget import TextWindowWidget
 from .ProcessWorker import ProcessWorker
 from .ProcessMenu import ProcessMenu
 from .SlaReport import SlaReport
+from .MarsReport import MarsReport

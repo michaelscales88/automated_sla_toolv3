@@ -6,10 +6,11 @@ from PyQt5.QtCore import QThread, pyqtSignal
 class ProcessWorker(QThread):
     transmit_report = pyqtSignal(pe.sheets.sheet.Sheet, name='sheet')
 
-    def __init__(self, proc=None, date_range=None):
+    def __init__(self, proc=None):
         super().__init__()
         self.proc = proc
-        self.dates = self.validate_dates(date_range)
+        self.dates = self.validate_dates([self.proc.get_date_one(),
+                                          self.proc.get_date_two()])
 
     def __del__(self):
         self.wait()
@@ -25,9 +26,17 @@ class ProcessWorker(QThread):
         return date_range
 
     def run(self):
-        start_date = self.dates[0]
-        end_date = self.dates[1]
-        while start_date <= end_date:
-            report = self.proc.main(start_date)
-            self.transmit_report.emit(report)
-            start_date += timedelta(days=1)
+        try:
+            proc = self.proc.get_proc()
+            reports = proc.main(self.dates)
+        except SystemExit:
+            print('Process closing...')
+        except Exception as err:
+            print('Error Encountered ->'
+                  'Terminating Process')
+            self.proc.sub_proc.err_out.append(str(err))
+        else:
+            for report in reports:
+                self.transmit_report.emit(report)
+        finally:
+            self.__del__()

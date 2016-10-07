@@ -9,8 +9,7 @@ from PyQt5.QtWidgets import (QMainWindow, QTextEdit, QAction,
                              QMessageBox, QApplication, QTabWidget,
                              QTabBar, QMenu, QToolButton,
                              QStyleFactory)
-from automated_sla_tool.src import (SettingsWidget, TableWidget,
-                                                  SaveWidget, SplitterFrameWidget, ProcessMenu)
+from automated_sla_tool.src import (SettingsWidget, TableWidget, ProcessMenu)
 
 
 # TODO: fix this shit
@@ -123,25 +122,14 @@ class MainFrame(QMainWindow):
 
     def call_sla(self):
         if self.sla_calendar is None:
-            self.sla_calendar = ProcessMenu(parent=self, process='sla_report.py', constants=self.global_constants)
-            # self.sla_calendar = SplitterFrameWidget(None, sla_program, sla_program.get_save_widget())
-            # self.sla_program.get_save_widget().status_message.connect(self.statusBar().showMessage)
-            # sla_program.save_items.connect(save_widget.set_item_list)
-            # save_widget.save_request_list.connect(sla_program.get_save_info)
-            # sla_program.process_menu_std_out.connect(self.write_to_central_widget)
+            self.sla_calendar = ProcessMenu(parent=self, process='sla_report.py')
             self.sla_calendar.exit_status.connect(self.reset_binding)
         else:
             self.sla_calendar.raise_()
 
     def sla_slicer(self):
         if self.sla_slicer is None:
-            self.sla_slicer = ProcessMenu(parent=self, process='slicer.py', constants=self.global_constants)
-            # save_widget = SaveWidget(self)
-            # save_widget.status_message.connect(self.statusBar().showMessage)
-            # self.sla_slicer = SplitterFrameWidget(None, slice_program, save_widget)
-            # slice_program.save_items.connect(save_widget.set_item_list)
-            # save_widget.save_request_list.connect(slice_program.get_save_info)
-            # # slice_program.process_menu_std_out.connect(self.write_to_central_widget)
+            self.sla_slicer = ProcessMenu(parent=self, process='sla_slicer.py')
             self.sla_slicer.exit_status.connect(self.reset_binding)
         else:
             self.sla_slicer.raise_()
@@ -151,7 +139,7 @@ class MainFrame(QMainWindow):
             if self.main_widget.widget(index).windowTitle() == args.title:
                 self.main_widget.setCurrentIndex(index)
                 return
-        tab = TableWidget(file=args.file, page=args.page, window_title=args.title, special_case=args.special_case)
+        tab = TableWidget(file=args.file, window_title=args.title)
         self.main_widget.addTab(tab, args.title)
 
     def close_tab(self, index):
@@ -176,51 +164,19 @@ class MainFrame(QMainWindow):
         return main_widget
 
     def settings_button_factory(self):
+        settings_path = r'{0}\settings'.format(self.global_constants.SELF_PATH)
         sla_client_dict_settings_args = self.local_constants(
-            file=r'C:\Users\mscales\Desktop\Development\Daily SLA Parser - Automated Version\bin\CONFIG.xlsx',
-            page='CLIENT_DICT',
-            title='SLA SETTINGS/CLIENT_DICT',
-            special_case=True
-        )
-        sla_constants_settings_args = self.local_constants(
-            file=r'C:\Users\mscales\Desktop\Development\Daily SLA Parser - Automated Version\bin\CONFIG.xlsx',
-            page='CONSTANTS',
-            title='SLA SETTINGS/CONSTANTS',
-            special_case=True
-        )
-        sla_client_info_settings_args = self.local_constants(
-            file=r'C:\Users\mscales\Desktop\Development\Daily SLA Parser - Automated Version\bin\CONFIG.xlsx',
-            page='CLIENT LIST INFO',
-            title='SLA SETTINGS/CLIENT LIST INFO',
-            special_case=True
+            file=r'{}\report_settings.xlsx'.format(settings_path),
+            title=r'SLA SETTINGS/Client Page'
         )
         sla_settings = QMenu("sla settings", self)
         sla_constants_action = QAction(QIcon(self.global_constants.SETTINGS_PIC), "SLA SETTINGS/CLIENT_DICT", self)
-        sla_client_dict_action = QAction(QIcon(self.global_constants.SETTINGS_PIC), "SLA SETTINGS/CONSTANTS", self)
-        sla_client_info_action = QAction(QIcon(self.global_constants.SETTINGS_PIC), "SLA SETTINGS/CLIENT LIST INFO",
-                                         self)
         sla_constants_action.triggered.connect(lambda: self.open_tab(sla_client_dict_settings_args))
-        sla_client_dict_action.triggered.connect(lambda: self.open_tab(sla_constants_settings_args))
-        sla_client_info_action.triggered.connect(lambda: self.open_tab(sla_client_info_settings_args))
         sla_settings.addAction(sla_constants_action)
-        sla_settings.addAction(sla_client_dict_action)
-        sla_settings.addAction(sla_client_info_action)
-
-        accum_settings_args = self.local_constants(
-            file=r'C:\Users\mscales\Desktop\Development\MSSQLupdater\bin\client_list_file.xlsx',
-            title='Accumulator Settings/Sheet1',
-            special_case=True
-        )
-        accum_settings = QMenu("accum settings", self)
-        accum_action = QAction(QIcon(self.global_constants.SETTINGS_PIC), "Accumulator Settings", self)
-        accum_action.triggered.connect(lambda: self.open_tab(accum_settings_args))
-        accum_settings.addAction(accum_action)
 
         self_settings_args = self.local_constants(
-            file=r'C:\Users\mscales\Desktop\Development\MiStRP\bin\config.xlsx',
-            page='CONFIG',
-            title='MiStRP Settings/CONFIG',
-            special_case=True
+            file=r'{}\misterp_settings.xlsx'.format(settings_path),
+            title='MiStRP Settings/CONFIG'
         )
         self_settings = QMenu("MiStRP Settings", self)
         self_action = QAction(QIcon(self.global_constants.SETTINGS_PIC), "Self Settings", self)
@@ -229,7 +185,6 @@ class MainFrame(QMainWindow):
 
         SettingMenu = QMenu()
         SettingMenu.addMenu(sla_settings)
-        SettingMenu.addMenu(accum_settings)
         SettingMenu.addMenu(self_settings)
 
         SettingButton = QToolButton()
@@ -244,11 +199,10 @@ class MainFrame(QMainWindow):
         return SettingButton
 
     def constants_factory(self):
-        Node = namedtuple('Node', 'title file page special_case')
+        Node = namedtuple('Node', 'title file')
         Node.__new__.__defaults__ = (None,) * len(Node._fields)
         constants = namedtuple('Node',
-                               'SELF_PATH GO_PIC ACCUM_PIC QUIT_PIC SEARCH_PIC SETTINGS_PIC CALL_SLA_ARG ACCUM_ARG '
-                               'SPREADSHEET_VIEWER_FILE_TEMPLATE ACCUM_VIEWER_FILE TEST_SPREADSHEET CALL_SLICER_ARG')
+                               'SELF_PATH GO_PIC ACCUM_PIC QUIT_PIC SEARCH_PIC SETTINGS_PIC')
         constants.__new__.__defaults__ = (None,) * len(constants._fields)
         SELF_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         settings_path = r'{0}\settings'.format(SELF_PATH)
@@ -264,14 +218,7 @@ class MainFrame(QMainWindow):
                                    SEARCH_PIC=r'{0}\pics\{1}'.format(settings_path,
                                                                      constants_sheet['SEARCH_PIC', 0]),
                                    SETTINGS_PIC=r'{0}\pics\{1}'.format(settings_path,
-                                                                       constants_sheet['SETTINGS_PIC', 0]),
-                                   CALL_SLA_ARG=constants_sheet['CALL_SLA_ARG', 0],
-                                   ACCUM_ARG=constants_sheet['ACCUM_ARG', 0],
-                                   SPREADSHEET_VIEWER_FILE_TEMPLATE=constants_sheet['SPREADSHEET_VIEWER_FILE_TEMPLATE',
-                                                                                    0],
-                                   ACCUM_VIEWER_FILE=constants_sheet['ACCUM_VIEWER_FILE', 0],
-                                   TEST_SPREADSHEET=constants_sheet['TEST_SPREADSHEET', 0],
-                                   CALL_SLICER_ARG=constants_sheet['CALL_SLICER_ARG', 0])
+                                                                       constants_sheet['SETTINGS_PIC', 0]))
         return constant_tuple, Node
 
 

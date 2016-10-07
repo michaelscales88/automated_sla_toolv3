@@ -5,7 +5,7 @@ from PyQt5.QtWidgets import (QMainWindow, QDesktopWidget, QPushButton)
 from PyQt5.QtCore import (pyqtSignal, Qt)
 from automated_sla_tool.bin import sla_report, sla_slicer
 from automated_sla_tool.src import (DockWidget, SplitterFrameWidget,
-                                                  ProcessObject, ProcessWorker)
+                                    ProcessObject, ProcessWorker)
 
 
 class ProcessMenu(QMainWindow):
@@ -15,11 +15,10 @@ class ProcessMenu(QMainWindow):
     progress_update = pyqtSignal(float, name='progress_made')
     tab_data = pyqtSignal(pe.sheets.sheet.Sheet, name='tab_data')
 
-    def __init__(self, parent=None, process=None, constants=None):
+    def __init__(self, parent=None, process=None):
         super().__init__(parent)
 
         # Member Attributes
-        self.constants = constants
         self.process = self.init_process(process)
 
         # Bindings
@@ -73,8 +72,7 @@ class ProcessMenu(QMainWindow):
 
     def execute_process(self):
         print('Executing process...')
-        proc_worker = ProcessWorker(proc=sla_report, date_range=[self.process.get_date_one(),
-                                                                 self.process.get_date_two()])
+        proc_worker = ProcessWorker(proc=self.process)
         proc_worker.start()
         proc_worker.transmit_report.connect(self.tab_data.emit)
 
@@ -90,15 +88,12 @@ class ProcessMenu(QMainWindow):
 
 
 class ButtonsDockWidget(DockWidget):
-    # TODO: add args for programs
-    # 1. override for sla program's check_report_completed
     def __init__(self, parent,
                  btn_title=None,
                  prcs_widget=None,
                  prcs_shw_btn=None):
         super().__init__(parent, window_name=btn_title, widget1=prcs_widget,
                          widget2=None, button=None, hide_button_name=prcs_shw_btn)
-
 
 
 class CalendarDockWidget(DockWidget):
@@ -113,31 +108,8 @@ class CalendarDockWidget(DockWidget):
                  cal_shw_btn=None):
         super().__init__(parent=parent, window_name=cal_title, widget1=cal_one,
                          widget2=cal_two, button=run_btn, hide_button_name=cal_shw_btn)
-        # self.__date1 = None
-        # self.__date2 = None
-        # cal_one.updated_date.connect(self.update_dates)
-        # cal_two.updated_date.connect(self.update_dates)
-        # run_btn.setEnabled(False)
         run_btn.clicked.connect(self.close)
         run_btn.clicked.connect(self.ready_to_send.emit)
-        # self.ready_to_send.connect(run_btn.setEnabled)
-
-    # def update_dates(self, date, chc):
-    #     if chc == 'date1':
-    #         self.__date1 = date.toPyDate()
-    #         self.ready_to_send.emit(True)
-    #     if chc == 'date2':
-    #         self.__date2 = date.toPyDate()
-    #
-    # def emit_dates(self):
-    #     if self.__date2 is None:
-    #         self.__date2 = self.__date1
-    #     if self.__date1 <= self.__date2:
-    #         self.hide()
-    #         print('hid calendar')
-    #         print('about to start')
-    #         self.calendar_date_range.emit(self.__date1, self.__date2)
-    #         print('just finished')
 
 
 class ExcelDockWidget(DockWidget):

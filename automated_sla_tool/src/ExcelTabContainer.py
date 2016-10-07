@@ -53,7 +53,6 @@ class ExcelTabContainer(QWidget):
         tab.setLayout(h_box)
         self.tabs.addTab(tab, sheet_title)
         self.show()
-        print('showing tab_container')
 
 
 class ExcelPageWidget(TableWidget):

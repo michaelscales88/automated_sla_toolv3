@@ -11,46 +11,45 @@ class TableWidget(QTableWidget):
                  window_title='Default Title',
                  file=None):
         super(TableWidget, self).__init__(parent)
-        self.sheet = self.open_sheet(file)
+        self.data = self.load_data(file)
         self.clip = QApplication.clipboard()
         self.row_dict = {}
         self.column_dict = {}
-        self.setColumnCount(self.sheet.number_of_columns() - 1)
-        self.setRowCount(self.sheet.number_of_rows() - 1)
-        self.data = self.sheet.to_array()
+        self.setColumnCount(self.data.number_of_columns())
+        self.setRowCount(self.data.number_of_rows())
         self.setWindowTitle(window_title)
         self.set_headers()
         self.set_my_data()
         self.resizeColumnsToContents()
         self.show()
 
-    def open_sheet(self, file):
-        return pe.Sheet(file)
+    def load_data(self, file):
+        if type(file) is pe.sheets.sheet.Sheet:
+            return_file = file
+        else:
+            return_file = self.open_pe_file(file)
+        return return_file
+
+    def open_pe_file(self, file):
+        try:
+            return_file = pe.get_sheet(file_name=file)
+        except OSError:
+            return_file = pe.Sheet(file)
+        return return_file
 
     def set_my_data(self):
+        self.data = self.data.to_array()
+        self.data.remove(self.data[0])
+        for sublist in self.data:
+            del sublist[0]
         for row_index, row in enumerate(self.data):
             for column_index, item in enumerate(row):
                 new_item = QTableWidgetItem(str(item))
                 self.setItem(row_index, column_index, new_item)
 
     def set_headers(self):
-        self.remove_redundant_date()
-        try:
-            self.setHorizontalHeaderLabels(self.data[0])
-        except TypeError:
-            pass
-        for index, header in enumerate(self.data[0]):
-            self.column_dict[header] = index
-        self.data.remove(self.data[0])
-        vertical_headers = []
-        for index, row in enumerate(self.data):
-            vertical_headers.append(row[0])
-            self.row_dict[row[0]] = index
-            row.remove(row[0])
-        try:
-            self.setVerticalHeaderLabels(vertical_headers)
-        except TypeError:
-            pass
+        self.setVerticalHeaderLabels(self.data.rownames)
+        self.setHorizontalHeaderLabels(self.data.colnames)
 
     def remove_redundant_date(self):
         try:
@@ -82,9 +81,7 @@ class TableWidget(QTableWidget):
                 st = []
                 st.append(([str(self.horizontalHeaderItem(i).text()) for i in
                             range(selected[0].leftColumn(), selected[0].rightColumn() + 1)]))
-                print(s)
-                print('st: %s' % st)
-                print("left header")
+
                 s = '{0}\n'.format(s)
 
                 for r in range(selected[0].topRow(), selected[0].bottomRow() + 1):
@@ -110,10 +107,3 @@ class TableWidget(QTableWidget):
                             s += "\t"
                     s = s[:-1] + "\n"  # eliminate last '\t'
                 self.clip.setText(s)
-
-                # if e.modifiers() & QtCore.Qt.ShiftModifier:
-                #     selected = self.selectionModel().selectedIndexes()
-                #     if e.key() == QtCore.Qt.Key_Right:
-                #         # TODO: this still does not work
-                #         print("working")
-                #         print(selected.selectedRows())
