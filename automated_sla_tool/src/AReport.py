@@ -14,6 +14,9 @@ class AReport:
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
         self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
+        self.login_type = r'imap.gmail.com'
+        self.user_name = r'mindwirelessreporting@gmail.com'
+        self.password = r'7b!2gX4bD3'
         self.src_doc_path = None
 
     def get_sec(self, time_string):
@@ -80,8 +83,8 @@ class AReport:
         self.src_doc_path = os.getcwd()
         if not os.listdir(self.src_doc_path):
             try:
-                imap_session = imaplib.IMAP4_SSL(r'secure.emailsrvr.com')
-                status, account_details = imap_session.login(r'mscales@mindwireless.com', r'Wireless1!')
+                imap_session = imaplib.IMAP4_SSL(self.login_type)
+                status, account_details = imap_session.login(self.user_name, self.password)
                 if status != 'OK':
                     raise ValueError('Not able to sign in!')
 

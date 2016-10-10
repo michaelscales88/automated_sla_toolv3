@@ -38,5 +38,3 @@ class ProcessWorker(QThread):
         else:
             for report in reports:
                 self.transmit_report.emit(report)
-        finally:
-            self.__del__()

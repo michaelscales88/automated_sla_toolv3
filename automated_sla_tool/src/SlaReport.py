@@ -20,9 +20,6 @@ class SlaReport(AReport):
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
-            self.login_type = r'imap.gmail.com'
-            self.user_name = r'mindwirelessreporting@gmail.com'
-            self.password = r'7b!2gX4bD3'
             self.voicemail = defaultdict(list)
             self.orphaned_voicemails = None
             self.sla_report = {}
