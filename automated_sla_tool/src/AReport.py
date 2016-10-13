@@ -1,7 +1,8 @@
 # Inherited report methods
 import pyexcel as pe
 import os
-from datetime import timedelta
+from datetime import timedelta, time, datetime
+from dateutil.parser import parse
 
 
 class AReport:
@@ -10,6 +11,8 @@ class AReport:
         if report_dates is None:
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
+        self.util_datetime = datetime.combine(self.dates, time())
+        self.day_of_wk = self.dates.weekday()
         self.final_report = pe.Sheet()
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
@@ -146,3 +149,15 @@ class AReport:
             temp_list.insert(0, item)
             new_sheet.row += temp_list
         return new_sheet
+
+    def safe_parse(self, date=None, default=None, default_rtn=None):
+        try:
+            return parse(date, default=(default if default is not None else self.util_datetime))
+        except ValueError:
+            return default_rtn
+
+    def make_summary(self, headers):
+        todays_summary = pe.Sheet()
+        todays_summary.row += headers
+        todays_summary.name_columns_by_row(0)
+        return todays_summary

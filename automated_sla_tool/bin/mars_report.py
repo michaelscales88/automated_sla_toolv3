@@ -12,7 +12,7 @@ def main(start_date):
             file = MarsReport(month=start_date)
             file.download_documents()
             file.load_documents()
-            file.compile_data()
+            file.prep_data()
             print("Program ran successfully for date: {}".format(start_date.strftime("%m%d%Y")))
         except SystemExit:
             raise SystemExit('SysExiting MARsReport...')
@@ -31,7 +31,7 @@ def main(start_date):
 
 if __name__ == "__main__":
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
-    run_date = datetime.today().date() - timedelta(days=3)
+    run_date = datetime.today().date() - timedelta(days=1)
     main(run_date)
 else:
     pass
