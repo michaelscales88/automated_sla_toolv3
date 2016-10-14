@@ -16,6 +16,6 @@ class ContainerObject:
         try:
             return_file = pe.get_sheet(file_name=file)
         except OSError:
-            print('entered OSerror')
+            print('entered OSError')
             return_file = pe.Sheet(file)
         return return_file

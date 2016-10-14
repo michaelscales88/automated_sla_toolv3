@@ -31,7 +31,6 @@ class BucketDict(dict):
             return False
 
     def add_range_item(self, key, found=None):
-        # TODO: This seems inefficient looping through here + in __getitem__
         for k in self.keys():
             if k[0] < key <= k[1]:
                 dict.__setitem__(self, (k[0], k[1]), self[key] + 1)

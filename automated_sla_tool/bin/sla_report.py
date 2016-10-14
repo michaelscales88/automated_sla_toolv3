@@ -56,4 +56,4 @@ if __name__ == "__main__":
     run_date = datetime.datetime.today().date() - datetime.timedelta(days=2)
     main([run_date, None])
 else:
-    print('inside else')
+    print('entered from else sla_report')

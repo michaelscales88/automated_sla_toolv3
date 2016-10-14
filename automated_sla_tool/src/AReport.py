@@ -1,17 +1,14 @@
 # Inherited report methods
 import pyexcel as pe
 import os
-from datetime import timedelta, time, datetime
-from dateutil.parser import parse
+from datetime import timedelta
+from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
-class AReport:
+class AReport(UtilityObject):
     def __init__(self, report_dates=None):
+        super().__init__(report_dates)
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        if report_dates is None:
-            raise ValueError('No report date provided... Try again.')
-        self.dates = report_dates
-        self.util_datetime = datetime.combine(self.dates, time())
         self.day_of_wk = self.dates.weekday()
         self.final_report = pe.Sheet()
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
@@ -20,24 +17,22 @@ class AReport:
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
-        self.src_doc_path = None
+        self.src_doc_path = self.open_src_dir()
+
+    def open_src_dir(self):
+        file_dir = r'{0}\{1}\{2}'.format(os.path.dirname(self.path), 'Attachment Archive', self.dates.strftime('%m%d'))
+        self.change_dir(file_dir)
+        return os.getcwd()
 
     def get_sec(self, time_string):
         try:
             h, m, s = [int(float(i)) for i in time_string.split(':')]
         except TypeError:
             return 0
+        except ValueError:
+            h, m = [int(float(i)) for i in time_string.split(':')]
+            s = 0
         return self.convert_sec(h, m, s)
-
-    def change_dir(self, the_dir):
-        try:
-            os.chdir(the_dir)
-        except FileNotFoundError:
-            try:
-                os.makedirs(the_dir, exist_ok=True)
-                os.chdir(the_dir)
-            except OSError:
-                pass
 
     def convert_sec(self, h, m, s):
         return (3600 * int(h)) + (60 * int(m)) + int(s)
@@ -81,9 +76,6 @@ class AReport:
         '''
         import email
         import imaplib
-        file_dir = r'{0}\{1}\{2}'.format(os.path.dirname(self.path), 'Attachment Archive', self.dates.strftime('%m%d'))
-        self.change_dir(file_dir)
-        self.src_doc_path = os.getcwd()
         if not os.listdir(self.src_doc_path):
             try:
                 imap_session = imaplib.IMAP4_SSL(self.login_type)
@@ -126,16 +118,6 @@ class AReport:
         else:
             print("Files already downloaded.")
 
-    def str_to_bool(self, bool_str):
-        if type(bool_str) is bool:
-            return bool_str
-        elif bool_str in ('True', 'TRUE', 'true'):
-            return True
-        elif bool_str in ('False', 'false', 'FALSE'):
-            return False
-        else:
-            raise ValueError("Cannot covert {} to a bool".format(bool_str))
-
     def transmit_report(self):
         self.final_report.name_rows_by_column(0)
         return self.final_report
@@ -149,12 +131,6 @@ class AReport:
             temp_list.insert(0, item)
             new_sheet.row += temp_list
         return new_sheet
-
-    def safe_parse(self, date=None, default=None, default_rtn=None):
-        try:
-            return parse(date, default=(default if default is not None else self.util_datetime))
-        except ValueError:
-            return default_rtn
 
     def make_summary(self, headers):
         todays_summary = pe.Sheet()

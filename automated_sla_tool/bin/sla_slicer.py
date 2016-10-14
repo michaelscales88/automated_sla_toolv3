@@ -45,4 +45,4 @@ if __name__ == "__main__":
     else:
         main(report_dates, report_cli, report_val)
 else:
-    print('entered from else')
+    print('entered from else sla_slicer')

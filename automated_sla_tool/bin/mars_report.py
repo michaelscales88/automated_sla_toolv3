@@ -1,7 +1,7 @@
 import traceback
 from os import sys, path
 from datetime import timedelta, datetime
-from automated_sla_tool.src import MarsReport
+from automated_sla_tool.src.DailyMarsReport import DailyMarsReport
 
 
 def main(start_date):
@@ -9,10 +9,9 @@ def main(start_date):
     file_queue = []
     try:
         try:
-            file = MarsReport(month=start_date)
-            file.download_documents()
-            file.load_documents()
+            file = DailyMarsReport(month=start_date)
             file.prep_data()
+            file.process_report()
             print("Program ran successfully for date: {}".format(start_date.strftime("%m%d%Y")))
         except SystemExit:
             raise SystemExit('SysExiting MARsReport...')
@@ -34,4 +33,4 @@ if __name__ == "__main__":
     run_date = datetime.today().date() - timedelta(days=1)
     main(run_date)
 else:
-    pass
+    print('entered from else mars_report')
