@@ -1,12 +1,14 @@
 from collections import namedtuple
-from PyQt5.QtWidgets import QProgressBar
+
 from PyQt5.QtCore import QObject
-from .ProcessButtonsWidget import ProcessButtonsWidget as PbWidget
-from .TextWindowWidget import TextWindowWidget as TextOut
-from .SaveWidget import SaveWidget
+from PyQt5.QtWidgets import QProgressBar
+from automated_sla_tool.bin import sla_report
+from automated_sla_tool.bin import sla_slicer
 from .ExcelTabContainer import ExcelTabContainer as TabContainer
 from .MyCalendarWidget import MyCalendarWidget as CalWidget
-from automated_sla_tool.bin import (sla_report, sla_slicer)
+from .ProcessButtonsWidget import ProcessButtonsWidget as PbWidget
+from .SaveWidget import SaveWidget
+from .TextWindowWidget import TextWindowWidget as TextOut
 
 
 class ProcessObject(QObject):

@@ -1,7 +1,7 @@
 import os
 import re
 import pyexcel as pe
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from collections import namedtuple
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.ContainerObject import ContainerObject
@@ -31,7 +31,7 @@ class DailyMarsReport(AReport):
                 time_card = self.agent_time_card[sheet_name]
             except KeyError:
                 if agent[self.day_of_wk]:
-                    agent.data.set_to_key('Absent', 1)
+                    agent.data['Absent'] = 1
             else:
                 time_card.filter(todays_date_filter)
                 self.read_timecard(time_card, agent)
@@ -47,18 +47,10 @@ class DailyMarsReport(AReport):
             #                                                          ))
             # print(r'Shift Start: {0} Shift End: {1}'.format(None, None))
             # print(r'Late: {0} Absent: {1}'.format(data['Late'], data['Absent']))
-            try:
-                time_in = data['Logged In'].time()
-            except:
-                time_in = 0
-            try:
-                time_out = data['Logged Out'].time()
-            except:
-                time_out = 0
             row_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
             new_row = [row_name,
-                       time_in,
-                       time_out,
+                       data['Logged In'],
+                       data['Logged Out'],
                        data['Duration'],
                        data['Absent'],
                        data['Late']]
@@ -80,16 +72,16 @@ class DailyMarsReport(AReport):
             try:
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
             except FileNotFoundError:
-                self.download_documents()
+                self.download_documents(files=['Agent Time Card.xlsx'])
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
             del agent_time_card['Summary']
             return self.filter_agent_time_card(agent_time_card)
 
-    def download_documents(self):
+    def download_documents(self, files):
         if self.finished:
             return
         else:
-            self.download_chronicall_files()
+            self.download_chronicall_files(file_list=files)
             src_file_directory = os.listdir(self.src_doc_path)
             for file in src_file_directory:
                 if file.endswith(".xls"):
@@ -102,21 +94,16 @@ class DailyMarsReport(AReport):
     def read_timecard(self, sheet, emp_data):
         start_time = emp_data[self.day_of_wk].start
         end_time = emp_data[self.day_of_wk].end
-        print(start_time)
-        print(end_time)
-        from datetime import time, timedelta
         is_normal_shift = self.is_normal_shift(shift_time=start_time,
                                                earliest=time(3),
                                                latest=time(12))
         if is_normal_shift:
-            shift_start = self.get_start_time(sheet.column['Logged In'])
-            emp_data.data.set_to_key('Logged In', shift_start)
-            shift_end = self.get_end_time(sheet.column['Logged Out'])
-            emp_data.data.set_to_key('Logged Out', shift_end)
-            if (shift_start - start_time) > timedelta(minutes=5):
-                emp_data.data.set_to_key('Late', 1)
+            emp_data.data['Logged In'] = self.get_start_time(sheet.column['Logged In'])
+            emp_data.data['Logged Out'] = self.get_end_time(sheet.column['Logged Out'])
+            if emp_data.data['Logged In'] >= self.check_grace_pd(start_time, minutes=timedelta(minutes=5)):
+                emp_data.data['Late'] = 1
             duration = sum([self.get_sec(time_string) for time_string in sheet.column['Duration']])
-            emp_data.data.set_to_key('Duration', self.convert_time_stamp(duration))
+            emp_data.data['Duration'] = self.convert_time_stamp(duration)
         else:
             print('After Hours')
 
@@ -164,6 +151,9 @@ class DailyMarsReport(AReport):
 
     def is_normal_shift(self, shift_time=None, earliest=None, latest=None):
         return earliest <= shift_time <= latest
+
+    def check_grace_pd(self, dt_t, minutes):
+        return self.add_time(dt_t, add_time=minutes)
 
 
 class EmployeeTracker(ContainerObject):
@@ -213,23 +203,24 @@ class EmployeeTracker(ContainerObject):
         return t_string.split('-')
 
 
-class EmployeeData(dict):
+class EmployeeData(object):
     def __init__(self, k_list, default):
-        super().__init__()
+        self.__dict = {}
         for key in k_list:
-            self[key] = default
-        self['Absent'] = default
-        self['Late'] = default
+            self.__dict[key] = default
+        self.__dict['Absent'] = default
+        self.__dict['Late'] = default
 
     def increment_key(self, key, val):
-        self[key] += val
+        if key not in self.__dict:
+            raise KeyError("The key {} is not defined.".format(key))
+        self.__dict[key] += val
 
-    def set_to_key(self, key, val):
-        self[key] = val
+    def __setitem__(self, key, item):
+        if key not in self.__dict:
+            raise KeyError("The key {} is not defined.".format(key))
+        self.__dict[key] = item
 
-    def decrement_key(self, key, val):
-        self[key] -= val
-
-    def remove_key(self, key):
-        del self[key]
+    def __getitem__(self, key):
+        return self.__dict[key]
 

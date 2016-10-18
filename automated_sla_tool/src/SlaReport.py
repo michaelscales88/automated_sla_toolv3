@@ -32,7 +32,9 @@ class SlaReport(AReport):
         if self.finished:
             return
         else:
-            self.download_chronicall_files()
+            self.download_chronicall_files(file_list=['Call Details (Basic).xlsx',
+                                                      'Group Abandoned Calls.xlsx',
+                                                      'Cradle to Grave.xlsx'])
             src_file_directory = os.listdir(self.src_doc_path)
             for file in src_file_directory:
                 if file.endswith(".xls"):
@@ -176,8 +178,8 @@ class SlaReport(AReport):
     def process_report(self):
         '''
 
-                :return:
-                '''
+            :return:
+        '''
         if self.finished:
             return
         else:
@@ -555,17 +557,14 @@ class SlaReport(AReport):
         for arg in vars(self):
             print(arg)
 
-    def report_finished(self, return_file=None):
+    def report_finished(self):
         date_string = self.dates.strftime("%m%d%Y")
-        the_directory = r'{0}\Output'.format(os.path.dirname(self.path))
-        the_file = r'\{0}_Incoming DID Summary.xlsx'.format(date_string)
-        self.change_dir(the_directory)
-        if the_file in os.listdir(os.getcwd()):
+        the_file = r'{0}\Output\{1}_Incoming DID Summary.xlsx'.format(os.path.dirname(self.path), date_string)
+        if os.path.isfile(the_file):
             file_exists = True
-            return_file = r'{0}{1}'.format(the_directory, the_file)
         else:
             file_exists = False
-        return file_exists, return_file
+        return file_exists, the_file
 
 
 class Client:

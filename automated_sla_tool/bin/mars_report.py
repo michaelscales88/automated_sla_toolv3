@@ -30,7 +30,7 @@ def main(start_date):
 
 if __name__ == "__main__":
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
-    run_date = datetime.today().date() - timedelta(days=1)
+    run_date = datetime.today().date() - timedelta(days=3)
     main(run_date)
 else:
     print('entered from else mars_report')

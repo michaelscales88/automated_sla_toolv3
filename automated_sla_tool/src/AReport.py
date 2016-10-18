@@ -1,7 +1,7 @@
 # Inherited report methods
 import pyexcel as pe
 import os
-from datetime import timedelta
+from datetime import timedelta, datetime
 from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
@@ -67,7 +67,7 @@ class AReport(UtilityObject):
         return_list.insert(0, first_index)
         return [return_list]
 
-    def download_chronicall_files(self):
+    def download_chronicall_files(self, file_list):
         '''
         Temporary
         self.login_type = r'imap.gmail.com'
@@ -76,7 +76,7 @@ class AReport(UtilityObject):
         '''
         import email
         import imaplib
-        if not os.listdir(self.src_doc_path):
+        if file_list not in os.listdir(self.src_doc_path):
             try:
                 imap_session = imaplib.IMAP4_SSL(self.login_type)
                 status, account_details = imap_session.login(self.user_name, self.password)
@@ -137,3 +137,6 @@ class AReport(UtilityObject):
         todays_summary.row += headers
         todays_summary.name_columns_by_row(0)
         return todays_summary
+
+    def add_time(self, dt_t, add_time=None):
+        return (datetime.combine(datetime.today(), dt_t) + add_time).time()

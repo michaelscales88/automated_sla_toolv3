@@ -3,7 +3,6 @@ import pyexcel as pe
 from collections import defaultdict
 from PyQt5.QtWidgets import (QMainWindow, QDesktopWidget, QPushButton)
 from PyQt5.QtCore import (pyqtSignal, Qt)
-from automated_sla_tool.bin import sla_report, sla_slicer
 from automated_sla_tool.src import (DockWidget, SplitterFrameWidget,
                                     ProcessObject, ProcessWorker)
 

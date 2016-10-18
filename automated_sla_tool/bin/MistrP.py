@@ -236,3 +236,11 @@ def main():
     ex.application_style.connect(lambda text: app.setStyle(QStyleFactory.create(text)))
     ex.show()
     sys.exit(app.exec_())
+
+if __name__ == "__main__":
+    from os import sys, path
+
+    sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
+    main()
+else:
+    print('entered from else MistrP')
