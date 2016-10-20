@@ -13,3 +13,4 @@ from .ProcessWorker import ProcessWorker
 from .ProcessMenu import ProcessMenu
 from .SlaReport import SlaReport
 from .DailyMarsReport import DailyMarsReport
+from .Notes import Notes

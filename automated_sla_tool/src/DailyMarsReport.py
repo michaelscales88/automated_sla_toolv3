@@ -5,6 +5,7 @@ from datetime import datetime, time, timedelta
 from collections import namedtuple
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.ContainerObject import ContainerObject
+from automated_sla_tool.src.Notes import Notes
 
 
 class DailyMarsReport(AReport):
@@ -14,6 +15,7 @@ class DailyMarsReport(AReport):
         self.agent_time_card = (report if report is not None else self.load_documents())
         spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
         self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
+        self.notes = Notes()
 
     '''
     UI Section
@@ -23,8 +25,8 @@ class DailyMarsReport(AReport):
         pass
 
     def prep_data(self):
-        agents = self.tracker.schedule.items()
-        for (ext, agent) in agents:
+        agents = self.tracker.get_tracker()
+        for (ext, agent) in agents.items():
             sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
             todays_date_filter = pe.RowValueFilter(self.todays_date_row_filter)
             try:
@@ -37,25 +39,19 @@ class DailyMarsReport(AReport):
                 self.read_timecard(time_card, agent)
 
     def process_report(self):
-        agents = self.tracker.schedule.items()
-        todays_summary = self.make_summary(['Employee', 'Time In', 'Time Out', 'Duration', 'Absent', 'Late'])
-        for (ext, agent) in agents:
-            data = agent.data
-            # print(r'ext: {0} first: {1} last: {2}'.format(ext, agent.f_name, agent.l_name))
-            # print(r'Time In: {0} Time Out: {1} Duration: {2}'.format(,
-            #                                                          ,
-            #                                                          ))
-            # print(r'Shift Start: {0} Shift End: {1}'.format(None, None))
-            # print(r'Late: {0} Absent: {1}'.format(data['Late'], data['Absent']))
-            row_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
-            new_row = [row_name,
-                       data['Logged In'],
-                       data['Logged Out'],
-                       data['Duration'],
-                       data['Absent'],
-                       data['Late']]
-            todays_summary.row += new_row
+        agents = self.tracker.get_tracker()
+        todays_summary = self.make_summary(self.tracker.get_header())
+        for (ext, agent) in agents.items():
+            todays_summary.row += self.tracker[ext]
+
+        notes = [self.notes.pop(0)]
+        todays_summary.row += notes
+        todays_summary.row += self.notes.get_notes()
+
+        todays_summary.name_rows_by_column(0)
         print(todays_summary)
+
+        todays_summary.save_as(r'C:\Users\mscales\Desktop\Development', )
 
     def save_report(self):
         pass
@@ -93,10 +89,9 @@ class DailyMarsReport(AReport):
 
     def read_timecard(self, sheet, emp_data):
         start_time = emp_data[self.day_of_wk].start
-        end_time = emp_data[self.day_of_wk].end
         is_normal_shift = self.is_normal_shift(shift_time=start_time,
-                                               earliest=time(3),
-                                               latest=time(12))
+                                               earliest=time(hour=0),
+                                               latest=time(hour=18, minute=59))
         if is_normal_shift:
             emp_data.data['Logged In'] = self.get_start_time(sheet.column['Logged In'])
             emp_data.data['Logged Out'] = self.get_end_time(sheet.column['Logged Out'])
@@ -105,18 +100,27 @@ class DailyMarsReport(AReport):
             duration = sum([self.get_sec(time_string) for time_string in sheet.column['Duration']])
             emp_data.data['Duration'] = self.convert_time_stamp(duration)
         else:
-            print('After Hours')
+            start_full_dt = self.get_start_time(sheet.column['Logged In'], overnight=True)
+            end_full_dt = self.get_end_time(sheet.column['Logged Out'], overnight=True)
+            emp_data.data['Logged In'] = self.notes.add_time_note(start_full_dt)
+            emp_data.data['Logged Out'] = self.notes.add_time_note(end_full_dt)
 
-    def get_start_time(self, column):
+    def get_start_time(self, column, overnight=False):
         try:
-            return_time = min(self.safe_parse(item) for item in column).time()
+            if overnight:
+                return_time = max(self.safe_parse(item) for item in column)
+            else:
+                return_time = min(self.safe_parse(item) for item in column).time()
         except AttributeError:
             return_time = 'No Clock In'
         return return_time
 
-    def get_end_time(self, column):
+    def get_end_time(self, column, overnight=False):
         try:
-            return_time = max(self.safe_parse(item) for item in column).time()
+            if overnight:
+                return_time = max(self.safe_parse(item) for item in column)
+            else:
+                return_time = max(self.safe_parse(item) for item in column).time()
         except AttributeError:
             return_time = 'No Clock Out'
         return return_time
@@ -160,7 +164,7 @@ class EmployeeTracker(ContainerObject):
     def __init__(self, employee_data, report_data):
         super().__init__()
         data = self.load_data(employee_data)
-        self.schedule = self.create_schedule(data, report_data)
+        self.__data = self.create_schedule(data, report_data)
 
     def load_data(self, file):
         return_file = super().load_data(file)
@@ -202,6 +206,17 @@ class EmployeeTracker(ContainerObject):
     def split_str(self, t_string):
         return t_string.split('-')
 
+    def __getitem__(self, ext):
+        agent_data = self.__data[ext]
+        row_name = r'{0} {1}({2})'.format(agent_data.f_name, agent_data.l_name, ext)
+        return [row_name] + agent_data.data.get_row()
+
+    def get_tracker(self):
+        return self.__data
+
+    def get_header(self):
+        return ['Employee'] + sorted(next(iter(self.__data.values())).data.keys())
+
 
 class EmployeeData(object):
     def __init__(self, k_list, default):
@@ -224,3 +239,8 @@ class EmployeeData(object):
     def __getitem__(self, key):
         return self.__dict[key]
 
+    def get_row(self):
+        return [self.__dict[k] for k in sorted(self.__dict.keys())]
+
+    def keys(self):
+        return self.__dict.keys()
