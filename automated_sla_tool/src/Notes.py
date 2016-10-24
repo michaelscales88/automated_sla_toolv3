@@ -12,7 +12,7 @@ class Notes(object):
     def add_time_note(self, value):
         if type(value) is not datetime:
             return
-        self.__dict[self.__counter + 1] = value
+        self.__dict[self.__counter + 1] = value.date()
         self.__counter += 1
         return r'{0}*{1}'.format(value.time(), self.__counter)
 

@@ -1,0 +1,25 @@
+class TupleKeyDict(object):
+    def __init__(self):
+        self.__dict = {}
+
+    def __setitem__(self, key, value):
+        if type(key) is not tuple:
+            return
+        p_key = key[0]
+        s_key = key[1]
+        try:
+            self.__dict[p_key][s_key] += value
+        except KeyError:
+            try:
+                self.__dict[p_key][s_key] = value
+            except KeyError:
+                self.__dict[p_key] = {s_key: None}
+                self.__dict[p_key][s_key] = value
+
+    def __getitem__(self, key):
+        return self.__dict[key]
+
+    def __str__(self):
+        for (k, v) in self.__dict.items():
+            print('K:{0} v:{1}'.format(k, v))
+        return ''

@@ -19,6 +19,10 @@ class AReport(UtilityObject):
         self.password = r'7b!2gX4bD3'
         self.src_doc_path = self.open_src_dir()
 
+    def set_save_path(self, report_type):
+        save_path = r'{0}\Output\{1}'.format(os.path.dirname(self.path), report_type)
+        self.change_dir(save_path)
+
     def open_src_dir(self):
         file_dir = r'{0}\{1}\{2}'.format(os.path.dirname(self.path), 'Attachment Archive', self.dates.strftime('%m%d'))
         self.change_dir(file_dir)
@@ -119,7 +123,6 @@ class AReport(UtilityObject):
             print("Files already downloaded.")
 
     def transmit_report(self):
-        self.final_report.name_rows_by_column(0)
         return self.final_report
 
     def make_distinct_and_sort(self, worksheet):
@@ -140,3 +143,16 @@ class AReport(UtilityObject):
 
     def add_time(self, dt_t, add_time=None):
         return (datetime.combine(datetime.today(), dt_t) + add_time).time()
+
+    def report_finished(self, report_type, file_name):
+        the_path = os.path.dirname(self.path)
+        the_file = r'{0}\Output\{1}\{2}'.format(the_path, report_type, file_name)
+        if os.path.isfile(the_file):
+            file_exists = True
+            the_file = pe.get_sheet(file_name=the_file)
+            the_file.name_columns_by_row(0)
+            the_file.name_rows_by_column(0)
+        else:
+            file_exists = False
+            the_file = None
+        return file_exists, the_file

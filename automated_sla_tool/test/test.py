@@ -1,18 +1,29 @@
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from dateutil.parser import parse
 from automated_sla_tool.src.BucketDict import BucketDict
+from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
 def main():
-    list_of_seconds = [15, 16, 5, 60, 65, 44, 32, 32, 90, 2, 15, 17]
-    # call_details_ticker = BetweenDict({(0, 16): 'found 0-16', (15, 31): 'found 15-31', (30, 46): 'found 30-46', (45, 61): 'found 45-61', (60, 1000): 'found 60-1000', (999, 999999): 'found 0-16'})
-    call_details_ticker = BucketDict(
-        {(0, 15): 0, (15, 30): 0, (30, 45): 0, (45, 60): 0, (60, 999): 0, (999, 999999): 0}
-    )
-    for seconds in list_of_seconds:
-        call_details_ticker.add_range_item(seconds)
-    call_details_ticker.add_range_item(999999909)
-    print(call_details_ticker)
+    dt_date = '07:56:45'
+    print(parse(dt_date))
+    default_date = datetime.now() - timedelta(days=3)
+    print(parse(dt_date, default=default_date))
+    # bool_str = 'False'
+    # dt = datetime.now()
+    # print(dt)
+    # obj = UtilityObject(dt)
+    # print(obj.str_to_bool(bool_str))
+    # parse(date, default=(default if default is not None else self.util_datetime))
+    # list_of_seconds = [15, 16, 5, 60, 65, 44, 32, 32, 90, 2, 15, 17]
+    # # call_details_ticker = BetweenDict({(0, 16): 'found 0-16', (15, 31): 'found 15-31', (30, 46): 'found 30-46', (45, 61): 'found 45-61', (60, 1000): 'found 60-1000', (999, 999999): 'found 0-16'})
+    # call_details_ticker = BucketDict(
+    #     {(0, 15): 0, (15, 30): 0, (30, 45): 0, (45, 60): 0, (60, 999): 0, (999, 999999): 0}
+    # )
+    # for seconds in list_of_seconds:
+    #     call_details_ticker.add_range_item(seconds)
+    # call_details_ticker.add_range_item(999999909)
+    # print(call_details_ticker)
     # print(call_details_ticker)
     # time_string = 'Mon, Aug 22, 2016 08:00 AM'
     # date_time = parse(time_string)

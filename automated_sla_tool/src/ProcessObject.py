@@ -36,7 +36,7 @@ class ProcessObject(QObject):
                                  args=proc_args,
                                  buttons=self.init_btns(proc_args),
                                  progress=self.init_prgrs(),
-                                 text_out=self.init_txt(),
+                                 text_out=None,  # self.init_txt(),
                                  err_out=self.init_err(),
                                  file_saver=self.init_save_widget(),
                                  cal1=CalWidget(name='Calendar 1'),

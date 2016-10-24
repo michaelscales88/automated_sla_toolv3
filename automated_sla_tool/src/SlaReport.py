@@ -11,10 +11,9 @@ from automated_sla_tool.src.AReport import AReport
 class SlaReport(AReport):
     def __init__(self, report_date=None):
         super(SlaReport, self).__init__(report_dates=report_date)
-        self.finished, report = self.report_finished()
+        self.finished, report = self.check_finished()
         if self.finished:
-            self.final_report = pe.get_sheet(file_name=report)
-            self.final_report.name = r'{}_Incoming DID Summary'.format(report_date.strftime('%m%d%Y'))
+            self.final_report = report
             print('Report Complete.')
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
@@ -148,11 +147,6 @@ class SlaReport(AReport):
             self.remove_duplicate_calls()
 
     def extract_report_information(self):
-        # TODO: might be nice to thread reading the reports
-        '''
-
-                :return:
-                '''
         if self.finished:
             return
         else:
@@ -226,29 +220,38 @@ class SlaReport(AReport):
                     self.add_row(this_row)
             self.finalize_total_row(total_row)
             self.add_row(total_row)
+            self.final_report.name_rows_by_column(0)
 
     def save_report(self):
-        self.validate_final_report()
-        the_directory = os.path.dirname(self.path)
-        the_other_dir = r'M:\Help Desk\Daily SLA Report\2016'
-        the_file = r'{0}_Incoming DID Summary.xlsx'.format(self.dates.strftime("%m%d%Y"))
-        self.final_report.save_as(r'{0}\Output\{1}'.format(the_directory, the_file))
-        self.final_report.save_as(r'{0}\{1}'.format(the_other_dir, the_file))
+        if self.finished:
+            return
+        else:
+            self.validate_final_report()
+            self.set_save_path('sla_report')
+            network_dir = r'M:\Help Desk\Daily SLA Report\2016'
+            the_file = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
+            self.final_report.name = the_file
+            file_string = r'.\{0}.xlsx'.format(the_file)
+            self.final_report.save_as(filename=file_string)
+            try:
+                network_file = r'{0}\{1}.xlsx'.format(network_dir, the_file)
+                self.final_report.save_as(filename=network_file)
+            except OSError:
+                pass
 
     '''
     Utilities Section
     '''
     def validate_final_report(self):
-        col_index = self.final_report.colnames
-        for row in self.final_report.rows():
+        for row in self.final_report.rownames:
             ticker_total = 0
-            answered = row[col_index.index('I/C Answered')]
-            ticker_total += row[col_index.index('Calls Ans Within 15')]
-            ticker_total += row[col_index.index('Calls Ans Within 30')]
-            ticker_total += row[col_index.index('Calls Ans Within 45')]
-            ticker_total += row[col_index.index('Calls Ans Within 60')]
-            ticker_total += row[col_index.index('Calls Ans Within 999')]
-            ticker_total += row[col_index.index('Call Ans + 999')]
+            answered = self.final_report[row, 'I/C Answered']
+            ticker_total += self.final_report[row, 'Calls Ans Within 15']
+            ticker_total += self.final_report[row, 'Calls Ans Within 30']
+            ticker_total += self.final_report[row, 'Calls Ans Within 45']
+            ticker_total += self.final_report[row, 'Calls Ans Within 60']
+            ticker_total += self.final_report[row, 'Calls Ans Within 999']
+            ticker_total += self.final_report[row, 'Call Ans + 999']
             if answered != ticker_total:
                 raise ValueError('Validation error ->'
                                  'ticker total != answered for: '
@@ -557,14 +560,16 @@ class SlaReport(AReport):
         for arg in vars(self):
             print(arg)
 
-    def report_finished(self):
-        date_string = self.dates.strftime("%m%d%Y")
-        the_file = r'{0}\Output\{1}_Incoming DID Summary.xlsx'.format(os.path.dirname(self.path), date_string)
-        if os.path.isfile(the_file):
-            file_exists = True
-        else:
-            file_exists = False
-        return file_exists, the_file
+    def check_finished(self):
+        the_file = r'{0}_Incoming DID Summary.xlsx'.format(self.dates.strftime("%m%d%Y"))
+        return super().report_finished('sla_report', the_file)
+        # date_string = self.dates.strftime("%m%d%Y")
+        # the_file = r'{0}\Output\.format(os.path.dirname(self.path), date_string)
+        # if os.path.isfile(the_file):
+        #     file_exists = True
+        # else:
+        #     file_exists = False
+        # return file_exists, the_file
 
 
 class Client:

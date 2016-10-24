@@ -64,9 +64,9 @@ class ExcelPageWidget(TableWidget):
                                               window_title=popup_title,
                                               file=spreadsheet)
 
-    def mouseReleaseEvent(self, event):
+    # def mouseReleaseEvent(self, event):
         # event.accept()
-        QTableWidget.mouseReleaseEvent(self, event)
+        # QTableWidget.mouseReleaseEvent(self, event)
         # if event.button() == Qt.RightButton:  # Release event only if done with left button, you can remove if necessary
         #     selected = self.selectedRanges()
         #

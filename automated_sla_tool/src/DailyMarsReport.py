@@ -9,69 +9,86 @@ from automated_sla_tool.src.Notes import Notes
 
 
 class DailyMarsReport(AReport):
+
     def __init__(self, month=None):
+        # TODO: add xslx writer for spreadsheet formatting
         super().__init__(report_dates=month)
-        self.finished, report = self.report_finished()
-        self.agent_time_card = (report if report is not None else self.load_documents())
-        spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
-        self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
-        self.notes = Notes()
+        self.finished, report = self.check_finished()
+        if self.finished:
+            self.final_report = report
+        else:
+            (self.agent_time_card,
+            self.agent_feature_trace) = self.load_documents()
+            spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
+            self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
+            self.notes = Notes()
 
     '''
     UI Section
     '''
 
-    def query_sql_server(self):
-        pass
-
     def prep_data(self):
-        agents = self.tracker.get_tracker()
-        for (ext, agent) in agents.items():
-            sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
-            todays_date_filter = pe.RowValueFilter(self.todays_date_row_filter)
-            try:
-                time_card = self.agent_time_card[sheet_name]
-            except KeyError:
+        if self.finished:
+            return
+        else:
+            agents = self.tracker.get_tracker()
+            for (ext, agent) in agents.items():
                 if agent[self.day_of_wk]:
-                    agent.data['Absent'] = 1
-            else:
-                time_card.filter(todays_date_filter)
-                self.read_timecard(time_card, agent)
+                    sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
+                    todays_date_filter = pe.RowValueFilter(self.todays_date_row_filter)
+                    try:
+                        time_card = self.agent_time_card[sheet_name]
+                    except KeyError:
+                        agent.data['Absent'] = 1
+                    else:
+                        time_card.filter(todays_date_filter)
+                        self.read_timecard(time_card, agent)
 
     def process_report(self):
-        agents = self.tracker.get_tracker()
-        todays_summary = self.make_summary(self.tracker.get_header())
-        for (ext, agent) in agents.items():
-            todays_summary.row += self.tracker[ext]
-
-        notes = [self.notes.pop(0)]
-        todays_summary.row += notes
-        todays_summary.row += self.notes.get_notes()
-
-        todays_summary.name_rows_by_column(0)
-        print(todays_summary)
-
-        todays_summary.save_as(r'C:\Users\mscales\Desktop\Development', )
+        if self.finished:
+            return
+        else:
+            agents = self.tracker.get_tracker()
+            self.final_report = self.make_summary(self.tracker.get_header())
+            for (ext, agent) in agents.items():
+                if agent[self.day_of_wk]:
+                    self.final_report.row += self.tracker[ext]
+            notes = [self.notes.pop(0)]
+            self.final_report.row += notes
+            self.final_report.row += self.notes.get_notes()
+            self.final_report.name_rows_by_column(0)
 
     def save_report(self):
-        pass
+        self.set_save_path('mars_report')
+        the_file = r'{0}_mars_report'.format(self.dates.strftime('%m%d%Y'))
+        self.final_report.name = the_file
+        file_string = r'.\{0}.xlsx'.format(the_file)
+        self.final_report.save_as(filename=file_string)
 
     '''
     Utilities Section
     '''
+
+    def query_sql_server(self):
+        pass
 
     def load_documents(self):
         if self.finished:
             return
         else:
             agent_time_card_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Time Card.xlsx')
+            agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
             try:
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
+                # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
+                # print(agent_feature_trace)
             except FileNotFoundError:
-                self.download_documents(files=['Agent Time Card.xlsx'])
+                self.download_documents(files=['Agent Time Card.xlsx', 'Agent Realtime Feature Trace.xlsx'])
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
+                # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
+                # print(agent_feature_trace)
             del agent_time_card['Summary']
-            return self.filter_agent_time_card(agent_time_card)
+            return self.filter_agent_time_card(agent_time_card), None
 
     def download_documents(self, files):
         if self.finished:
@@ -95,15 +112,15 @@ class DailyMarsReport(AReport):
         if is_normal_shift:
             emp_data.data['Logged In'] = self.get_start_time(sheet.column['Logged In'])
             emp_data.data['Logged Out'] = self.get_end_time(sheet.column['Logged Out'])
-            if emp_data.data['Logged In'] >= self.check_grace_pd(start_time, minutes=timedelta(minutes=5)):
-                emp_data.data['Late'] = 1
-            duration = sum([self.get_sec(time_string) for time_string in sheet.column['Duration']])
-            emp_data.data['Duration'] = self.convert_time_stamp(duration)
         else:
             start_full_dt = self.get_start_time(sheet.column['Logged In'], overnight=True)
             end_full_dt = self.get_end_time(sheet.column['Logged Out'], overnight=True)
             emp_data.data['Logged In'] = self.notes.add_time_note(start_full_dt)
             emp_data.data['Logged Out'] = self.notes.add_time_note(end_full_dt)
+        duration = sum([self.get_sec(time_string) for time_string in sheet.column['Duration']])
+        emp_data.data['Duration'] = self.convert_time_stamp(duration)
+        if self.read_time(emp_data.data['Logged In']) > self.check_grace_pd(start_time, minutes=timedelta(minutes=5)):
+            emp_data.data['Late'] = 1
 
     def get_start_time(self, column, overnight=False):
         try:
@@ -118,7 +135,9 @@ class DailyMarsReport(AReport):
     def get_end_time(self, column, overnight=False):
         try:
             if overnight:
-                return_time = max(self.safe_parse(item) for item in column)
+                prev_day = self.util_datetime - timedelta(days=1)
+                return_time = max(self.safe_parse(item, default_date=prev_day) for item in column)
+                return_time = datetime.combine(prev_day, return_time.time())
             else:
                 return_time = max(self.safe_parse(item) for item in column).time()
         except AttributeError:
@@ -132,9 +151,6 @@ class DailyMarsReport(AReport):
                             'Error reading page number'
                             '-> bad sheet name')
         return return_value[0]
-
-    def report_finished(self):
-        return False, None
 
     def filter_agent_time_card(self, workbook):
         time_card_filter = pe.RowValueFilter(self.agent_time_row_filter)
@@ -150,7 +166,7 @@ class DailyMarsReport(AReport):
 
     def todays_date_row_filter(self, row):
         # TODO: Simplify... this seems overly complicated...
-        dates = [self.safe_parse(date=cell, default_rtn=self.util_datetime).date() for cell in row]
+        dates = [self.safe_parse(dt_time=cell, default_rtn=self.util_datetime).date() for cell in row]
         return False in [(self.dates == date) for date in dates]
 
     def is_normal_shift(self, shift_time=None, earliest=None, latest=None):
@@ -158,6 +174,10 @@ class DailyMarsReport(AReport):
 
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
+
+    def check_finished(self):
+        the_file = r'{0}_mars_report.xlsx'.format(self.dates.strftime("%m%d%Y"))
+        return super().report_finished('mars_report', the_file)
 
 
 class EmployeeTracker(ContainerObject):

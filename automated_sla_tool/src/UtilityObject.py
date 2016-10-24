@@ -30,8 +30,22 @@ class UtilityObject:
             except OSError:
                 pass
 
-    def safe_parse(self, date=None, default=None, default_rtn=None):
+    def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
         try:
-            return parse(date, default=(default if default is not None else self.util_datetime))
+            return parse(dt_time, default=(default_date if default_date is not None else self.util_datetime))
         except ValueError:
             return default_rtn if default_rtn is not None else self.util_datetime
+        except AttributeError:
+            return dt_time
+
+    def read_time(self, time_object, spc_chr='*'):
+        try:
+            return_time = time_object.split(spc_chr)[0]
+        except AttributeError:
+            try:
+                return_time = time_object.time()
+            except AttributeError:
+                return_time = time_object
+        else:
+            return_time = self.safe_parse(return_time).time()
+        return return_time
