@@ -12,15 +12,19 @@ class MonthlyMarsReport(AReport):
         self.last_date = start_date + timedelta(days=run_days)
         self.file_queue = pe.Book()
 
+    '''
+    UI Section
+    '''
+
     def run(self):
         run_date = self.dates
         while run_date <= self.last_date:
             try:
                 try:
                     file = DailyMarsReport(month=run_date)
-                    file.prep_data()
-                    file.process_report()
-                    file.save_report()
+                    file.run()
+                    # file.process_report()
+                    # file.save_report()
                     print("Program ran successfully for date: {}".format(run_date.strftime("%m%d%Y")))
                 except OSError:
                     print('Could not open report for date {}'.format(run_date))
@@ -42,17 +46,45 @@ class MonthlyMarsReport(AReport):
     def print_queue(self):
         print(self.file_queue)
 
-    def summarize_reports(self):
-        agent_summary = TupleKeyDict()
+    def summarize_queue(self):
+        agent_summary = AgentSummary()
         for report in self.file_queue:
-            for row in report.rownames:
-                if row == 'Notes':
+            for agent in report.rownames:
+                if agent == 'Notes':
                     break
-                agent_summary[(row, 'Absent')] = report[row, 'Absent']
-                agent_summary[(row, 'Late')] = report[row, 'Late']
-        print(agent_summary)
+                agent_summary[(agent, 'Absent')] = report[agent, 'Absent']
+                agent_summary[(agent, 'Late')] = report[agent, 'Late']
+        self.create_final_report(agent_summary)
+
+    '''
+    Utilities Section
+    '''
 
     def prep_sheets(self):
         for sheet in self.file_queue:
             sheet.name_rows_by_column(0)
             sheet.name_columns_by_row(0)
+
+    def create_final_report(self, report_summary):
+        report_header = report_summary.get_header()
+        display_report = self.create_sheet(report_header)
+        for (agent, data) in report_summary.items():
+            row = [agent] + [data[k] for k in sorted(data.keys())]
+            display_report.row += row
+        display_report.name_rows_by_column(0)
+        print(display_report)
+
+    def create_sheet(self, headers):
+        sheet = pe.Sheet()
+        sheet.row += headers
+        sheet.name_columns_by_row(0)
+        return sheet
+
+
+class AgentSummary(TupleKeyDict):
+    def __init__(self):
+        super().__init__()
+
+    def get_header(self):
+        adict = self.get_dict()
+        return ['Employee'] + sorted(next(iter(adict.values())).keys())

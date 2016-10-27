@@ -23,3 +23,12 @@ class TupleKeyDict(object):
         for (k, v) in self.__dict.items():
             print('K:{0} v:{1}'.format(k, v))
         return ''
+
+    def items(self):
+        return self.__dict.items()
+
+    def values(self):
+        return self.__dict.values()
+
+    def get_dict(self):
+        return self.__dict

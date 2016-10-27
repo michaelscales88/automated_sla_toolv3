@@ -27,24 +27,31 @@ class DailyMarsReport(AReport):
     UI Section
     '''
 
-    def prep_data(self):
+    def run(self):
         if self.finished:
             return
         else:
             agents = self.tracker.get_tracker()
+            self.final_report = self.make_summary(self.tracker.get_header())
             for (ext, agent) in agents.items():
                 if agent[self.day_of_wk]:
                     sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
-                    todays_date_filter = pe.RowValueFilter(self.todays_date_row_filter)
                     try:
                         time_card = self.agent_time_card[sheet_name]
                     except KeyError:
                         agent.data['Absent'] = 1
                     else:
-                        time_card.filter(todays_date_filter)
                         self.read_timecard(time_card, agent)
+                    finally:
+                        self.final_report.row += self.tracker[ext]
+            # TODO add notes column instead of concatenating value in logged in/out
+            notes = [self.notes.pop(0)]
+            self.final_report.row += notes
+            self.final_report.row += self.notes.get_notes()
+            self.final_report.name_rows_by_column(0)
 
     def process_report(self):
+        # Phased out with switch to run()
         if self.finished:
             return
         else:
@@ -69,6 +76,10 @@ class DailyMarsReport(AReport):
     Utilities Section
     '''
 
+    def scrutinize_time_card(self, time_card):
+        # TODO remove prev day and check whether agent clocked in/out at proper time
+        pass
+
     def query_sql_server(self):
         pass
 
@@ -77,13 +88,13 @@ class DailyMarsReport(AReport):
             return
         else:
             agent_time_card_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Time Card.xlsx')
-            agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
+            # agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
             try:
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
                 # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
                 # print(agent_feature_trace)
             except FileNotFoundError:
-                self.download_documents(files=['Agent Time Card.xlsx', 'Agent Realtime Feature Trace.xlsx'])
+                self.download_documents(files=[r'Agent Time Card.xlsx', r'Agent Realtime Feature Trace.xlsx'])
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
                 # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
                 # print(agent_feature_trace)
@@ -110,6 +121,15 @@ class DailyMarsReport(AReport):
                                                earliest=time(hour=0),
                                                latest=time(hour=18, minute=59))
         if is_normal_shift:
+            if sheet.name == 'Steve McMillan(7540)':
+                print(sheet)
+
+                print(sheet)
+                # print(sheet)
+                # print([i for i in sheet.rows()])
+                # del sheet.row[0]
+                # print(sheet)
+            # end_time = emp_data[self.day_of_wk].end
             emp_data.data['Logged In'] = self.get_start_time(sheet.column['Logged In'])
             emp_data.data['Logged Out'] = self.get_end_time(sheet.column['Logged Out'])
         else:
