@@ -9,12 +9,10 @@ class Notes(object):
     def __getitem__(self, key):
         return self.__dict[key]
 
-    def add_time_note(self, value):
-        if type(value) is not datetime:
-            return
-        self.__dict[self.__counter + 1] = value.date()
+    def add_time_note(self, note):
+        self.__dict[self.__counter + 1] = note
         self.__counter += 1
-        return r'{0}*{1}'.format(value.time(), self.__counter)
+        return r'{0}'.format(self.__counter)
 
     def print_notes(self):
         for (k, v) in self.__dict.items():
@@ -24,4 +22,4 @@ class Notes(object):
         return self.__dict.pop(key)
 
     def get_notes(self):
-        return [[k, v] for (k, v) in self.__dict.items()]
+        return [[r'{0} {1}'.format(k, v)] for (k, v) in self.__dict.items()]

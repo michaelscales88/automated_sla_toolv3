@@ -161,7 +161,7 @@ class SlaReport(AReport):
                                                  lost_calls=calls_lost,
                                                  voicemail=voicemails,
                                                  full_service=self.clients[client].full_service)
-                if self.sla_report[client].is_empty():
+                if self.sla_report[client].is_empty_wb():
                     pass
                 else:
                     if self.sla_report[client].no_answered() is False:

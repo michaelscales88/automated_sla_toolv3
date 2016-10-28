@@ -17,6 +17,7 @@ class MonthlyMarsReport(AReport):
     '''
 
     def run(self):
+        # TODO Make this a dispatcher -> threading
         run_date = self.dates
         while run_date <= self.last_date:
             try:
@@ -25,12 +26,15 @@ class MonthlyMarsReport(AReport):
                     file.run()
                     # file.process_report()
                     # file.save_report()
-                    print("Program ran successfully for date: {}".format(run_date.strftime("%m%d%Y")))
                 except OSError:
                     print('Could not open report for date {}'.format(run_date))
                 except SystemExit:
                     raise SystemExit('SysExiting MARsReport...')
+                except Exception as e:
+                    print('Unexpected Exception encounter')
+                    print(e)
                 else:
+                    print("Program ran successfully for date: {}".format(run_date.strftime("%m%d%Y")))
                     self.file_queue += file.transmit_report()
             except SystemExit:
                 pass
@@ -47,6 +51,10 @@ class MonthlyMarsReport(AReport):
         print(self.file_queue)
 
     def summarize_queue(self):
+        print(self.file_queue)
+        if self.is_empty_wb(self.file_queue):
+            print('empty wb')
+            return
         agent_summary = AgentSummary()
         for report in self.file_queue:
             for agent in report.rownames:

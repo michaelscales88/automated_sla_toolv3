@@ -122,6 +122,11 @@ class AReport(UtilityObject):
         else:
             print("Files already downloaded.")
 
+    def is_empty_wb(self, book):
+        if type(book) is not pe.Book:
+            return
+        return book.number_of_sheets() is 0
+
     def transmit_report(self):
         return self.final_report
 

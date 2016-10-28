@@ -9,7 +9,6 @@ from automated_sla_tool.src.Notes import Notes
 
 
 class DailyMarsReport(AReport):
-
     def __init__(self, month=None):
         # TODO: add xslx writer for spreadsheet formatting
         super().__init__(report_dates=month)
@@ -18,7 +17,7 @@ class DailyMarsReport(AReport):
             self.final_report = report
         else:
             (self.agent_time_card,
-            self.agent_feature_trace) = self.load_documents()
+             self.agent_feature_trace) = self.load_documents()
             spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
             self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
             self.notes = Notes()
@@ -39,27 +38,16 @@ class DailyMarsReport(AReport):
                     try:
                         time_card = self.agent_time_card[sheet_name]
                     except KeyError:
+                        # TODO does not seem to catch missing days anymore
                         agent.data['Absent'] = 1
                     else:
-                        self.read_timecard(time_card, agent)
-                    finally:
-                        self.final_report.row += self.tracker[ext]
-            # TODO add notes column instead of concatenating value in logged in/out
-            notes = [self.notes.pop(0)]
-            self.final_report.row += notes
-            self.final_report.row += self.notes.get_notes()
-            self.final_report.name_rows_by_column(0)
-
-    def process_report(self):
-        # Phased out with switch to run()
-        if self.finished:
-            return
-        else:
-            agents = self.tracker.get_tracker()
-            self.final_report = self.make_summary(self.tracker.get_header())
-            for (ext, agent) in agents.items():
-                if agent[self.day_of_wk]:
-                    self.final_report.row += self.tracker[ext]
+                        try:
+                            self.read_timecard(time_card, agent)
+                        except IndexError:
+                            print('catching kristy on monday')
+                            pass
+                        else:
+                            self.final_report.row += self.tracker[ext]
             notes = [self.notes.pop(0)]
             self.final_report.row += notes
             self.final_report.row += self.notes.get_notes()
@@ -76,9 +64,43 @@ class DailyMarsReport(AReport):
     Utilities Section
     '''
 
-    def scrutinize_time_card(self, time_card):
-        # TODO remove prev day and check whether agent clocked in/out at proper time
-        pass
+    def check_day_card(self, time_card, shift_start, shift_end):
+        prev_day = self.dates - timedelta(days=1)
+        self.remove_row_w_day(time_card, prev_day)
+        start_time = self.get_start_time(time_card.column['Logged In'])
+        end_time = self.get_end_time(time_card.column['Logged Out'])
+        clocked_in = start_time >= time(hour=1)
+        clocked_out = end_time <= time(hour=23)
+        # TODO improve this... checking for agents who didn't clock out and are late
+        if not clocked_in and time_card.number_of_rows() is 2:
+            start_time = self.get_start_time(time_card.column['Logged In'], overnight=True)
+            clocked_in = True
+        return (start_time if clocked_in else shift_start,
+                end_time if clocked_out else shift_end,
+                clocked_in,
+                clocked_out)
+
+    def check_night_card(self, time_card, shift_start, shift_end):
+        tomorrow = self.dates + timedelta(days=1)
+        self.remove_row_w_day(time_card, tomorrow)
+        start_time = self.get_start_time(time_card.column['Logged In'], overnight=True)
+        end_time = self.get_end_time(time_card.column['Logged Out'])
+        clocked_in = start_time >= time(hour=1)
+        clocked_out = end_time <= time(hour=23)
+        return (start_time if clocked_in else shift_start,
+                end_time if clocked_out else shift_end,
+                clocked_in,
+                clocked_out)
+
+    def remove_row_w_day(self, time_card, remove_date):
+        try:
+            for r_index, event in enumerate(time_card.rows()):
+                for index in event:
+                    if self.safe_parse(index).date() == remove_date:
+                        del time_card.row[r_index]
+        except TypeError:
+            print('Bad type: remove_date object'
+                  '-> DailyMarsReport.remove_row_w_day')
 
     def query_sql_server(self):
         pass
@@ -98,6 +120,8 @@ class DailyMarsReport(AReport):
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
                 # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
                 # print(agent_feature_trace)
+            if agent_time_card is None:
+                raise OSError('Could not open agent_time_card')
             del agent_time_card['Summary']
             return self.filter_agent_time_card(agent_time_card), None
 
@@ -113,53 +137,61 @@ class DailyMarsReport(AReport):
                     break
 
     def get_data_measurements(self):
-        return self.agent_time_card[1].colnames
+        if self.is_empty_wb(self.agent_time_card):
+            raise OSError('No agents for report')
+        return self.agent_time_card[0].colnames
 
-    def read_timecard(self, sheet, emp_data):
-        start_time = emp_data[self.day_of_wk].start
-        is_normal_shift = self.is_normal_shift(shift_time=start_time,
-                                               earliest=time(hour=0),
-                                               latest=time(hour=18, minute=59))
+    def read_timecard(self, time_card, emp_data):
+        shift_start = emp_data[self.day_of_wk].start
+        shift_end = emp_data[self.day_of_wk].end
+        is_normal_shift = time(hour=0) <= shift_start <= time(hour=18, minute=59)
+
         if is_normal_shift:
-            if sheet.name == 'Steve McMillan(7540)':
-                print(sheet)
-
-                print(sheet)
-                # print(sheet)
-                # print([i for i in sheet.rows()])
-                # del sheet.row[0]
-                # print(sheet)
-            # end_time = emp_data[self.day_of_wk].end
-            emp_data.data['Logged In'] = self.get_start_time(sheet.column['Logged In'])
-            emp_data.data['Logged Out'] = self.get_end_time(sheet.column['Logged Out'])
+            (emp_data.data['Logged In'],
+             emp_data.data['Logged Out'],
+             clocked_in,
+             clocked_out) = self.check_day_card(time_card, shift_start, shift_end)
         else:
-            start_full_dt = self.get_start_time(sheet.column['Logged In'], overnight=True)
-            end_full_dt = self.get_end_time(sheet.column['Logged Out'], overnight=True)
-            emp_data.data['Logged In'] = self.notes.add_time_note(start_full_dt)
-            emp_data.data['Logged Out'] = self.notes.add_time_note(end_full_dt)
-        duration = sum([self.get_sec(time_string) for time_string in sheet.column['Duration']])
-        emp_data.data['Duration'] = self.convert_time_stamp(duration)
-        if self.read_time(emp_data.data['Logged In']) > self.check_grace_pd(start_time, minutes=timedelta(minutes=5)):
+            (emp_data.data['Logged In'],
+             emp_data.data['Logged Out'],
+             clocked_in,
+             clocked_out) = self.check_night_card(time_card, shift_start, shift_end)
+            if clocked_in:
+                emp_data.data.add_note(self.notes.add_time_note(r'Logged in {}'.format(
+                    self.dates - timedelta(days=1)))
+                )
+        # TODO: this needs to calculate off real time in/out
+        if clocked_in is False:
+            emp_data.data.add_note(self.notes.add_time_note(r'No Login'))
+        if clocked_out is False:
+            emp_data.data.add_note(self.notes.add_time_note(r'No Logout'))
+        try:
+            duration = (datetime.min +
+                        (datetime.combine(self.dates, emp_data.data['Logged Out']) -
+                         datetime.combine(self.dates, emp_data.data['Logged In']))).time()
+        except OverflowError:
+            duration = (datetime.min +
+                        (datetime.combine(self.dates + timedelta(days=1), emp_data.data['Logged Out']) -
+                         datetime.combine(self.dates, emp_data.data['Logged In']))).time()
+        emp_data.data['Duration'] = duration
+        late = self.read_time(emp_data.data['Logged In']) > self.check_grace_pd(shift_start,
+                                                                                minutes=timedelta(minutes=5))
+        if clocked_in and late:
             emp_data.data['Late'] = 1
 
     def get_start_time(self, column, overnight=False):
         try:
             if overnight:
-                return_time = max(self.safe_parse(item) for item in column)
+                return_time = max(self.safe_parse(item).time() for item in column)
             else:
-                return_time = min(self.safe_parse(item) for item in column).time()
+                return_time = min(self.safe_parse(item).time() for item in column)
         except AttributeError:
             return_time = 'No Clock In'
         return return_time
 
-    def get_end_time(self, column, overnight=False):
+    def get_end_time(self, column):
         try:
-            if overnight:
-                prev_day = self.util_datetime - timedelta(days=1)
-                return_time = max(self.safe_parse(item, default_date=prev_day) for item in column)
-                return_time = datetime.combine(prev_day, return_time.time())
-            else:
-                return_time = max(self.safe_parse(item) for item in column).time()
+            return_time = max(self.safe_parse(item).time() for item in column)
         except AttributeError:
             return_time = 'No Clock Out'
         return return_time
@@ -188,9 +220,6 @@ class DailyMarsReport(AReport):
         # TODO: Simplify... this seems overly complicated...
         dates = [self.safe_parse(dt_time=cell, default_rtn=self.util_datetime).date() for cell in row]
         return False in [(self.dates == date) for date in dates]
-
-    def is_normal_shift(self, shift_time=None, earliest=None, latest=None):
-        return earliest <= shift_time <= latest
 
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
@@ -227,7 +256,7 @@ class EmployeeTracker(ContainerObject):
                                         Friday=self.date_factory(data[emp, 'Friday']),
                                         Saturday=self.date_factory(data[emp, 'Saturday']),
                                         Sunday=self.date_factory(data[emp, 'Sunday']),
-                                        data=EmployeeData(report_data, 0))
+                                        data=EmployeeData(report_data))
             return_dict[emp] = emp_schedule
         return return_dict
 
@@ -246,6 +275,9 @@ class EmployeeTracker(ContainerObject):
     def split_str(self, t_string):
         return t_string.split('-')
 
+    def __delitem__(self, ext):
+        del self.__data[ext]
+
     def __getitem__(self, ext):
         agent_data = self.__data[ext]
         row_name = r'{0} {1}({2})'.format(agent_data.f_name, agent_data.l_name, ext)
@@ -259,12 +291,13 @@ class EmployeeTracker(ContainerObject):
 
 
 class EmployeeData(object):
-    def __init__(self, k_list, default):
+    def __init__(self, k_list):
         self.__dict = {}
         for key in k_list:
-            self.__dict[key] = default
-        self.__dict['Absent'] = default
-        self.__dict['Late'] = default
+            self.__dict[key] = 0
+        self.__dict['Absent'] = 0
+        self.__dict['Late'] = 0
+        self.__dict['Notes'] = ''
 
     def increment_key(self, key, val):
         if key not in self.__dict:
@@ -278,6 +311,9 @@ class EmployeeData(object):
 
     def __getitem__(self, key):
         return self.__dict[key]
+
+    def add_note(self, note):
+        self.__dict['Notes'] += r'{} '.format(note)
 
     def get_row(self):
         return [self.__dict[k] for k in sorted(self.__dict.keys())]
