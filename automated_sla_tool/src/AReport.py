@@ -122,6 +122,21 @@ class AReport(UtilityObject):
         else:
             print("Files already downloaded.")
 
+    def correlate_list_data(self, src_list, list_to_correlate, key):
+        return_value = 0
+        for event in self.find(src_list, key):
+            return_value += self.get_sec(list_to_correlate[event])
+        return return_value
+
+    def dt_div(self, dt_obj, div):
+        print(timedelta(hours=dt_obj.hour, minutes=dt_obj.minute, seconds=dt_obj.second) / div)
+        print(dt_obj)
+        print(div)
+        print('inside truediv')
+
+    def find(self, lst, a):
+        return [i for i, x in enumerate(lst) if x == a]
+
     def is_empty_wb(self, book):
         if type(book) is not pe.Book:
             return

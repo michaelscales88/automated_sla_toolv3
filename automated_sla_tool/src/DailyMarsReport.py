@@ -37,17 +37,19 @@ class DailyMarsReport(AReport):
                     sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
                     try:
                         time_card = self.agent_time_card[sheet_name]
+                        feature_card = self.agent_feature_trace[sheet_name]
                     except KeyError:
-                        # TODO does not seem to catch missing days anymore
                         agent.data['Absent'] = 1
                     else:
                         try:
                             self.read_timecard(time_card, agent)
                         except IndexError:
+                            # TODO improve this for catching Sun-Mon overnight employees
                             print('catching kristy on monday')
                             pass
-                        else:
-                            self.final_report.row += self.tracker[ext]
+                        self.read_featurecard(feature_card, agent)
+                    finally:
+                        self.final_report.row += self.tracker[ext]
             notes = [self.notes.pop(0)]
             self.final_report.row += notes
             self.final_report.row += self.notes.get_notes()
@@ -110,20 +112,15 @@ class DailyMarsReport(AReport):
             return
         else:
             agent_time_card_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Time Card.xlsx')
-            # agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
+            agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
             try:
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
-                # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
-                # print(agent_feature_trace)
+                agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
             except FileNotFoundError:
                 self.download_documents(files=[r'Agent Time Card.xlsx', r'Agent Realtime Feature Trace.xlsx'])
                 agent_time_card = pe.get_book(file_name=agent_time_card_file)
-                # agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
-                # print(agent_feature_trace)
-            if agent_time_card is None:
-                raise OSError('Could not open agent_time_card')
-            del agent_time_card['Summary']
-            return self.filter_agent_time_card(agent_time_card), None
+                agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
+            return self.filter_feature_report(agent_time_card), self.filter_feature_report(agent_feature_trace)
 
     def download_documents(self, files):
         if self.finished:
@@ -140,6 +137,19 @@ class DailyMarsReport(AReport):
         if self.is_empty_wb(self.agent_time_card):
             raise OSError('No agents for report')
         return self.agent_time_card[0].colnames
+
+    def read_featurecard(self, feature_card, emp_data):
+        dnd_sec = self.correlate_list_data(feature_card.column['Feature Type'],
+                                           feature_card.column['Duration'],
+                                           'Do Not Disturb')
+        emp_data.data['Availability'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
+        emp_data.data['DND'] = self.convert_time_stamp(dnd_sec)
+
+    def get_percent_avail(self, dt_time, div_sec):
+        dt_delta = timedelta(hours=dt_time.hour, minutes=dt_time.minute, seconds=dt_time.second)
+        dnd_delta = timedelta(seconds=div_sec)
+        dt_delta = dnd_delta if dnd_delta > dt_delta else dt_delta
+        return float(r'{0:.2f}'.format(((dt_delta - dnd_delta) / dt_delta) * 100))
 
     def read_timecard(self, time_card, emp_data):
         shift_start = emp_data[self.day_of_wk].start
@@ -204,15 +214,19 @@ class DailyMarsReport(AReport):
                             '-> bad sheet name')
         return return_value[0]
 
-    def filter_agent_time_card(self, workbook):
-        time_card_filter = pe.RowValueFilter(self.agent_time_row_filter)
+    def filter_feature_report(self, workbook):
+        try:
+            del workbook['Summary']
+        except KeyError:
+            pass
+        feature_report_filter = pe.RowValueFilter(self.feature_report_row_filter)
         for sheet in workbook:
-            sheet.filter(time_card_filter)
+            sheet.filter(feature_report_filter)
             sheet.name_columns_by_row(0)
             sheet.name_rows_by_column(0)
         return workbook
 
-    def agent_time_row_filter(self, row):
+    def feature_report_row_filter(self, row):
         unique_cell = row[0].split(' ')
         return unique_cell[0] != 'Feature'
 
@@ -297,6 +311,8 @@ class EmployeeData(object):
             self.__dict[key] = 0
         self.__dict['Absent'] = 0
         self.__dict['Late'] = 0
+        self.__dict['DND'] = 0
+        self.__dict['Availability'] = 0
         self.__dict['Notes'] = ''
 
     def increment_key(self, key, val):

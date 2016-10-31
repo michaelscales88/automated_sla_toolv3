@@ -161,7 +161,8 @@ class SlaReport(AReport):
                                                  lost_calls=calls_lost,
                                                  voicemail=voicemails,
                                                  full_service=self.clients[client].full_service)
-                if self.sla_report[client].is_empty_wb():
+                # print(self.sla_report[client])
+                if self.sla_report[client].is_empty():
                     pass
                 else:
                     if self.sla_report[client].no_answered() is False:
@@ -381,20 +382,11 @@ class SlaReport(AReport):
         result = row[0].split(' ')
         return result[0] != 'Event'
 
-    def find(self, lst, a):
-        return [i for i, x in enumerate(lst) if x == a]
-
     def find_non_distinct(self, lst):
         icount = {}
         for i in lst:
             icount[i] = icount.get(i, 0) + 1
         return {k: v for k, v in icount.items() if v > 1}
-
-    def correlate_list_data(self, src_list, list_to_correlate, key):
-        return_value = 0
-        for event in self.find(src_list, key):
-            return_value += self.get_sec(list_to_correlate[event])
-        return return_value
 
     def read_report(self, report):
         report_details = defaultdict(list)
@@ -563,13 +555,6 @@ class SlaReport(AReport):
     def check_finished(self):
         the_file = r'{0}_Incoming DID Summary.xlsx'.format(self.dates.strftime("%m%d%Y"))
         return super().report_finished('sla_report', the_file)
-        # date_string = self.dates.strftime("%m%d%Y")
-        # the_file = r'{0}\Output\.format(os.path.dirname(self.path), date_string)
-        # if os.path.isfile(the_file):
-        #     file_exists = True
-        # else:
-        #     file_exists = False
-        # return file_exists, the_file
 
 
 class Client:

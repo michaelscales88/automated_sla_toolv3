@@ -24,7 +24,6 @@ class MonthlyMarsReport(AReport):
                 try:
                     file = DailyMarsReport(month=run_date)
                     file.run()
-                    # file.process_report()
                     # file.save_report()
                 except OSError:
                     print('Could not open report for date {}'.format(run_date))
