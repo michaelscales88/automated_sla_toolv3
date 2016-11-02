@@ -186,6 +186,7 @@ class SlaReport(AReport):
                        'PCA']
             self.final_report.row += headers
             self.final_report.name_columns_by_row(0)
+            print(self.final_report)
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
             for client in sorted(self.clients.keys()):
@@ -231,7 +232,7 @@ class SlaReport(AReport):
             self.set_save_path('sla_report')
             network_dir = r'M:\Help Desk\Daily SLA Report\2016'
             the_file = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
-            self.final_report.name = the_file
+            self.final_report.name = self.dates.strftime("%m-%d-%Y")
             file_string = r'.\{0}.xlsx'.format(the_file)
             self.final_report.save_as(filename=file_string)
             try:

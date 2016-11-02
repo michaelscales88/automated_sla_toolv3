@@ -1,6 +1,6 @@
 import traceback
 import pyexcel as pe
-from datetime import timedelta
+from datetime import timedelta, datetime
 from automated_sla_tool.src.DailyMarsReport import DailyMarsReport
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
@@ -30,8 +30,12 @@ class MonthlyMarsReport(AReport):
                 except SystemExit:
                     raise SystemExit('SysExiting MARsReport...')
                 except Exception as e:
-                    print('Unexpected Exception encounter')
+                    print('Unexpected Exception encounter: {}'.format(run_date.strftime("%m%d%Y")))
+                    import sys
+                    error = traceback.format_exc()
+                    traceback.print_exc(file=sys.stderr)
                     print(e)
+                    print(error)
                 else:
                     print("Program ran successfully for date: {}".format(run_date.strftime("%m%d%Y")))
                     self.file_queue += file.transmit_report()
@@ -50,7 +54,6 @@ class MonthlyMarsReport(AReport):
         print(self.file_queue)
 
     def summarize_queue(self):
-        print(self.file_queue)
         if self.is_empty_wb(self.file_queue):
             print('empty wb')
             return
@@ -61,6 +64,9 @@ class MonthlyMarsReport(AReport):
                     break
                 agent_summary[(agent, 'Absent')] = report[agent, 'Absent']
                 agent_summary[(agent, 'Late')] = report[agent, 'Late']
+                agent_summary[(agent, 'DND')] = report[agent, 'DND']
+                agent_summary[(agent, 'Duration')] = report[agent, 'Duration']
+                # print(agent_summary[agent])
         self.create_final_report(agent_summary)
 
     '''
@@ -79,13 +85,21 @@ class MonthlyMarsReport(AReport):
             row = [agent] + [data[k] for k in sorted(data.keys())]
             display_report.row += row
         display_report.name_rows_by_column(0)
-        print(display_report)
+        self.final_report = display_report
+        print(self.final_report)
 
     def create_sheet(self, headers):
         sheet = pe.Sheet()
         sheet.row += headers
         sheet.name_columns_by_row(0)
         return sheet
+
+    def save_report(self):
+        self.set_save_path('monthly_mars_report')
+        the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))
+        self.final_report.name = self.dates.strftime('%B %Y')
+        file_string = r'.\{0}.xlsx'.format(the_file)
+        self.final_report.save_as(filename=file_string)
 
 
 class AgentSummary(TupleKeyDict):
@@ -95,3 +109,25 @@ class AgentSummary(TupleKeyDict):
     def get_header(self):
         adict = self.get_dict()
         return ['Employee'] + sorted(next(iter(adict.values())).keys())
+
+    def __setitem__(self, key, value):
+        try:
+            super().__setitem__(key, value)
+        except TypeError:
+            # TODO complete this... duration still seems not to work
+            # print('Agent: {}'.format(key[0]))
+            # print('S_Key {}'.format(key[1]))
+            dt_time = self[key[0]][key[1]]
+            # print('Current Value: {}'.format(dt_time))
+            # print('Adding Value: {}'.format(value))
+            try:
+                new_time = (datetime.combine(datetime.today(), dt_time) + timedelta(hours=value.hour,
+                                                                                    minutes=value.minute,
+                                                                                    seconds=value.second)).time()
+            except (TypeError, AttributeError):
+                if value is 0:
+                    pass
+                else:
+                    super().set_item(key, value)
+            else:
+                super().set_item(key, new_time)

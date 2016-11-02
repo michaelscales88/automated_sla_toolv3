@@ -1,6 +1,3 @@
-from datetime import datetime
-
-
 class Notes(object):
     def __init__(self):
         self.__counter = 0
@@ -9,7 +6,7 @@ class Notes(object):
     def __getitem__(self, key):
         return self.__dict[key]
 
-    def add_time_note(self, note):
+    def add_note(self, note):
         self.__dict[self.__counter + 1] = note
         self.__counter += 1
         return r'{0}'.format(self.__counter)

@@ -15,6 +15,7 @@ class DailyMarsReport(AReport):
         self.finished, report = self.check_finished()
         if self.finished:
             self.final_report = report
+            print(self.final_report)
         else:
             (self.agent_time_card,
              self.agent_feature_trace) = self.load_documents()
@@ -44,10 +45,10 @@ class DailyMarsReport(AReport):
                         try:
                             self.read_timecard(time_card, agent)
                         except IndexError:
-                            # TODO improve this for catching Sun-Mon overnight employees
-                            print('catching kristy on monday')
-                            pass
-                        self.read_featurecard(feature_card, agent)
+                            print('catching {0} on {1}'.format(agent.f_name, self.dates.strftime('%m%d%Y')))
+                            agent.data.add_note(self.notes.add_note(r'Data Error'))
+                        else:
+                            self.read_featurecard(feature_card, agent)
                     finally:
                         self.final_report.row += self.tracker[ext]
             notes = [self.notes.pop(0)]
@@ -143,7 +144,7 @@ class DailyMarsReport(AReport):
                                            feature_card.column['Duration'],
                                            'Do Not Disturb')
         emp_data.data['Availability'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
-        emp_data.data['DND'] = self.convert_time_stamp(dnd_sec)
+        emp_data.data['DND'] = (datetime.min + timedelta(seconds=dnd_sec)).time()
 
     def get_percent_avail(self, dt_time, div_sec):
         dt_delta = timedelta(hours=dt_time.hour, minutes=dt_time.minute, seconds=dt_time.second)
@@ -167,14 +168,13 @@ class DailyMarsReport(AReport):
              clocked_in,
              clocked_out) = self.check_night_card(time_card, shift_start, shift_end)
             if clocked_in:
-                emp_data.data.add_note(self.notes.add_time_note(r'Logged in {}'.format(
+                emp_data.data.add_note(self.notes.add_note(r'Logged in {}'.format(
                     self.dates - timedelta(days=1)))
                 )
-        # TODO: this needs to calculate off real time in/out
         if clocked_in is False:
-            emp_data.data.add_note(self.notes.add_time_note(r'No Login'))
+            emp_data.data.add_note(self.notes.add_note(r'No Login'))
         if clocked_out is False:
-            emp_data.data.add_note(self.notes.add_time_note(r'No Logout'))
+            emp_data.data.add_note(self.notes.add_note(r'No Logout'))
         try:
             duration = (datetime.min +
                         (datetime.combine(self.dates, emp_data.data['Logged Out']) -

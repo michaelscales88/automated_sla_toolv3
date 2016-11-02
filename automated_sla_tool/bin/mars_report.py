@@ -8,6 +8,7 @@ def main(s_date=None, days=None):
     file.run()
     # file.print_queue()
     file.summarize_queue()
+    # file.save_report()
 
 
 if __name__ == "__main__":
