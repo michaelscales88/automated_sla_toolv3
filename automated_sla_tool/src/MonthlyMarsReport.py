@@ -1,9 +1,10 @@
 import traceback
 import pyexcel as pe
-from datetime import timedelta, datetime
+from datetime import timedelta
 from automated_sla_tool.src.DailyMarsReport import DailyMarsReport
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
+from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
 class MonthlyMarsReport(AReport):
@@ -24,7 +25,7 @@ class MonthlyMarsReport(AReport):
                 try:
                     file = DailyMarsReport(month=run_date)
                     file.run()
-                    # file.save_report()
+                    file.save_report()
                 except OSError:
                     print('Could not open report for date {}'.format(run_date))
                 except SystemExit:
@@ -55,18 +56,17 @@ class MonthlyMarsReport(AReport):
 
     def summarize_queue(self):
         if self.is_empty_wb(self.file_queue):
-            print('empty wb')
             return
         agent_summary = AgentSummary()
         for report in self.file_queue:
             for agent in report.rownames:
                 if agent == 'Notes':
                     break
+                # TODO: make this += for clarity
                 agent_summary[(agent, 'Absent')] = report[agent, 'Absent']
                 agent_summary[(agent, 'Late')] = report[agent, 'Late']
                 agent_summary[(agent, 'DND')] = report[agent, 'DND']
                 agent_summary[(agent, 'Duration')] = report[agent, 'Duration']
-                # print(agent_summary[agent])
         self.create_final_report(agent_summary)
 
     '''
@@ -105,6 +105,7 @@ class MonthlyMarsReport(AReport):
 class AgentSummary(TupleKeyDict):
     def __init__(self):
         super().__init__()
+        self.__util = UtilityObject()
 
     def get_header(self):
         adict = self.get_dict()
@@ -114,20 +115,18 @@ class AgentSummary(TupleKeyDict):
         try:
             super().__setitem__(key, value)
         except TypeError:
-            # TODO complete this... duration still seems not to work
-            # print('Agent: {}'.format(key[0]))
-            # print('S_Key {}'.format(key[1]))
-            dt_time = self[key[0]][key[1]]
-            # print('Current Value: {}'.format(dt_time))
-            # print('Adding Value: {}'.format(value))
             try:
-                new_time = (datetime.combine(datetime.today(), dt_time) + timedelta(hours=value.hour,
-                                                                                    minutes=value.minute,
-                                                                                    seconds=value.second)).time()
-            except (TypeError, AttributeError):
-                if value is 0:
+                # TODO modify this... current timedelta rolls over at 24hours
+                value = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
+            except AttributeError:
+                # TODO this handles type int, but should only work for 0
+                pass
+            else:
+                try:
+                    curr_val = self[key[0]][key[1]]
+                    curr_val = timedelta(hours=curr_val.hour, minutes=curr_val.minute, seconds=curr_val.second)
+                except AttributeError:
                     pass
                 else:
-                    super().set_item(key, value)
-            else:
-                super().set_item(key, new_time)
+                    new_val = value + curr_val
+                    super().set_item(key, new_val)

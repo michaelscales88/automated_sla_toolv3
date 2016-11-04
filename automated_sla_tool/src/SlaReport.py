@@ -6,6 +6,7 @@ from dateutil.parser import parse
 from collections import defaultdict, namedtuple
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
+# TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
 
 
 class SlaReport(AReport):
@@ -161,7 +162,6 @@ class SlaReport(AReport):
                                                  lost_calls=calls_lost,
                                                  voicemail=voicemails,
                                                  full_service=self.clients[client].full_service)
-                # print(self.sla_report[client])
                 if self.sla_report[client].is_empty():
                     pass
                 else:
@@ -186,7 +186,6 @@ class SlaReport(AReport):
                        'PCA']
             self.final_report.row += headers
             self.final_report.name_columns_by_row(0)
-            print(self.final_report)
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
             for client in sorted(self.clients.keys()):

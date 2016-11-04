@@ -5,10 +5,13 @@ from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
 def main():
-    dt_date = '07:56:45'
-    print(parse(dt_date))
-    default_date = datetime.now() - timedelta(days=3)
-    print(parse(dt_date, default=default_date))
+    time1 = timedelta(hours=24)
+    time2 = timedelta(hours=24)
+    print(time1 + time2)
+    # dt_date = '07:56:45'
+    # print(parse(dt_date))
+    # default_date = datetime.now() - timedelta(days=3)
+    # print(parse(dt_date, default=default_date))
     # bool_str = 'False'
     # dt = datetime.now()
     # print(dt)

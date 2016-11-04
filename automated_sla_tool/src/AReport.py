@@ -1,13 +1,18 @@
 # Inherited report methods
 import pyexcel as pe
 import os
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, time
+from dateutil.parser import parse
 from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
 class AReport(UtilityObject):
     def __init__(self, report_dates=None):
-        super().__init__(report_dates)
+        super().__init__()
+        if report_dates is None:
+            raise ValueError('No report date provided... Try again.')
+        self.dates = report_dates
+        self.util_datetime = datetime.combine(self.dates, time())
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.day_of_wk = self.dates.weekday()
         self.final_report = pe.Sheet()
@@ -28,19 +33,6 @@ class AReport(UtilityObject):
         self.change_dir(file_dir)
         return os.getcwd()
 
-    def get_sec(self, time_string):
-        try:
-            h, m, s = [int(float(i)) for i in time_string.split(':')]
-        except TypeError:
-            return 0
-        except ValueError:
-            h, m = [int(float(i)) for i in time_string.split(':')]
-            s = 0
-        return self.convert_sec(h, m, s)
-
-    def convert_sec(self, h, m, s):
-        return (3600 * int(h)) + (60 * int(m)) + int(s)
-
     def copy_and_convert(self, file_location, directory):
         from shutil import move
         for src_file in directory:
@@ -60,11 +52,6 @@ class AReport(UtilityObject):
             src = os.path.join(self.active_directory, src_file)
             des = os.path.join(file_location, src_file)
             move(src, des)
-
-    def convert_time_stamp(self, convert_seconds):
-        minutes, seconds = divmod(convert_seconds, 60)
-        hours, minutes = divmod(minutes, 60)
-        return "{0}:{1:02d}:{2:02d}".format(hours, minutes, seconds)
 
     def prepare_sheet_header(self, lst, first_index):
         return_list = [i for i in lst]
@@ -128,12 +115,6 @@ class AReport(UtilityObject):
             return_value += self.get_sec(list_to_correlate[event])
         return return_value
 
-    def dt_div(self, dt_obj, div):
-        print(timedelta(hours=dt_obj.hour, minutes=dt_obj.minute, seconds=dt_obj.second) / div)
-        print(dt_obj)
-        print(div)
-        print('inside truediv')
-
     def find(self, lst, a):
         return [i for i, x in enumerate(lst) if x == a]
 
@@ -176,3 +157,23 @@ class AReport(UtilityObject):
             file_exists = False
             the_file = None
         return file_exists, the_file
+
+    def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
+        try:
+            return parse(dt_time, default=(default_date if default_date is not None else self.util_datetime))
+        except ValueError:
+            return default_rtn if default_rtn is not None else self.util_datetime
+        except AttributeError:
+            return dt_time
+
+    def read_time(self, time_object, spc_chr='*'):
+        try:
+            return_time = time_object.split(spc_chr)[0]
+        except AttributeError:
+            try:
+                return_time = time_object.time()
+            except AttributeError:
+                return_time = time_object
+        else:
+            return_time = self.safe_parse(return_time).time()
+        return return_time

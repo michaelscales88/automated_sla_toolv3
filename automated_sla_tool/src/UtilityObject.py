@@ -1,14 +1,9 @@
 import os
-from datetime import datetime, time
-from dateutil.parser import parse
 
 
 class UtilityObject:
-    def __init__(self, report_dates):
-        if report_dates is None:
-            raise ValueError('No report date provided... Try again.')
-        self.dates = report_dates
-        self.util_datetime = datetime.combine(self.dates, time())
+    def __init__(self):
+        pass
 
     def str_to_bool(self, bool_str):
         if type(bool_str) is bool:
@@ -20,6 +15,27 @@ class UtilityObject:
         else:
             raise ValueError("Cannot covert {} to a bool".format(bool_str))
 
+    def get_sec(self, time_string):
+        try:
+            h, m, s = [int(float(i)) for i in time_string.split(':')]
+        except TypeError:
+            return 0
+        except ValueError:
+            try:
+                h, m = [int(float(i)) for i in time_string.split(':')]
+                s = 0
+            except ValueError:
+                return 0
+        return self.convert_sec(h, m, s)
+
+    def convert_sec(self, h, m, s):
+        return (3600 * int(h)) + (60 * int(m)) + int(s)
+
+    def convert_time_stamp(self, convert_seconds):
+        minutes, seconds = divmod(convert_seconds, 60)
+        hours, minutes = divmod(minutes, 60)
+        return "{0}:{1:02d}:{2:02d}".format(hours, minutes, seconds)
+
     def change_dir(self, the_dir):
         try:
             os.chdir(the_dir)
@@ -29,23 +45,3 @@ class UtilityObject:
                 os.chdir(the_dir)
             except OSError:
                 pass
-
-    def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
-        try:
-            return parse(dt_time, default=(default_date if default_date is not None else self.util_datetime))
-        except ValueError:
-            return default_rtn if default_rtn is not None else self.util_datetime
-        except AttributeError:
-            return dt_time
-
-    def read_time(self, time_object, spc_chr='*'):
-        try:
-            return_time = time_object.split(spc_chr)[0]
-        except AttributeError:
-            try:
-                return_time = time_object.time()
-            except AttributeError:
-                return_time = time_object
-        else:
-            return_time = self.safe_parse(return_time).time()
-        return return_time

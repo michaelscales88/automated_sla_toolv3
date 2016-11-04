@@ -17,7 +17,13 @@ class TupleKeyDict(object):
                 self.__dict[p_key][s_key] = value
 
     def __getitem__(self, key):
-        return self.__dict[key]
+        try:
+            return_val = self.__dict[key]
+        except KeyError:
+            p_key = key[0]
+            s_key = key[1]
+            return_val = self.__dict[p_key][s_key]
+        return return_val
 
     def __str__(self):
         for (k, v) in self.__dict.items():

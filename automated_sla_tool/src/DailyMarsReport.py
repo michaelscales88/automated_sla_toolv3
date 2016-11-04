@@ -15,7 +15,6 @@ class DailyMarsReport(AReport):
         self.finished, report = self.check_finished()
         if self.finished:
             self.final_report = report
-            print(self.final_report)
         else:
             (self.agent_time_card,
              self.agent_feature_trace) = self.load_documents()
@@ -144,7 +143,7 @@ class DailyMarsReport(AReport):
                                            feature_card.column['Duration'],
                                            'Do Not Disturb')
         emp_data.data['Availability'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
-        emp_data.data['DND'] = (datetime.min + timedelta(seconds=dnd_sec)).time()
+        emp_data.data['DND'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
 
     def get_percent_avail(self, dt_time, div_sec):
         dt_delta = timedelta(hours=dt_time.hour, minutes=dt_time.minute, seconds=dt_time.second)
