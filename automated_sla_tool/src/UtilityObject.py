@@ -34,7 +34,7 @@ class UtilityObject:
     def convert_time_stamp(self, convert_seconds):
         minutes, seconds = divmod(convert_seconds, 60)
         hours, minutes = divmod(minutes, 60)
-        return "{0}:{1:02d}:{2:02d}".format(hours, minutes, seconds)
+        return r"{0}:{1:02d}:{2:02d}".format(hours, minutes, seconds)
 
     def change_dir(self, the_dir):
         try:

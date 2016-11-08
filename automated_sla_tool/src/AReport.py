@@ -53,6 +53,11 @@ class AReport(UtilityObject):
             des = os.path.join(file_location, src_file)
             move(src, des)
 
+    def time_stamp_format_col(self, column):
+        col_index = self.final_report.colnames.index(column)
+        for index, row_val in enumerate(self.final_report.column[column]):
+            self.final_report[index, col_index] = self.convert_time_stamp(row_val)
+
     def prepare_sheet_header(self, lst, first_index):
         return_list = [i for i in lst]
         return_list.insert(0, first_index)

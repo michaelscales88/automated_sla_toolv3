@@ -86,6 +86,9 @@ class MonthlyMarsReport(AReport):
             display_report.row += row
         display_report.name_rows_by_column(0)
         self.final_report = display_report
+        self.generate_program_columns()
+        self.time_stamp_format_col("DND")
+        self.time_stamp_format_col("Duration")
         print(self.final_report)
 
     def create_sheet(self, headers):
@@ -101,6 +104,19 @@ class MonthlyMarsReport(AReport):
         file_string = r'.\{0}.xlsx'.format(the_file)
         self.final_report.save_as(filename=file_string)
 
+    def generate_program_columns(self):
+        # TODO: Add row to count number of times in and out
+        new_rows = pe.Sheet()
+        new_rows.row += ["Avail"]
+        for row in range(self.final_report.number_of_rows()):
+            try:
+                p_avail = ((self.final_report[row, "Duration"] - self.final_report[row, "DND"]) /
+                           self.final_report[row, "Duration"])
+                new_rows.row += [r'{0:.1%}'.format(p_avail)]
+            except ZeroDivisionError:
+                new_rows.row += [0]
+        self.final_report.column += new_rows
+
 
 class AgentSummary(TupleKeyDict):
     def __init__(self):
@@ -108,25 +124,13 @@ class AgentSummary(TupleKeyDict):
         self.__util = UtilityObject()
 
     def get_header(self):
-        adict = self.get_dict()
-        return ['Employee'] + sorted(next(iter(adict.values())).keys())
+        data_dict = self.get_dict()
+        return ['Employee'] + sorted(next(iter(data_dict.values())).keys())
 
     def __setitem__(self, key, value):
         try:
+            add_secs = int(timedelta(hours=value.hour, minutes=value.minute, seconds=value.second).total_seconds())
+        except AttributeError:
             super().__setitem__(key, value)
-        except TypeError:
-            try:
-                # TODO modify this... current timedelta rolls over at 24hours
-                value = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
-            except AttributeError:
-                # TODO this handles type int, but should only work for 0
-                pass
-            else:
-                try:
-                    curr_val = self[key[0]][key[1]]
-                    curr_val = timedelta(hours=curr_val.hour, minutes=curr_val.minute, seconds=curr_val.second)
-                except AttributeError:
-                    pass
-                else:
-                    new_val = value + curr_val
-                    super().set_item(key, new_val)
+        else:
+            super().__setitem__(key, add_secs)

@@ -38,10 +38,3 @@ class TupleKeyDict(object):
 
     def get_dict(self):
         return self.__dict
-
-    def set_item(self, key, value):
-        if type(key) is not tuple:
-            return
-        p_key = key[0]
-        s_key = key[1]
-        self.__dict[p_key][s_key] = value
