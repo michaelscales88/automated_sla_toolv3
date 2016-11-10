@@ -65,7 +65,7 @@ class SlaReport(AReport):
             if self.check_valid_date(abandon_group[0]['A3']) is not True:
                 raise ValueError('Invalid date for file {}'.format(abandon_group_file))
             abandon_group = self.merge_sheets(abandon_group)
-            self.abandon_group = self.make_distinct_and_sort(abandon_group)
+            self.abandon_group = self.make_distinct_and_sort(abandon_group, delim='-')
             self.abandon_group.name_columns_by_row(0)
             self.filter_abandon_group(self.abandon_group)
             self.abandon_group.name = 'abandon_group'
@@ -108,22 +108,22 @@ class SlaReport(AReport):
                 talk_duration = self.get_sec(row[col_index.index('Talking Duration')])
                 if (transfer_hold or had_hold or had_park or had_conference) is True:
                     event_durations = sheet.column['Event Duration']
-                    this_client = client(hold_amount=self.correlate_list_data(sheet_events,
+                    this_client = client(hold_amount=self.correlate_event_data(sheet_events,
                                                                               event_durations,
                                                                               'Hold'),
-                                         park_amount=self.correlate_list_data(sheet_events,
+                                         park_amount=self.correlate_event_data(sheet_events,
                                                                               event_durations,
                                                                               'Park'),
-                                         conference_amount=self.correlate_list_data(sheet_events,
+                                         conference_amount=self.correlate_event_data(sheet_events,
                                                                                     event_durations,
                                                                                     'Conference'),
-                                         transfer_amount=self.correlate_list_data(sheet_events,
+                                         transfer_amount=self.correlate_event_data(sheet_events,
                                                                                   event_durations,
                                                                                   'Transfer Hold'))
                     if transfer_hold is True and had_conference is False:
                         transfer_hold_index = sheet_events.index('Transfer Hold')
                         this_client = this_client._replace(
-                            additional_time=self.correlate_list_data(sheet_events[transfer_hold_index:],
+                            additional_time=self.correlate_event_data(sheet_events[transfer_hold_index:],
                                                                      event_durations[transfer_hold_index:],
                                                                      'Talking')
                         )
@@ -243,6 +243,11 @@ class SlaReport(AReport):
     '''
     Utilities Section
     '''
+
+    def correlate_event_data(self, src_list, list_to_correlate, key):
+        event_list = super().correlate_list_data(src_list, list_to_correlate, key)
+        return sum(v for v in event_list)
+
     def validate_final_report(self):
         for row in self.final_report.rownames:
             ticker_total = 0

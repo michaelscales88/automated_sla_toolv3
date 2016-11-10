@@ -4,7 +4,6 @@ from datetime import timedelta
 from automated_sla_tool.src.DailyMarsReport import DailyMarsReport
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
-from automated_sla_tool.src.UtilityObject import UtilityObject
 
 
 class MonthlyMarsReport(AReport):
@@ -25,9 +24,10 @@ class MonthlyMarsReport(AReport):
                 try:
                     file = DailyMarsReport(month=run_date)
                     file.run()
-                    file.save_report()
-                except OSError:
+                    # file.save_report()
+                except (OSError, FileNotFoundError) as e:
                     print('Could not open report for date {}'.format(run_date))
+                    print(e)
                 except SystemExit:
                     raise SystemExit('SysExiting MARsReport...')
                 except Exception as e:
@@ -67,6 +67,7 @@ class MonthlyMarsReport(AReport):
                 agent_summary[(agent, 'Late')] = report[agent, 'Late']
                 agent_summary[(agent, 'DND')] = report[agent, 'DND']
                 agent_summary[(agent, 'Duration')] = report[agent, 'Duration']
+                agent_summary[(agent, 'numDND')] = report[agent, 'numDND']
         self.create_final_report(agent_summary)
 
     '''
@@ -87,8 +88,7 @@ class MonthlyMarsReport(AReport):
         display_report.name_rows_by_column(0)
         self.final_report = display_report
         self.generate_program_columns()
-        self.time_stamp_format_col("DND")
-        self.time_stamp_format_col("Duration")
+        self.time_stamp_format_col("DND", "Duration")
         print(self.final_report)
 
     def create_sheet(self, headers):
@@ -121,7 +121,6 @@ class MonthlyMarsReport(AReport):
 class AgentSummary(TupleKeyDict):
     def __init__(self):
         super().__init__()
-        self.__util = UtilityObject()
 
     def get_header(self):
         data_dict = self.get_dict()

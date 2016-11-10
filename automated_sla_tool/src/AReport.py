@@ -1,4 +1,3 @@
-# Inherited report methods
 import pyexcel as pe
 import os
 from datetime import timedelta, datetime, time
@@ -12,6 +11,7 @@ class AReport(UtilityObject):
         if report_dates is None:
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
+        self.src_files = {}
         self.util_datetime = datetime.combine(self.dates, time())
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.day_of_wk = self.dates.weekday()
@@ -53,10 +53,11 @@ class AReport(UtilityObject):
             des = os.path.join(file_location, src_file)
             move(src, des)
 
-    def time_stamp_format_col(self, column):
-        col_index = self.final_report.colnames.index(column)
-        for index, row_val in enumerate(self.final_report.column[column]):
-            self.final_report[index, col_index] = self.convert_time_stamp(row_val)
+    def time_stamp_format_col(self, *columns):
+        for column in columns:
+            col_index = self.final_report.colnames.index(column)
+            for index, row_val in enumerate(self.final_report.column[column]):
+                self.final_report[index, col_index] = self.convert_time_stamp(row_val)
 
     def prepare_sheet_header(self, lst, first_index):
         return_list = [i for i in lst]
@@ -115,10 +116,10 @@ class AReport(UtilityObject):
             print("Files already downloaded.")
 
     def correlate_list_data(self, src_list, list_to_correlate, key):
-        return_value = 0
+        return_list = []
         for event in self.find(src_list, key):
-            return_value += self.get_sec(list_to_correlate[event])
-        return return_value
+            return_list.append(self.get_sec(list_to_correlate[event]))
+        return return_list
 
     def find(self, lst, a):
         return [i for i, x in enumerate(lst) if x == a]
@@ -131,9 +132,9 @@ class AReport(UtilityObject):
     def transmit_report(self):
         return self.final_report
 
-    def make_distinct_and_sort(self, worksheet):
+    def make_distinct_and_sort(self, worksheet, delim=None):
         worksheet.name_rows_by_column(0)
-        sorted_list = [item for item in sorted(worksheet.rownames, reverse=False) if '-' not in item]
+        sorted_list = [item for item in sorted(worksheet.rownames, reverse=False) if delim not in item]
         new_sheet = pe.Sheet()
         for item in sorted_list:
             temp_list = worksheet.row[item]
