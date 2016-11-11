@@ -34,8 +34,9 @@ def main(report_date_delta):
                 print("Program ran successfully for date: {}".format(start_date.strftime("%m%d%Y")))
             except SystemExit:
                 raise SystemExit('SysExiting SLAReport...')
-            except (FileNotFoundError, OSError):
+            except (FileNotFoundError, OSError) as e:
                 print('Could not open report for date {}'.format(start_date.strftime("%m%d%Y")))
+                print(e)
             else:
                 file_queue.append(file.transmit_report())
             finally:

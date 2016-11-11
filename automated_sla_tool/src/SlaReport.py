@@ -245,7 +245,7 @@ class SlaReport(AReport):
     '''
 
     def correlate_event_data(self, src_list, list_to_correlate, key):
-        event_list = super().correlate_list_data(src_list, list_to_correlate, key)
+        event_list = super().correlate_list_time_data(src_list, list_to_correlate, key)
         return sum(v for v in event_list)
 
     def validate_final_report(self):

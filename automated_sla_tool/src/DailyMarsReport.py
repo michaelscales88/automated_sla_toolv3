@@ -16,11 +16,9 @@ class DailyMarsReport(AReport):
         if self.finished:
             self.final_report = report
         else:
-            self.req_src_files = [r'Agent Time Card.xlsx', r'Agent Realtime Feature Trace.xlsx', r'Agent Calls.xlsx']
+            self.req_src_files = [r'Agent Time Card', r'Agent Realtime Feature Trace', r'Agent Calls']
             # TODO more testing on load documents + whether it is messing up duration/dnd
             self.load_documents()
-            # (self.agent_time_card,
-            #  self.agent_feature_trace) = self.load_documents()
             spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
             self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
             self.notes = Notes()
@@ -39,26 +37,30 @@ class DailyMarsReport(AReport):
                 if agent[self.day_of_wk]:
                     sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
                     try:
-                        # time_card = self.agent_time_card[sheet_name]
-                        # feature_card = self.agent_feature_trace[sheet_name]
-                        time_card = self.src_files['Agent Time Card.xlsx'][sheet_name]
-                        feature_card = self.src_files[r'Agent Realtime Feature Trace.xlsx'][sheet_name]
+                        time_card = self.src_files['Agent Time Card'][sheet_name]
                     except KeyError:
                         agent.data['Absent'] = 1
                     else:
                         try:
-                            self.read_timecard(time_card, agent)
+                            self.read_time_card(time_card, agent)
                         except IndexError:
-                            # print('catching {0} on {1}'.format(agent.f_name, self.dates.strftime('%m%d%Y')))
-                            agent.data.add_note(self.notes.add_note(r'Data Error'))
+                            agent.data.add_note(self.notes.add_note(r'Data Error: No Valid Time Data'))
                         else:
-                            self.read_featurecard(feature_card, agent)
+                            feature_card = self.src_files['Agent Realtime Feature Trace'][sheet_name]
+                            self.read_feature_card(feature_card, agent)
+                            try:
+                                agent_call_card = self.src_files['Agent Calls'][sheet_name]
+                            except KeyError:
+                                pass
+                            else:
+                                self.read_call_card(agent_call_card, agent)
                     finally:
                         self.final_report.row += self.tracker[ext]
-            notes = [self.notes.pop(0)]
-            self.final_report.row += notes
+            notes_label = [self.notes.pop(0)]
+            self.final_report.row += notes_label
             self.final_report.row += self.notes.get_notes()
             self.final_report.name_rows_by_column(0)
+            print(self.final_report)
 
     def save_report(self):
         self.set_save_path('mars_report')
@@ -120,7 +122,7 @@ class DailyMarsReport(AReport):
             loaded_files = {}
             unloaded_files = []
             for f_name in self.req_src_files:
-                src_file = os.path.join(self.src_doc_path, f_name)
+                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
                 try:
                     src_file_obj = pe.get_book(file_name=src_file)
                 except FileNotFoundError:
@@ -131,7 +133,7 @@ class DailyMarsReport(AReport):
             self.download_documents(files=unloaded_files)
 
             for f_name in unloaded_files:
-                src_file = os.path.join(self.src_doc_path, f_name)
+                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
                 try:
                     src_file_obj = pe.get_book(file_name=src_file)
                 except FileNotFoundError:
@@ -141,18 +143,18 @@ class DailyMarsReport(AReport):
                     loaded_files[f_name] = src_file_obj
 
             for f_name in loaded_files.keys():
-                self.src_files[f_name] = self.filter_feature_report(loaded_files[f_name])
-            # Working
-            # agent_time_card_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Time Card.xlsx')
-            # agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
-            # try:
-            #     agent_time_card = pe.get_book(file_name=agent_time_card_file)
-            #     agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
-            # except FileNotFoundError:
-            #     self.download_documents(files=[r'Agent Time Card.xlsx', r'Agent Realtime Feature Trace.xlsx'])
-            #     agent_time_card = pe.get_book(file_name=agent_time_card_file)
-            #     agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
-            # return self.filter_feature_report(agent_time_card), self.filter_feature_report(agent_feature_trace)
+                self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
+                # Working
+                # agent_time_card_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Time Card.xlsx')
+                # agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
+                # try:
+                #     agent_time_card = pe.get_book(file_name=agent_time_card_file)
+                #     agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
+                # except FileNotFoundError:
+                #     self.download_documents(files=[r'Agent Time Card.xlsx', r'Agent Realtime Feature Trace.xlsx'])
+                #     agent_time_card = pe.get_book(file_name=agent_time_card_file)
+                #     agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
+                # return self.filter_feature_report(agent_time_card), self.filter_feature_report(agent_feature_trace)
 
     def download_documents(self, files):
         if self.finished:
@@ -166,32 +168,12 @@ class DailyMarsReport(AReport):
                     break
 
     def get_data_measurements(self):
-        # if self.is_empty_wb(self.agent_time_card):
-        if self.is_empty_wb(self.src_files['Agent Time Card.xlsx']):
+        # TODO refactor this to collate src_files + take program provided names
+        if self.is_empty_wb(self.src_files['Agent Time Card']):
             raise OSError('No agents for report')
-        # return self.agent_time_card[0].colnames
-        return self.src_files['Agent Time Card.xlsx'][0].colnames
+        return self.src_files['Agent Time Card'][0].colnames
 
-
-    def read_featurecard(self, feature_card, emp_data):
-        num_dnd, dnd_sec = self.correlate_dnd_data(feature_card.column['Feature Type'],
-                                                   feature_card.column['Duration'],
-                                                   'Do Not Disturb')
-        emp_data.data['numDND'] = num_dnd
-        emp_data.data['Availability'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
-        emp_data.data['DND'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
-
-    def correlate_dnd_data(self, src_list, list_to_correlate, key):
-        dnd_list = super().correlate_list_data(src_list, list_to_correlate, key)
-        return len(dnd_list), sum(v for v in dnd_list)
-
-    def get_percent_avail(self, dt_time, div_sec):
-        dt_delta = timedelta(hours=dt_time.hour, minutes=dt_time.minute, seconds=dt_time.second)
-        dnd_delta = timedelta(seconds=div_sec)
-        dt_delta = dnd_delta if dnd_delta > dt_delta else dt_delta
-        return float(r'{0:.2f}'.format(((dt_delta - dnd_delta) / dt_delta) * 100))
-
-    def read_timecard(self, time_card, emp_data):
+    def read_time_card(self, time_card, emp_data):
         shift_start = emp_data[self.day_of_wk].start
         shift_end = emp_data[self.day_of_wk].end
         is_normal_shift = time(hour=0) <= shift_start <= time(hour=18, minute=59)
@@ -228,6 +210,53 @@ class DailyMarsReport(AReport):
         if clocked_in and late:
             emp_data.data['Late'] = 1
 
+    def read_feature_card(self, feature_card, emp_data):
+        num_dnd, dnd_sec = self.correlate_dnd_data(feature_card.column['Feature Type'],
+                                                   feature_card.column['Duration'],
+                                                   'Do Not Disturb')
+        emp_data.data['numDND'] = num_dnd
+        emp_data.data['Avail'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
+        emp_data.data['DND'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
+        if emp_data.data['DND'] > emp_data.data['Duration']:
+            emp_data.data['DND'] = emp_data.data['Duration']
+
+    def read_call_card(self, call_card, emp_data):
+        (inb_ans,
+         inb_lost,
+         inb_talk_dur) = self.count_inbound_calls(call_card.column['Call Direction'],
+                                                  (call_card.column['Answered'], call_card.column['Talking Duration']),
+                                                  'Inbound')
+        (out_calls,
+         out_talk_dur) = self.count_outbound_calls(call_card.column['Call Direction'],
+                                                   call_card.column['Talking Duration'],
+                                                   'Outbound')
+        emp_data.data['Inbound Ans'] = inb_ans
+        emp_data.data['Inbound Lost'] = inb_lost
+        emp_data.data['Outbound'] = out_calls
+        emp_data.data['Inbound Duration'] = 0 if inb_ans is 0 else (datetime.min +
+                                                               timedelta(seconds=inb_talk_dur // inb_ans)).time()
+        emp_data.data['Outbound Duration'] = 0 if out_calls is 0 else (datetime.min +
+                                                                  timedelta(seconds=out_talk_dur // out_calls)).time()
+
+    def correlate_dnd_data(self, src_list, list_to_correlate, key):
+        dnd_list = super().correlate_list_time_data(src_list, list_to_correlate, key)
+        return len(dnd_list), sum(v for v in dnd_list)
+
+    def count_inbound_calls(self, src_list, list_to_correlate, key):
+        inbound_calls = super().correlate_list_val_data(src_list, list_to_correlate[0], key)
+        talk_dur = super().correlate_list_time_data(src_list, list_to_correlate[1], key)
+        return inbound_calls.count(True), inbound_calls.count(False), sum(v for v in talk_dur)
+
+    def count_outbound_calls(self, src_list, list_to_correlate, key):
+        talk_dur = super().correlate_list_time_data(src_list, list_to_correlate, key)
+        return len(talk_dur), sum(v for v in talk_dur)
+
+    def get_percent_avail(self, dt_time, div_sec):
+        dt_delta = timedelta(hours=dt_time.hour, minutes=dt_time.minute, seconds=dt_time.second)
+        dnd_delta = timedelta(seconds=div_sec)
+        dt_delta = dnd_delta if dnd_delta > dt_delta else dt_delta
+        return float(r'{0:.2f}'.format(((dt_delta - dnd_delta) / dt_delta) * 100))
+
     def get_start_time(self, column, overnight=False):
         try:
             if overnight:
@@ -253,26 +282,21 @@ class DailyMarsReport(AReport):
                             '-> bad sheet name')
         return return_value[0]
 
-    def filter_feature_report(self, workbook):
+    def filter_agent_reports(self, workbook):
         try:
             del workbook['Summary']
         except KeyError:
             pass
-        feature_report_filter = pe.RowValueFilter(self.feature_report_row_filter)
+        feature_report_filter = pe.RowValueFilter(self.agent_report_row_filter)
         for sheet in workbook:
             sheet.filter(feature_report_filter)
             sheet.name_columns_by_row(0)
             sheet.name_rows_by_column(0)
         return workbook
 
-    def feature_report_row_filter(self, row):
-        unique_cell = row[0].split(' ')
-        return unique_cell[0] not in ('Feature', 'Call')
-
-    def todays_date_row_filter(self, row):
-        # TODO: Simplify... this seems overly complicated...
-        dates = [self.safe_parse(dt_time=cell, default_rtn=self.util_datetime).date() for cell in row]
-        return False in [(self.dates == date) for date in dates]
+    def agent_report_row_filter(self, row):
+        row_name = row[0].split(' ')
+        return row_name[0] not in ('Feature', 'Call')
 
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
@@ -345,14 +369,20 @@ class EmployeeTracker(ContainerObject):
 
 class EmployeeData(object):
     def __init__(self, k_list):
+        # TODO should provide these fields to the obj
         self.__dict = {}
         for key in k_list:
             self.__dict[key] = 0
+        self.__dict['Inbound Ans'] = 0
+        self.__dict['Inbound Lost'] = 0
+        self.__dict['Outbound'] = 0
+        self.__dict['Inbound Duration'] = 0
+        self.__dict['Outbound Duration'] = 0
         self.__dict['Absent'] = 0
         self.__dict['Late'] = 0
         self.__dict['DND'] = 0
         self.__dict['numDND'] = 0
-        self.__dict['Availability'] = 0
+        self.__dict['Avail'] = 0
         self.__dict['Notes'] = ''
 
     def increment_key(self, key, val):

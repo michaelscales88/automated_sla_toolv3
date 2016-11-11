@@ -11,7 +11,8 @@ class MonthlyMarsReport(AReport):
         super().__init__(report_dates=start_date)
         self.last_date = start_date + timedelta(days=run_days)
         self.file_queue = pe.Book()
-
+        self.final_report_fields = ['Absent', 'Late', 'DND', 'Duration', 'numDND', 'Inbound Ans', 'Inbound Lost',
+                                    'Outbound', 'Inbound Duration', 'Outbound Duration']
     '''
     UI Section
     '''
@@ -30,23 +31,17 @@ class MonthlyMarsReport(AReport):
                     print(e)
                 except SystemExit:
                     raise SystemExit('SysExiting MARsReport...')
-                except Exception as e:
+                except Exception:
                     print('Unexpected Exception encounter: {}'.format(run_date.strftime("%m%d%Y")))
                     import sys
                     error = traceback.format_exc()
                     traceback.print_exc(file=sys.stderr)
-                    print(e)
                     print(error)
                 else:
                     print("Program ran successfully for date: {}".format(run_date.strftime("%m%d%Y")))
                     self.file_queue += file.transmit_report()
             except SystemExit:
                 pass
-            except:
-                import sys
-                error = traceback.format_exc()
-                traceback.print_exc(file=sys.stderr)
-                raise Exception(error)
             finally:
                 run_date += timedelta(days=1)
         self.prep_sheets()
@@ -57,17 +52,17 @@ class MonthlyMarsReport(AReport):
     def summarize_queue(self):
         if self.is_empty_wb(self.file_queue):
             return
-        agent_summary = AgentSummary()
+        agent_summary = AgentSummary(fields=self.final_report_fields)
         for report in self.file_queue:
             for agent in report.rownames:
                 if agent == 'Notes':
                     break
-                # TODO: make this += for clarity
-                agent_summary[(agent, 'Absent')] = report[agent, 'Absent']
-                agent_summary[(agent, 'Late')] = report[agent, 'Late']
-                agent_summary[(agent, 'DND')] = report[agent, 'DND']
-                agent_summary[(agent, 'Duration')] = report[agent, 'Duration']
-                agent_summary[(agent, 'numDND')] = report[agent, 'numDND']
+                agent_summary.collect_data(agent, report)
+                # agent_summary[(agent, 'Absent'] = report[agent, 'Absent']
+                # agent_summary[(agent, 'Late'] = report[agent, 'Late']
+                # agent_summary[(agent, 'DND'] = report[agent, 'DND']
+                # agent_summary[(agent, 'Duration')] = report[agent, 'Duration']
+                # agent_summary[(agent, 'numDND')] = report[agent, 'numDND']
         self.create_final_report(agent_summary)
 
     '''
@@ -89,7 +84,6 @@ class MonthlyMarsReport(AReport):
         self.final_report = display_report
         self.generate_program_columns()
         self.time_stamp_format_col("DND", "Duration")
-        print(self.final_report)
 
     def create_sheet(self, headers):
         sheet = pe.Sheet()
@@ -119,12 +113,12 @@ class MonthlyMarsReport(AReport):
 
 
 class AgentSummary(TupleKeyDict):
-    def __init__(self):
+    def __init__(self, fields=None):
         super().__init__()
+        self.fields = fields
 
     def get_header(self):
-        data_dict = self.get_dict()
-        return ['Employee'] + sorted(next(iter(data_dict.values())).keys())
+        return ['Employee'] + sorted(self.fields)
 
     def __setitem__(self, key, value):
         try:
@@ -133,3 +127,13 @@ class AgentSummary(TupleKeyDict):
             super().__setitem__(key, value)
         else:
             super().__setitem__(key, add_secs)
+
+    def __getitem__(self, key):
+        return super().__getitem__(key)
+
+    def collect_data(self, agent, report):
+        for column in self.fields:
+            try:
+                self[agent, column] += report[agent, column]
+            except KeyError:
+                self[agent, column] = report[agent, column]
