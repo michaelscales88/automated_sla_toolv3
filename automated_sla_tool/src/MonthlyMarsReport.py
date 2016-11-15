@@ -24,7 +24,12 @@ class MonthlyMarsReport(AReport):
             try:
                 try:
                     file = DailyMarsReport(month=run_date)
-                    file.run()
+                    # file.run()
+                    try:
+                        file.query_sql_server()
+                    except Exception as e:
+                        print("**SQL Query Exception raised**")
+                        print(e)
                     # file.save_report()
                 except (OSError, FileNotFoundError) as e:
                     print('Could not open report for date {}'.format(run_date))
@@ -44,7 +49,7 @@ class MonthlyMarsReport(AReport):
                 pass
             finally:
                 run_date += timedelta(days=1)
-        self.prep_sheets()
+        # self.prep_sheets()
 
     def print_queue(self):
         print(self.file_queue)

@@ -1,6 +1,7 @@
 import os
 import re
 import pyexcel as pe
+import pypyodbc as ps
 from datetime import datetime, time, timedelta
 from collections import namedtuple
 from automated_sla_tool.src.AReport import AReport
@@ -112,7 +113,62 @@ class DailyMarsReport(AReport):
                   '-> DailyMarsReport.remove_row_w_day')
 
     def query_sql_server(self):
-        pass
+        CONNECTION_STRING = ('Driver={SQL Server};'
+                             'Server=10.1.3.43;'
+                             'Database=IssueTracker;'
+                             'uid=IssueTrackerWeblogin;'
+                             'pwd=mw!2006')
+        # SQL_COMMAND = (
+        # "SELECT DISTINCT bugs.bg_reported_date, bug_posts.bp_bug, bug_posts.bp_user, "
+        # "users.us_firstname, users.us_lastname "
+        # "FROM bug_posts "
+        # "INNER JOIN bugs ON (bug_posts.bp_bug = bugs.bg_id) "
+        # "LEFT JOIN users ON (users.us_id = bug_posts.bp_user) "
+        # "WHERE (bugs.bg_reported_date >= {0}) and (bugs.bg_reported_date <= {1}) and "
+        # "(bug_posts.bp_user not like 4) and (bugs.bg_user_defined_attribute not like 15)"
+        # ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+        SQL_COMMAND = (
+            '''
+            SELECT DISTINCT bugs.bg_reported_date, bug_posts.bp_bug, bug_posts.bp_user,
+            users.us_firstname, users.us_lastname
+            FROM bug_posts
+            INNER JOIN bugs ON (bug_posts.bp_bug = bugs.bg_id)
+            LEFT JOIN users ON (users.us_id = bug_posts.bp_user)
+            WHERE (bugs.bg_reported_date >= '{0}') and (bugs.bg_reported_date <= '{1}') and
+            (bug_posts.bp_user not like 4) and (bugs.bg_user_defined_attribute not like 15)
+            '''
+        ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+        try:
+            cnx = ps.connect(CONNECTION_STRING)
+            print('successful connection')
+            cur = cnx.cursor()
+            cur.execute(SQL_COMMAND)
+            sheet = pe.Sheet()
+            sheet.row += [str(d[0]) for d in cur.description]
+            sheet.name_columns_by_row(0)
+            for row in cur.fetchall():
+                sheet.row += list(row)
+            print('Query completed.')
+            print(sheet)
+            # try:
+            #     cur.execute(SQL_COMMAND, values)
+            #     cur.commit()
+            # except ps.IntegrityError:
+            #     print('Received integrity error'
+            #           '-> DailyMarsReport.query_sql_server'
+            #           )
+            # for (ext, agent) in self.tracker.get_tracker().items():
+            #     print(r'{0} has {1} tickets'.format(agent.l_name, sheet.column['us_lastname'].count(agent.l_name)))
+        except Exception:
+            print("General exception pushing to SQL")
+            import sys, traceback
+            error = traceback.format_exc()
+            traceback.print_exc(file=sys.stderr)
+            print(error)
+        else:
+            cur.close()
+            cnx.close()
+            print('successfully closed connection')
 
     def load_documents(self):
         # TODO abstract this -> *args
@@ -234,9 +290,10 @@ class DailyMarsReport(AReport):
         emp_data.data['Inbound Lost'] = inb_lost
         emp_data.data['Outbound'] = out_calls
         emp_data.data['Inbound Duration'] = 0 if inb_ans is 0 else (datetime.min +
-                                                               timedelta(seconds=inb_talk_dur // inb_ans)).time()
+                                                                    timedelta(seconds=inb_talk_dur // inb_ans)).time()
         emp_data.data['Outbound Duration'] = 0 if out_calls is 0 else (datetime.min +
-                                                                  timedelta(seconds=out_talk_dur // out_calls)).time()
+                                                                       timedelta(
+                                                                           seconds=out_talk_dur // out_calls)).time()
 
     def correlate_dnd_data(self, src_list, list_to_correlate, key):
         dnd_list = super().correlate_list_time_data(src_list, list_to_correlate, key)
@@ -399,7 +456,7 @@ class EmployeeData(object):
         return self.__dict[key]
 
     def add_note(self, note):
-        self.__dict['Notes'] += r'{} '.format(note)
+        self.increment_key('Notes', r'{} '.format(note))
 
     def get_row(self):
         return [self.__dict[k] for k in sorted(self.__dict.keys())]
