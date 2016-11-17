@@ -24,9 +24,9 @@ class MonthlyMarsReport(AReport):
             try:
                 try:
                     file = DailyMarsReport(month=run_date)
-                    # file.run()
+                    file.run()
                     try:
-                        file.query_sql_server()
+                        file.read_sql()
                     except Exception as e:
                         print("**SQL Query Exception raised**")
                         print(e)

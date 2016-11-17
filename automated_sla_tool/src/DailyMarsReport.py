@@ -4,6 +4,7 @@ import pyexcel as pe
 import pypyodbc as ps
 from datetime import datetime, time, timedelta
 from collections import namedtuple
+from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.ContainerObject import ContainerObject
 from automated_sla_tool.src.Notes import Notes
@@ -61,7 +62,8 @@ class DailyMarsReport(AReport):
             self.final_report.row += notes_label
             self.final_report.row += self.notes.get_notes()
             self.final_report.name_rows_by_column(0)
-            print(self.final_report)
+            # print(self.final_report)
+            # print([str(type(i)) for i in self.final_report.colnames])
 
     def save_report(self):
         self.set_save_path('mars_report')
@@ -112,7 +114,7 @@ class DailyMarsReport(AReport):
             print('Bad type: remove_date object'
                   '-> DailyMarsReport.remove_row_w_day')
 
-    def query_sql_server(self):
+    def read_sql(self):
         CONNECTION_STRING = ('Driver={SQL Server};'
                              'Server=10.1.3.43;'
                              'Database=IssueTracker;'
@@ -135,33 +137,115 @@ class DailyMarsReport(AReport):
             INNER JOIN bugs ON (bug_posts.bp_bug = bugs.bg_id)
             LEFT JOIN users ON (users.us_id = bug_posts.bp_user)
             WHERE (bugs.bg_reported_date >= '{0}') and (bugs.bg_reported_date <= '{1}') and
-            (bug_posts.bp_user not like 4) and (bugs.bg_user_defined_attribute not like 15)
+            (bug_posts.bp_user not like 4) and
+            (bugs.bg_user_defined_attribute not like 15)
             '''
         ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+
+        SQL_COMMAND2 = (
+            '''
+            SELECT bg_id [id],
+            bg_short_desc [desc],
+            bg_reported_date [reported on],
+            bg_last_updated_date [updated on],
+            isnull(rpt.us_username,'') [reported by],
+            isnull(pj_name,'') [project],
+            isnull(og_name,'') [organization],
+            isnull(ct_name,'') [category],
+            isnull(pr_name,'') [priority],
+            isnull(asg.us_username,'') [assigned to],
+            isnull(lub.us_username,'') [last updated by],
+            isnull(st_name,'') [status],
+            isnull(udf_name,'') [Action Time],
+            isnull([bg_cost_center],'') [bg_cost_center],
+            isnull([bg_requested_completion],'') [bg_requested_completion],
+            isnull([bg_estimated_hours],'') [bg_estimated_hours],
+            isnull([bg_estimated_completion],'') [bg_estimated_completion],
+            isnull([bg_help_desk_time_spent],'') [bg_help_desk_time_spent]
+            FROM bugs WITH (nolock)
+            LEFT OUTER JOIN users rpt WITH (nolock) ON rpt.us_id = bg_reported_user
+            LEFT OUTER JOIN users asg WITH (nolock) ON asg.us_id = bg_assigned_to_user
+            LEFT OUTER JOIN users lub WITH (nolock) ON lub.us_id = bg_last_updated_user
+            LEFT OUTER JOIN projects WITH (nolock) ON pj_id = bg_project
+            LEFT OUTER JOIN orgs WITH (nolock) ON og_id = bg_org
+            LEFT OUTER JOIN categories WITH (nolock) ON ct_id = bg_category
+            LEFT OUTER JOIN priorities WITH (nolock) ON pr_id = bg_priority
+            LEFT OUTER JOIN statuses WITH (nolock) ON st_id = bg_status
+            LEFT OUTER JOIN user_defined_attribute WITH (nolock) ON udf_id = bg_user_defined_attribute
+            WHERE  bg_reported_user in (230,242,60,250,254,192,229,209,222,232,176,198,264,96,175,178,241,11,255,257,226,195,261,206,179,237,245,138,265,235,266,262,19,260,203)
+            AND  bg_reported_date >= '{0}' AND  bg_reported_date <= '{1}'
+            ORDER BY bg_id DESC
+            '''
+        ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+
+        SQL_COMMAND3 = (
+            '''
+            SELECT bg_id [id],
+            bg_short_desc [desc],
+            bg_reported_date [reported on],
+            bg_last_updated_date [updated on],
+            isnull(rpt.us_username,'') [reported by],
+            isnull(pj_name,'') [project],
+            isnull(og_name,'') [organization],
+            isnull(ct_name,'') [category],
+            isnull(pr_name,'') [priority],
+            isnull(asg.us_username,'') [assigned to],
+            isnull(lub.us_username,'') [last updated by],
+            isnull(st_name,'') [status],
+            isnull(udf_name,'') [Action Time],
+            isnull([bg_cost_center],'') [bg_cost_center],
+            isnull([bg_requested_completion],'') [bg_requested_completion],
+            isnull([bg_estimated_hours],'') [bg_estimated_hours],
+            isnull([bg_estimated_completion],'') [bg_estimated_completion],
+            isnull([bg_help_desk_time_spent],'') [bg_help_desk_time_spent]
+            FROM bugs WITH (nolock)
+            LEFT OUTER JOIN users rpt WITH (nolock) ON rpt.us_id = bg_reported_user
+            LEFT OUTER JOIN users asg WITH (nolock) ON asg.us_id = bg_assigned_to_user
+            LEFT OUTER JOIN users lub WITH (nolock) ON lub.us_id = bg_last_updated_user
+            LEFT OUTER JOIN projects WITH (nolock) ON pj_id = bg_project
+            LEFT OUTER JOIN orgs WITH (nolock) ON og_id = bg_org
+            LEFT OUTER JOIN categories WITH (nolock) ON ct_id = bg_category
+            LEFT OUTER JOIN priorities WITH (nolock) ON pr_id = bg_priority
+            LEFT OUTER JOIN statuses WITH (nolock) ON st_id = bg_status
+            LEFT OUTER JOIN user_defined_attribute WITH (nolock) ON udf_id = bg_user_defined_attribute
+            WHERE  bg_last_updated_user in (230,242,60,250,254,192,229,209,222,232,176,198,264,96,175,178,241,11,255,257,
+                                            226,195,261,206,179,237,245,138,265,235,266,262,19,260,203)
+            AND  bg_status in (5)
+            AND  bg_user_defined_attribute in (8,9,10,11,19,12,13,16,14)
+            AND  bg_reported_date >= '{0}' AND  bg_reported_date <= '{1}'
+
+            ORDER BY bg_id DESC
+            '''
+        ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+
+        sql_commands = [SQL_COMMAND, SQL_COMMAND2, SQL_COMMAND3]
+
         try:
             cnx = ps.connect(CONNECTION_STRING)
             print('successful connection')
             cur = cnx.cursor()
-            cur.execute(SQL_COMMAND)
-            sheet = pe.Sheet()
-            sheet.row += [str(d[0]) for d in cur.description]
-            sheet.name_columns_by_row(0)
-            for row in cur.fetchall():
-                sheet.row += list(row)
-            print('Query completed.')
-            print(sheet)
-            # try:
-            #     cur.execute(SQL_COMMAND, values)
-            #     cur.commit()
-            # except ps.IntegrityError:
-            #     print('Received integrity error'
-            #           '-> DailyMarsReport.query_sql_server'
-            #           )
-            # for (ext, agent) in self.tracker.get_tracker().items():
-            #     print(r'{0} has {1} tickets'.format(agent.l_name, sheet.column['us_lastname'].count(agent.l_name)))
+            for command in sql_commands:
+                cur.execute(command)
+                sheet = pe.Sheet()
+                sheet.row += [str(d[0]) for d in cur.description]
+                sheet.name_columns_by_row(0)
+                for row in cur.fetchall():
+                    sheet.row += list(row)
+                print('Query completed.')
+                print(sheet)
+                # try:
+                #     cur.execute(SQL_COMMAND, values)
+                #     cur.commit()
+                # except ps.IntegrityError:
+                #     print('Received integrity error'
+                #           '-> DailyMarsReport.query_sql_server'
+                #           )
+                # for (ext, agent) in self.tracker.get_tracker().items():
+                #     print(r'{0} has {1} tickets'.format(agent.l_name, sheet.column['us_lastname'].count(agent.l_name)))
         except Exception:
             print("General exception pushing to SQL")
-            import sys, traceback
+            import sys
+            import traceback
             error = traceback.format_exc()
             traceback.print_exc(file=sys.stderr)
             print(error)
@@ -169,6 +253,19 @@ class DailyMarsReport(AReport):
             cur.close()
             cnx.close()
             print('successfully closed connection')
+
+    def write_sqlite(self):
+        local_db = os.path.join(self.path, r'db\mars_report.db')
+        conn = lite(local_db)
+        # conn = lite.connect(local_db)
+        # with conn:
+        #     table_string = (
+        #         '''
+        #         CREATE TABLE daily_mars(Id INT, Name TEXT, Price INT)
+        #         '''
+        #     )
+        #     cur = conn.cursor()
+        #     cur.execute()
 
     def load_documents(self):
         # TODO abstract this -> *args
