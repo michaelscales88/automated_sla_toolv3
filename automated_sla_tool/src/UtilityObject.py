@@ -1,9 +1,10 @@
 import os
+import pyexcel as pe
 
 
-class UtilityObject:
+class UtilityObject(object):
     def __init__(self):
-        pass
+        super().__init__()
 
     def str_to_bool(self, bool_str):
         if type(bool_str) is bool:
@@ -45,3 +46,21 @@ class UtilityObject:
                 os.chdir(the_dir)
             except OSError:
                 pass
+
+    def load_data(self, file):
+        if type(file) is pe.sheets.sheet.Sheet:
+            return_file = file
+        else:
+            return_file = self.open_pe_file(file)
+        return_file.name_columns_by_row(0)
+        return_file.name_rows_by_column(0)
+        return return_file
+
+    def open_pe_file(self, file):
+        try:
+            return_file = pe.get_sheet(file_name=file)
+        except OSError:
+            print('OSError ->'
+                  'cannot open {}'.format(file))
+        else:
+            return return_file

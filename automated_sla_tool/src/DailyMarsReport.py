@@ -5,8 +5,9 @@ import pypyodbc as ps
 from datetime import datetime, time, timedelta
 from collections import namedtuple
 from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
+from automated_sla_tool.src.SqliteWriter import QueryParam as params
 from automated_sla_tool.src.AReport import AReport
-from automated_sla_tool.src.ContainerObject import ContainerObject
+from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.Notes import Notes
 
 
@@ -58,12 +59,8 @@ class DailyMarsReport(AReport):
                                 self.read_call_card(agent_call_card, agent)
                     finally:
                         self.final_report.row += self.tracker[ext]
-            notes_label = [self.notes.pop(0)]
-            self.final_report.row += notes_label
-            self.final_report.row += self.notes.get_notes()
-            self.final_report.name_rows_by_column(0)
-            # print(self.final_report)
-            # print([str(type(i)) for i in self.final_report.colnames])
+            self.finalize_report()
+            print(self.final_report)
 
     def save_report(self):
         self.set_save_path('mars_report')
@@ -76,13 +73,29 @@ class DailyMarsReport(AReport):
     Utilities Section
     '''
 
+    def make_start_end(self):
+        namedtuple()
+
+    def finalize_report(self):
+        notes_label = [self.notes.pop(0)]
+        self.final_report.row += notes_label
+        self.final_report.row += self.notes.get_notes()
+        self.final_report.name_rows_by_column(0)
+
     def check_day_card(self, time_card, shift_start, shift_end):
         prev_day = self.dates - timedelta(days=1)
         self.remove_row_w_day(time_card, prev_day)
         start_time = self.get_start_time(time_card.column['Logged In'])
         end_time = self.get_end_time(time_card.column['Logged Out'])
         clocked_in = start_time >= time(hour=1)
-        clocked_out = end_time <= time(hour=23)
+        # TODO this needs to be refactored... possibly move the logic into start/end shift functions
+        if len(time_card.column['Logged Out']) is 1 and '' in time_card.column['Logged Out']:
+            clocked_out = False
+        else:
+            clocked_out = end_time <= time(hour=23)
+        # if time_card.name == 'Steve McMillan(7540)':
+        #     print(clocked_out)
+        #     print()
         # TODO improve this... checking for agents who didn't clock out and are late
         if not clocked_in and time_card.number_of_rows() is 2:
             start_time = self.get_start_time(time_card.column['Logged In'], overnight=True)
@@ -256,16 +269,24 @@ class DailyMarsReport(AReport):
 
     def write_sqlite(self):
         local_db = os.path.join(self.path, r'db\mars_report.db')
-        conn = lite(local_db)
-        # conn = lite.connect(local_db)
-        # with conn:
-        #     table_string = (
-        #         '''
-        #         CREATE TABLE daily_mars(Id INT, Name TEXT, Price INT)
-        #         '''
-        #     )
-        #     cur = conn.cursor()
-        #     cur.execute()
+        params1 = {
+            'local_db': local_db,
+            'database': None,
+            'user': None,
+            'password': None,
+            'host': None,
+            'port': None
+        }
+        params2 = {
+            'database': 'chronicall',
+            'user': 'Chronicall',
+            'password': 'ChR0n1c@ll1337',
+            'host': '10.1.3.17',
+            'port': 9086
+        }
+        conn = lite(**params2)
+        # print(self.final_report)
+        # conn.insert(self.final_report)
 
     def load_documents(self):
         # TODO abstract this -> *args
@@ -364,6 +385,7 @@ class DailyMarsReport(AReport):
             emp_data.data['Late'] = 1
 
     def read_feature_card(self, feature_card, emp_data):
+        # TODO this needs to check for overnight
         num_dnd, dnd_sec = self.correlate_dnd_data(feature_card.column['Feature Type'],
                                                    feature_card.column['Duration'],
                                                    'Do Not Disturb')
@@ -412,23 +434,19 @@ class DailyMarsReport(AReport):
         return float(r'{0:.2f}'.format(((dt_delta - dnd_delta) / dt_delta) * 100))
 
     def get_start_time(self, column, overnight=False):
-        try:
-            if overnight:
-                return_time = max(self.safe_parse(item).time() for item in column)
-            else:
-                return_time = min(self.safe_parse(item).time() for item in column)
-        except AttributeError:
-            return_time = 'No Clock In'
+        # try:
+        if overnight:
+            return_time = max(self.safe_parse(item).time() for item in column)
+        else:
+            return_time = min(self.safe_parse(item).time() for item in column)
+        # except AttributeError:
+        #     return_time = 'No Clock In'
         return return_time
 
     def get_end_time(self, column):
-        try:
-            return_time = max(self.safe_parse(item).time() for item in column)
-        except AttributeError:
-            return_time = 'No Clock Out'
-        return return_time
+        return max(self.safe_parse(item).time() for item in column)
 
-    def get_page_as_num(self, sheet_name):
+    def get_page_as_num(self, sheet_name):  # TODO this needs to switch as the way to access agent sheet
         return_value = re.findall(r'\b\d+\b', sheet_name)
         if len(return_value) != 1:
             raise NameError('In MarsReport.get_page_as_num'
@@ -460,17 +478,13 @@ class DailyMarsReport(AReport):
         return super().report_finished('mars_report', the_file)
 
 
-class EmployeeTracker(ContainerObject):
+class EmployeeTracker(UtilityObject):
+    # TODO add overnight checking. should be a data attribute and should be a bool
+    # TODO based on whether the current shift is after hours or not.
     def __init__(self, employee_data, report_data):
         super().__init__()
         data = self.load_data(employee_data)
         self.__data = self.create_schedule(data, report_data)
-
-    def load_data(self, file):
-        return_file = super().load_data(file)
-        return_file.name_columns_by_row(0)
-        return_file.name_rows_by_column(0)
-        return return_file
 
     def create_schedule(self, data, report_data):
         return_dict = {}

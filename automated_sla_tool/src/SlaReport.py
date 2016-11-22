@@ -6,6 +6,8 @@ from dateutil.parser import parse
 from collections import defaultdict, namedtuple
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
+
+
 # TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
 
 
@@ -109,23 +111,23 @@ class SlaReport(AReport):
                 if (transfer_hold or had_hold or had_park or had_conference) is True:
                     event_durations = sheet.column['Event Duration']
                     this_client = client(hold_amount=self.correlate_event_data(sheet_events,
-                                                                              event_durations,
-                                                                              'Hold'),
+                                                                               event_durations,
+                                                                               'Hold'),
                                          park_amount=self.correlate_event_data(sheet_events,
-                                                                              event_durations,
-                                                                              'Park'),
+                                                                               event_durations,
+                                                                               'Park'),
                                          conference_amount=self.correlate_event_data(sheet_events,
-                                                                                    event_durations,
-                                                                                    'Conference'),
+                                                                                     event_durations,
+                                                                                     'Conference'),
                                          transfer_amount=self.correlate_event_data(sheet_events,
-                                                                                  event_durations,
-                                                                                  'Transfer Hold'))
+                                                                                   event_durations,
+                                                                                   'Transfer Hold'))
                     if transfer_hold is True and had_conference is False:
                         transfer_hold_index = sheet_events.index('Transfer Hold')
                         this_client = this_client._replace(
                             additional_time=self.correlate_event_data(sheet_events[transfer_hold_index:],
-                                                                     event_durations[transfer_hold_index:],
-                                                                     'Talking')
+                                                                      event_durations[transfer_hold_index:],
+                                                                      'Talking')
                         )
                     client_sum = sum(int(i) for i in this_client)
                     wait_time = self.convert_time_stamp((call_duration - talk_duration) - client_sum)

@@ -162,9 +162,7 @@ class AReport(UtilityObject):
         the_file = r'{0}\Output\{1}\{2}'.format(the_path, report_type, file_name)
         if os.path.isfile(the_file):
             file_exists = True
-            the_file = pe.get_sheet(file_name=the_file)
-            the_file.name_columns_by_row(0)
-            the_file.name_rows_by_column(0)
+            the_file = self.load_data(the_file)
         else:
             file_exists = False
             the_file = None
@@ -175,8 +173,8 @@ class AReport(UtilityObject):
             return parse(dt_time, default=(default_date if default_date is not None else self.util_datetime))
         except ValueError:
             return default_rtn if default_rtn is not None else self.util_datetime
-        except AttributeError:
-            return dt_time
+        # except AttributeError:
+        #     return dt_time
 
     def read_time(self, time_object, spc_chr='*'):
         try:
