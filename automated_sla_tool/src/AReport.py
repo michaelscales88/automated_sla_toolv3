@@ -173,8 +173,6 @@ class AReport(UtilityObject):
             return parse(dt_time, default=(default_date if default_date is not None else self.util_datetime))
         except ValueError:
             return default_rtn if default_rtn is not None else self.util_datetime
-        # except AttributeError:
-        #     return dt_time
 
     def read_time(self, time_object, spc_chr='*'):
         try:

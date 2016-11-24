@@ -6,14 +6,17 @@ import pyexcel as pe
 
 
 def main():
-    time1 = timedelta(minutes=10, seconds=12)
-    time2 = timedelta(hours=24)
-    print(time1)
-    sheet = pe.Sheet()
-    sheet.row += ['test', 'test1']
-    print(sheet)
-    sheet.row += [time1, time1]
-    print(sheet)
+    item1 = None
+    item2 = None
+    print((item1, item2)[True])
+    # time1 = timedelta(minutes=10, seconds=12)
+    # time2 = timedelta(hours=24)
+    # print(time1)
+    # sheet = pe.Sheet()
+    # sheet.row += ['test', 'test1']
+    # print(sheet)
+    # sheet.row += [time1, time1]
+    # print(sheet)
     # dt_date = '07:56:45'
     # print(parse(dt_date))
     # default_date = datetime.now() - timedelta(days=3)

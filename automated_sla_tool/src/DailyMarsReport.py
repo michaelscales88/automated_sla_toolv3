@@ -5,7 +5,6 @@ import pypyodbc as ps
 from datetime import datetime, time, timedelta
 from collections import namedtuple
 from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
-from automated_sla_tool.src.SqliteWriter import QueryParam as params
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.Notes import Notes
@@ -60,7 +59,6 @@ class DailyMarsReport(AReport):
                     finally:
                         self.final_report.row += self.tracker[ext]
             self.finalize_report()
-            print(self.final_report)
 
     def save_report(self):
         self.set_save_path('mars_report')
@@ -268,14 +266,9 @@ class DailyMarsReport(AReport):
             print('successfully closed connection')
 
     def write_sqlite(self):
-        local_db = os.path.join(self.path, r'db\mars_report.db')
+        local_db = os.path.join(self.path, r'db\automated_sla_tool.db')
         params1 = {
             'local_db': local_db,
-            'database': None,
-            'user': None,
-            'password': None,
-            'host': None,
-            'port': None
         }
         params2 = {
             'database': 'chronicall',
@@ -284,9 +277,9 @@ class DailyMarsReport(AReport):
             'host': '10.1.3.17',
             'port': 9086
         }
-        conn = lite(**params2)
-        # print(self.final_report)
-        # conn.insert(self.final_report)
+        # conn = lite(pg_db=True, **params2)
+        conn = lite(**params1)
+        conn.insert(self.final_report)
 
     def load_documents(self):
         # TODO abstract this -> *args
