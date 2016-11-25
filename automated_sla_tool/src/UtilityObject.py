@@ -6,6 +6,9 @@ class UtilityObject(object):
     def __init__(self):
         super().__init__()
 
+    '''
+    Primitive Utilities
+    '''
     def str_to_bool(self, bool_str):
         if type(bool_str) is bool:
             return bool_str

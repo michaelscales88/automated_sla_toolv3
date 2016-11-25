@@ -3,12 +3,31 @@ from dateutil.parser import parse
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.UtilityObject import UtilityObject
 import pyexcel as pe
+from automated_sla_tool.src.FinalReport import FinalReport
+
+import sqlite3
+
+
+class Point(object):
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+    def __conform__(self, protocol):
+        if protocol is sqlite3.PrepareProtocol:
+            return "%f;%f" % (self.x, self.y)
 
 
 def main():
-    item1 = None
-    item2 = None
-    print((item1, item2)[True])
+    # con = sqlite3.connect(":memory:")
+    # cur = con.cursor()
+    #
+    # p = Point(4.0, -3.2)
+    # cur.execute("SELECT ?", (p,))
+    # print(cur.fetchone()[0])
+    report = FinalReport()
+    # print(report)
+    report.open_report(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Output\mars_report\11032016_mars_report.xlsx')
+
     # time1 = timedelta(minutes=10, seconds=12)
     # time2 = timedelta(hours=24)
     # print(time1)

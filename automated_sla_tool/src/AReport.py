@@ -3,19 +3,23 @@ import os
 from datetime import timedelta, datetime, time
 from dateutil.parser import parse
 from automated_sla_tool.src.UtilityObject import UtilityObject
+from automated_sla_tool.src.FinalReport import FinalReport
 
 
 class AReport(UtilityObject):
-    def __init__(self, report_dates=None):
+    def __init__(self,
+                 report_dates=None,
+                 report_type=None):
         super().__init__()
         if report_dates is None:
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
+        self.final_report = FinalReport(report_type, self.dates)
+
         self.src_files = {}
         self.util_datetime = datetime.combine(self.dates, time())
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.day_of_wk = self.dates.weekday()
-        self.final_report = pe.Sheet()
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
         self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
@@ -24,6 +28,12 @@ class AReport(UtilityObject):
         self.password = r'7b!2gX4bD3'
         self.src_doc_path = self.open_src_dir()
 
+    def save(self):
+        self.set_save_path(self.final_report.type)
+        self.final_report.save_report()
+    '''
+    OS Operations
+    '''
     def set_save_path(self, report_type):
         save_path = r'{0}\Output\{1}'.format(os.path.dirname(self.path), report_type)
         self.change_dir(save_path)
@@ -33,6 +43,9 @@ class AReport(UtilityObject):
         self.change_dir(file_dir)
         return os.getcwd()
 
+    '''
+    Report Utilities
+    '''
     def copy_and_convert(self, file_location, directory):
         from shutil import move
         for src_file in directory:
@@ -64,6 +77,9 @@ class AReport(UtilityObject):
         return_list.insert(0, first_index)
         return [return_list]
 
+    '''
+    General Utilities
+    '''
     def download_chronicall_files(self, file_list):
         '''
         Temporary
@@ -157,16 +173,13 @@ class AReport(UtilityObject):
     def add_time(self, dt_t, add_time=None):
         return (datetime.combine(datetime.today(), dt_t) + add_time).time()
 
-    def report_finished(self, report_type, file_name):
+    def check_finished(self):
+        file_name = r'{0}.xlsx'.format(self.final_report.name)
         the_path = os.path.dirname(self.path)
-        the_file = r'{0}\Output\{1}\{2}'.format(the_path, report_type, file_name)
+        the_file = r'{0}\Output\{1}\{2}'.format(the_path, self.final_report.type, file_name)
         if os.path.isfile(the_file):
-            file_exists = True
-            the_file = self.load_data(the_file)
-        else:
-            file_exists = False
-            the_file = None
-        return file_exists, the_file
+            self.final_report.open_report(the_file)
+        return self.final_report.finished
 
     def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
         try:

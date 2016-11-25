@@ -1,14 +1,11 @@
 import sqlite3 as lite
-import psycopg2 as ps2
 import sys
 import traceback
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, Float, Date
-from sqlalchemy.orm import sessionmaker
+from automated_sla_tool.src.QueryWriter import QueryWriter
+from automated_sla_tool.src.QueryParam import QueryParam
 
 
-class SqliteWriter(object):
+class SqliteWriter(QueryWriter):
     """
         params = {
                 'database': None,
@@ -19,10 +16,16 @@ class SqliteWriter(object):
             }
     """
 
-    def __init__(self, pg_db=False, **parameters):
+    def __init__(self, **parameters):
         super().__init__()
-        self.params = QueryParam(**parameters,
-                                 spc_case=pg_db)
+        self.params = QueryParam(**parameters)
+        # Command Interpreter Python/SQLite
+        self.ci = {
+            None: 'NULL',
+            int: 'INTEGER',
+            float: 'REAL',
+            str: 'TEXT'
+        }
         try:
             self.conn = self.get_conn()
             print('Successful connection to: {0}'.format(self.params.name))
@@ -32,11 +35,8 @@ class SqliteWriter(object):
             print(error, flush=True)
 
     def get_conn(self):
-        if self.params['local_db']:
-            conn = lite.connect(self.params.get_db_loc())
-            conn.row_factory = lambda cursor, row: row[0]
-        else:
-            conn = ps2.connect(self.params.connection_string())
+        conn = lite.connect(self.params.get_db_loc())
+        conn.row_factory = lambda cursor, row: row[0]
         return conn
 
     def insert(self, table):
@@ -44,17 +44,46 @@ class SqliteWriter(object):
         # print(table.name)
         # print(table.rownames)
         # print(table.colnames)
-        cur = self.conn.cursor()
+        # cur = self.conn.cursor()
+        (table_name,
+         query) = self.write_query(table)
         try:
-            table_name = self.get_table_name(table.name)
-            # TODO this needs to be completed to take a spreadsheet and convert it into a table/make the table etc etc
-            cur.execute("INSERT INTO table_name(server) VALUES (?)",(0,))
+            # # TODO this needs to be completed to take a spreadsheet and convert it into a table/make the table etc etc
+            cmd = '''
+            INSERT INTO {0} VALUES ({1})
+            '''.format(table_name, query)
+            print(cmd)
+            self.conn.executemany(cmd, [table.to_array()])
+            print(table)
+            print('Insert successful')
+            # cur.execute(cmd)
         except lite.OperationalError:
-            self.no_table(table)
+            print('Creating a table and INSERTING')
+            cmd = '''
+            CREATE TABLE {0}({1})
+            '''.format(table_name, query)
+            print(cmd)
+            self.conn.execute(cmd)
+            cmd = '''
+                        INSERT INTO {0} VALUES ({1})
+                        '''.format(table_name, query)
+            self.conn.executemany(cmd, table)
+            print('Insert successful')
+            # self.no_table(table)
+        cmd = '''
+        SELECT * FROM mars_report
+        '''
+        for row in self.conn.execute(cmd):
+            print(row)
 
     def query(self, table):
         cur = self.conn.cursor()
         pass
+
+    def write_query(self, table):
+        table_name = self.get_table_name(table.name)
+        query = "".join(["'{}', ".format(i) for i in table.colnames])
+        return table_name, query.rstrip(', ')
 
     def no_table(self, table):
         print('Could not identify table for {}'.format(table.name))
@@ -63,10 +92,11 @@ class SqliteWriter(object):
                           '{0}\n'
                           'OR enter a new table name.'.format(rec_tables))
         if selection.isdigit():
-            print('Using table {}'.format(rec_tables[int(selection)]))
+            selection = rec_tables[int(selection)]
+            print('Using table {}'.format(selection))
         else:
             print('Creating a table named {}'.format(selection))
-            self.make_table(selection)
+        self.make_table(selection)
 
     def get_table_name(self, sheet_name):
         # TODO this needs logic... this is cheap
@@ -101,49 +131,3 @@ class SqliteWriter(object):
     def refresh_connection(self):
         self.conn.close()
         self.conn = self.get_conn()
-
-    def __del__(self):
-        try:
-            self.conn.close()
-            print(r'Connection successfully closed.')
-        except AttributeError:
-            print(r'No connection to close.')
-
-
-class QueryParam(object):
-    def __init__(self, spc_case=False, **kwargs):
-        super().__init__()
-        self._params = {'dbname' if spc_case is True else 'database': kwargs.get('database', None),
-                        'user': kwargs.get('user', None),
-                        'password': kwargs.get('password', None),
-                        'host': kwargs.get('host', None),
-                        'port': kwargs.get('port', None),
-                        'local_db': kwargs.get('local_db', None)}
-
-    @property
-    def name(self):
-        return self.get_ext_db() or self._params['local_db']
-
-    def get_port(self):
-        return self._params['port']
-
-    def get_host(self):
-        return self._params['host']
-
-    def get_user(self):
-        return self._params['user']
-
-    def get_pw(self):
-        return self._params['password']
-
-    def get_ext_db(self):
-        return self._params.get('dbname', None) or self._params.get('database', None)
-
-    def get_db_loc(self):
-        return str(self._params['local_db'])
-
-    def __getitem__(self, item):
-        return self._params.get(item, None)
-
-    def connection_string(self):
-        return " ".join(["{0}='{1}'".format(key, value) for (key, value) in self._params.items() if value is not None])

@@ -13,10 +13,10 @@ from automated_sla_tool.src.Notes import Notes
 class DailyMarsReport(AReport):
     def __init__(self, month=None):
         # TODO: add xslx writer for spreadsheet formatting
-        super().__init__(report_dates=month)
-        self.finished, report = self.check_finished()
-        if self.finished:
-            self.final_report = report
+        super().__init__(report_dates=month,
+                         report_type='mars_report')
+        if self.check_finished():
+            print('Report Complete for {}'.format(self.dates))
         else:
             self.req_src_files = [r'Agent Time Card', r'Agent Realtime Feature Trace', r'Agent Calls']
             # TODO more testing on load documents + whether it is messing up duration/dnd
@@ -30,11 +30,11 @@ class DailyMarsReport(AReport):
     '''
 
     def run(self):
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             agents = self.tracker.get_tracker()
-            self.final_report = self.make_summary(self.tracker.get_header())
+            self.final_report.set_header(self.tracker.get_header())
             for (ext, agent) in agents.items():
                 if agent[self.day_of_wk]:
                     sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
@@ -57,15 +57,13 @@ class DailyMarsReport(AReport):
                             else:
                                 self.read_call_card(agent_call_card, agent)
                     finally:
+                        # TODO this needs to be redone for the new FinalReport class
                         self.final_report.row += self.tracker[ext]
-            self.finalize_report()
+            # self.finalize_report()
 
-    def save_report(self):
-        self.set_save_path('mars_report')
-        the_file = r'{0}_mars_report'.format(self.dates.strftime('%m%d%Y'))
-        self.final_report.name = the_file
-        file_string = r'.\{0}.xlsx'.format(the_file)
-        self.final_report.save_as(filename=file_string)
+    def test(self):
+        print(self.final_report)
+        print(self.final_report.query_format())
 
     '''
     Utilities Section
@@ -279,11 +277,16 @@ class DailyMarsReport(AReport):
         }
         # conn = lite(pg_db=True, **params2)
         conn = lite(**params1)
-        conn.insert(self.final_report)
+        print(conn.get_tables())
+        if input('Drop mars_report?') == 1:
+            conn.drop_table('mars_report')
+        print(conn.get_tables())
+        # conn.insert(self.final_report)
+        print(self.final_report)
 
     def load_documents(self):
         # TODO abstract this -> *args
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             loaded_files = {}
@@ -324,7 +327,7 @@ class DailyMarsReport(AReport):
                 # return self.filter_feature_report(agent_time_card), self.filter_feature_report(agent_feature_trace)
 
     def download_documents(self, files):
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             self.download_chronicall_files(file_list=files)
@@ -465,10 +468,6 @@ class DailyMarsReport(AReport):
 
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
-
-    def check_finished(self):
-        the_file = r'{0}_mars_report.xlsx'.format(self.dates.strftime("%m%d%Y"))
-        return super().report_finished('mars_report', the_file)
 
 
 class EmployeeTracker(UtilityObject):

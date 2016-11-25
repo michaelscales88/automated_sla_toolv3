@@ -25,9 +25,10 @@ class MonthlyMarsReport(AReport):
                 try:
                     file = DailyMarsReport(month=run_date)
                     file.run()
+                    file.test()
                     # file.read_sql()
-                    file.write_sqlite()
-                    # file.save_report()
+                    # file.write_sqlite()
+                    # file.save()
                 except (OSError, FileNotFoundError) as e:
                     print('Could not open report for date {}'.format(run_date))
                     print(e)
