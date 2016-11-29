@@ -278,11 +278,11 @@ class DailyMarsReport(AReport):
         # conn = lite(pg_db=True, **params2)
         conn = lite(**params1)
         print(conn.get_tables())
-        if input('Drop mars_report?') == 1:
-            conn.drop_table('mars_report')
-        print(conn.get_tables())
-        # conn.insert(self.final_report)
-        print(self.final_report)
+        # if input('Drop mars_report?') == 1:
+        #     conn.drop_table('mars_report')
+        # print(conn.get_tables())
+        conn.insert(self.final_report)
+        # print(self.final_report)
 
     def load_documents(self):
         # TODO abstract this -> *args
