@@ -24,13 +24,11 @@ def main(report_date_delta):
         while start_date <= end_date:
             try:
                 file = SlaReport(report_date=start_date)
-                file.download_documents()
-                file.load_documents()
                 file.compile_call_details()
                 file.scrutinize_abandon_group()
                 file.extract_report_information()
                 file.process_report()
-                file.save_report()
+                # file.save_report()
                 print("Program ran successfully for date: {}".format(start_date.strftime("%m%d%Y")))
             except SystemExit:
                 raise SystemExit('SysExiting SLAReport...')
@@ -38,6 +36,7 @@ def main(report_date_delta):
                 print('Could not open report for date {}'.format(start_date.strftime("%m%d%Y")))
                 print(e)
             else:
+                pass
                 file_queue.append(file.transmit_report())
             finally:
                 start_date += timedelta(days=1)
@@ -56,7 +55,7 @@ if __name__ == "__main__":
     from os import sys, path
 
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
-    run_date = datetime.datetime.today().date() - datetime.timedelta(days=2)
+    run_date = datetime.datetime.today().date() - datetime.timedelta(days=1)
     main([run_date, None])
 else:
     print('entered from else sla_report')

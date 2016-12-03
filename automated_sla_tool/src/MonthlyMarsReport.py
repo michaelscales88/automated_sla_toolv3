@@ -25,10 +25,10 @@ class MonthlyMarsReport(AReport):
                 try:
                     file = DailyMarsReport(month=run_date)
                     file.run()
-                    file.test()
+                    # file.test()
                     # file.read_sql()
-                    file.write_sqlite()
-                    # file.save()
+                    # file.write_sqlite()
+                    file.save()
                 except (OSError, FileNotFoundError) as e:
                     print('Could not open report for date {}'.format(run_date))
                     print(e)
@@ -47,7 +47,7 @@ class MonthlyMarsReport(AReport):
                 pass
             finally:
                 run_date += timedelta(days=1)
-        # self.prep_sheets()
+        self.prep_sheets()
 
     def print_queue(self):
         print(self.file_queue)

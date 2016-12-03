@@ -4,6 +4,7 @@ import pyexcel as pe
 from datetime import time, timedelta
 from dateutil.parser import parse
 from collections import defaultdict, namedtuple
+from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 
@@ -13,16 +14,19 @@ from automated_sla_tool.src.AReport import AReport
 
 class SlaReport(AReport):
     def __init__(self, report_date=None):
-        super(SlaReport, self).__init__(report_dates=report_date)
-        self.finished, report = self.check_finished()
-        if self.finished:
-            self.final_report = report
-            print('Report Complete.')
+        super(SlaReport, self).__init__(report_dates=report_date,
+                                        report_type='sla_report')
+        the_file = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
+        if self.check_finished(the_file):
+            print('Report Complete for {}'.format(self.dates))
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
+            self.req_src_files = [r'Call Details (Basic)', r'Group Abandoned Calls', r'Cradle to Grave']
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
+            self.load_documents()
             self.voicemail = defaultdict(list)
+            self.get_voicemails()
             self.orphaned_voicemails = None
             self.sla_report = {}
 
@@ -30,13 +34,11 @@ class SlaReport(AReport):
     UI Section
     '''
 
-    def download_documents(self):
-        if self.finished:
+    def download_documents(self, files):
+        if self.final_report.finished:
             return
         else:
-            self.download_chronicall_files(file_list=['Call Details (Basic).xlsx',
-                                                      'Group Abandoned Calls.xlsx',
-                                                      'Cradle to Grave.xlsx'])
+            self.download_chronicall_files(file_list=files)
             src_file_directory = os.listdir(self.src_doc_path)
             for file in src_file_directory:
                 if file.endswith(".xls"):
@@ -44,51 +46,120 @@ class SlaReport(AReport):
                     break
 
     def load_documents(self):
-        '''
-
-        :return:
-        '''
-        if self.finished:
+        # TODO abstract this -> *args
+        if self.final_report.finished:
             return
         else:
-            call_details_file = r'{0}\{1}'.format(self.src_doc_path, r'Call Details (Basic).xlsx')
-            abandon_group_file = r'{0}\{1}'.format(self.src_doc_path, r'Group Abandoned Calls.xlsx')
-            cradle_to_grave_file = r'{0}\{1}'.format(self.src_doc_path, r'Cradle to Grave.xlsx')
+            loaded_files = {}
+            unloaded_files = []
+            for f_name in self.req_src_files:
+                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
+                try:
+                    src_file_obj = pe.get_book(file_name=src_file)
+                except FileNotFoundError:
+                    unloaded_files.append(f_name)
+                else:
+                    loaded_files[f_name] = src_file_obj
 
-            call_details = pe.get_sheet(file_name=call_details_file)
-            if self.check_valid_date(call_details['A2']) is not True:
-                raise ValueError('Invalid date for file {}'.format(call_details_file))
-            self.call_details = self.filter_call_details(call_details)
-            self.call_details.name_columns_by_row(0)
-            self.call_details.name = 'call_details'
+            self.download_documents(files=unloaded_files)
+            self.clean_src_loc()
 
-            abandon_group = pe.get_book(file_name=abandon_group_file)
-            del abandon_group['Summary']
-            if self.check_valid_date(abandon_group[0]['A3']) is not True:
-                raise ValueError('Invalid date for file {}'.format(abandon_group_file))
-            abandon_group = self.merge_sheets(abandon_group)
-            self.abandon_group = self.make_distinct_and_sort(abandon_group, delim='-')
-            self.abandon_group.name_columns_by_row(0)
-            self.filter_abandon_group(self.abandon_group)
-            self.abandon_group.name = 'abandon_group'
+            for f_name in unloaded_files:
+                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
+                try:
+                    src_file_obj = pe.get_book(file_name=src_file)
+                except FileNotFoundError:
+                    raise FileNotFoundError("Could not open src documents"
+                                            "-> {0}.load_documents".format(self.final_report.type))
+                else:
+                    loaded_files[f_name] = src_file_obj
 
-            cradle_to_grave = pe.get_book(file_name=cradle_to_grave_file)
-            del cradle_to_grave['Summary']
-            if self.check_valid_date(cradle_to_grave[0]['A3']) is not True:
-                raise ValueError('Invalid date for file {}'.format(cradle_to_grave_file))
+            for file in loaded_files.keys():
+                try:
+                    del loaded_files[file]['Summary']
+                except Exception as e:
+                    print(e)
+            temp_sheet = pe.Sheet()
+            for row in loaded_files[r'Call Details (Basic)'][0].rows():
+                temp_sheet.row += row
+            loaded_files[r'Call Details (Basic)'] = temp_sheet
+            if self.check_valid_date(loaded_files[r'Call Details (Basic)']['A2']) is not True:
+                raise ValueError('Invalid date for file {}'.format('Call Details'))
+            self.src_files[r'Call Details (Basic)'] = self.filter_call_details(loaded_files[r'Call Details (Basic)'])
+            self.src_files[r'Call Details (Basic)'].name_columns_by_row(0)
+            self.src_files[r'Call Details (Basic)'].name = 'call_details'
+
+            if self.check_valid_date(loaded_files[r'Group Abandoned Calls'][0]['A3']) is not True:
+                raise ValueError('Invalid date for file {}'.format(r'Group Abandoned Calls'))
+            loaded_files[r'Group Abandoned Calls'] = self.merge_sheets(loaded_files[r'Group Abandoned Calls'])
+            self.src_files[r'Group Abandoned Calls'] = self.make_distinct_and_sort(
+                loaded_files[r'Group Abandoned Calls'], delim='-')
+            self.src_files[r'Group Abandoned Calls'].name_columns_by_row(0)
+            self.filter_abandon_group(self.src_files[r'Group Abandoned Calls'])
+            self.src_files[r'Group Abandoned Calls'].name = 'abandon_group'
+
+            if self.check_valid_date(loaded_files[r'Cradle to Grave'][0]['A3']) is not True:
+                raise ValueError('Invalid date for file {}'.format(r'Cradle to Grave'))
             cradle_filter = pe.RowValueFilter(self.cradle_report_row_filter)
-            for sheet in cradle_to_grave:
+            for sheet in loaded_files[r'Cradle to Grave']:
                 sheet.filter(cradle_filter)
                 sheet.name_columns_by_row(0)
-            self.cradle_to_grave = cradle_to_grave
-            self.get_voicemails()
+            self.src_files[r'Cradle to Grave'] = loaded_files[r'Cradle to Grave']
+            local_db = os.path.join(self.path, r'db\automated_sla_tool.db')
+            params1 = {
+                'local_db': local_db,
+            }
+            conn = lite(**params1)
+            conn.insert(self.src_files[r'Cradle to Grave'][0])
+            # for f_name in loaded_files.keys():
+            # self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
+
+    # def load_documents(self):
+    #     '''
+    #
+    #     :return:
+    #     '''
+    #     if self.final_report.finished:
+    #         return
+    #     else:
+    #         call_details_file = r'{0}\{1}'.format(self.src_doc_path, r'Call Details (Basic).xlsx')
+    #         abandon_group_file = r'{0}\{1}'.format(self.src_doc_path, r'Group Abandoned Calls.xlsx')
+    #         cradle_to_grave_file = r'{0}\{1}'.format(self.src_doc_path, r'Cradle to Grave.xlsx')
+    #
+    #         call_details = pe.get_sheet(file_name=call_details_file)
+    #         if self.check_valid_date(call_details['A2']) is not True:
+    #             raise ValueError('Invalid date for file {}'.format(call_details_file))
+    #         self.call_details = self.filter_call_details(call_details)
+    #         self.call_details.name_columns_by_row(0)
+    #         self.call_details.name = 'call_details'
+    #
+    #         abandon_group = pe.get_book(file_name=abandon_group_file)
+    #         del abandon_group['Summary']
+    #         if self.check_valid_date(abandon_group[0]['A3']) is not True:
+    #             raise ValueError('Invalid date for file {}'.format(abandon_group_file))
+    #         abandon_group = self.merge_sheets(abandon_group)
+    #         self.abandon_group = self.make_distinct_and_sort(abandon_group, delim='-')
+    #         self.abandon_group.name_columns_by_row(0)
+    #         self.filter_abandon_group(self.abandon_group)
+    #         self.abandon_group.name = 'abandon_group'
+    #
+    #         cradle_to_grave = pe.get_book(file_name=cradle_to_grave_file)
+    #         del cradle_to_grave['Summary']
+    #         if self.check_valid_date(cradle_to_grave[0]['A3']) is not True:
+    #             raise ValueError('Invalid date for file {}'.format(cradle_to_grave_file))
+    #         cradle_filter = pe.RowValueFilter(self.cradle_report_row_filter)
+    #         for sheet in cradle_to_grave:
+    #             sheet.filter(cradle_filter)
+    #             sheet.name_columns_by_row(0)
+    #         self.cradle_to_grave = cradle_to_grave
+    #         self.get_voicemails()
 
     def compile_call_details(self):
         '''
 
                 :return:
                 '''
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             client = namedtuple('this_client',
@@ -96,11 +167,11 @@ class SlaReport(AReport):
             client.__new__.__defaults__ = (0,) * len(client._fields)
             additional_times = [['Wait Time', 'Hold Time']]
 
-            col_index = self.call_details.colnames
+            col_index = self.src_files[r'Call Details (Basic)'].colnames
 
-            for row in self.call_details.rows():
+            for row in self.src_files[r'Call Details (Basic)'].rows():
                 call_id = row[col_index.index('Call')].replace(':', ' ')
-                sheet = self.cradle_to_grave[call_id]
+                sheet = self.src_files[r'Cradle to Grave'][call_id]
                 sheet_events = sheet.column['Event Type']
                 transfer_hold = 'Transfer Hold' in sheet_events
                 had_hold = 'Hold' in sheet_events
@@ -136,25 +207,25 @@ class SlaReport(AReport):
                     wait_time = self.convert_time_stamp((call_duration - talk_duration))
                     additional_times.append([wait_time, self.convert_time_stamp(0)])
             additional_time_column = pe.Sheet(additional_times)
-            self.call_details.column += additional_time_column
+            self.src_files[r'Call Details (Basic)'].column += additional_time_column
 
     def scrutinize_abandon_group(self):
         '''
 
                 :return:
                 '''
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             self.remove_calls_less_than_twenty_seconds()
             self.remove_duplicate_calls()
 
     def extract_report_information(self):
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
-            client_ans = self.read_report(self.call_details)
-            client_lost = self.read_report(self.abandon_group)
+            client_ans = self.read_report(self.src_files[r'Call Details (Basic)'])
+            client_lost = self.read_report(self.src_files[r'Group Abandoned Calls'])
             for client in self.clients.keys():
                 calls_answered = self.get_client_info(client_ans, client)
                 calls_lost = self.get_client_info(client_lost, client)
@@ -168,16 +239,16 @@ class SlaReport(AReport):
                     pass
                 else:
                     if self.sla_report[client].no_answered() is False:
-                        self.sla_report[client].extract_call_details(self.call_details)
+                        self.sla_report[client].extract_call_details(self.src_files[r'Call Details (Basic)'])
                     if self.sla_report[client].no_lost() is False:
-                        self.sla_report[client].extract_abandon_group_details(self.abandon_group)
+                        self.sla_report[client].extract_abandon_group_details(self.src_files[r'Group Abandoned Calls'])
 
     def process_report(self):
         '''
 
             :return:
         '''
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             headers = [self.dates.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
@@ -226,7 +297,7 @@ class SlaReport(AReport):
             self.final_report.name_rows_by_column(0)
 
     def save_report(self):
-        if self.finished:
+        if self.final_report.finished:
             return
         else:
             self.validate_final_report()
@@ -409,7 +480,7 @@ class SlaReport(AReport):
         return report_details
 
     def handle_read_value_error(self, call_id):
-        sheet = self.cradle_to_grave[call_id.replace(':', ' ')]
+        sheet = self.src_files[r'Cradle to Grave'][call_id.replace(':', ' ')]
         hunt_index = sheet.column['Event Type'].index('Ringing')
         return sheet.column['Receiving Party'][hunt_index]
 
@@ -424,13 +495,14 @@ class SlaReport(AReport):
 
     def filter_call_details(self, call_details):
         call_filter = pe.RowValueFilter(self.blank_row_filter)
-        call_details.filter(call_filter)
         inbound_call_filter = pe.RowValueFilter(self.inbound_call_filter)
-        call_details.filter(inbound_call_filter)
         zero_duration = pe.RowValueFilter(self.zero_duration_filter)
-        call_details.filter(zero_duration)
         internal_inbound = pe.RowValueFilter(self.remove_internal_inbound_filter)
+        call_details.filter(call_filter)
+        call_details.filter(inbound_call_filter)
+        call_details.filter(zero_duration)
         call_details.filter(internal_inbound)
+
         return call_details
 
     def filter_abandon_group(self, abandon_group):
@@ -438,10 +510,10 @@ class SlaReport(AReport):
         abandon_group.filter(rm_ans_calls_filter)
 
     def remove_duplicate_calls(self):
-        internal_parties = self.abandon_group.column['Internal Party']
-        external_parties = self.abandon_group.column['External Party']
-        start_times = self.abandon_group.column['Start Time']
-        end_times = self.abandon_group.column['End Time']
+        internal_parties = self.src_files[r'Group Abandoned Calls'].column['Internal Party']
+        external_parties = self.src_files[r'Group Abandoned Calls'].column['External Party']
+        start_times = self.src_files[r'Group Abandoned Calls'].column['Start Time']
+        end_times = self.src_files[r'Group Abandoned Calls'].column['End Time']
         potential_duplicates = self.find_non_distinct(external_parties)
         for duplicate in potential_duplicates:
             call_index = self.find(external_parties, duplicate)
@@ -454,14 +526,14 @@ class SlaReport(AReport):
                 next_call_start_time = parse(start_times[next_call])
                 time_delta = next_call_start_time - first_call_end_time
                 if time_delta < timedelta(minutes=1) and first_call_client == next_call_client:
-                    del self.abandon_group.row[next_call]
+                    del self.src_files[r'Group Abandoned Calls'].row[next_call]
 
     def remove_calls_less_than_twenty_seconds(self):
-        call_durations = self.abandon_group.column['Call Duration']
+        call_durations = self.src_files[r'Group Abandoned Calls'].column['Call Duration']
         for call in call_durations:
             if self.get_sec(call) < 20:
                 row_index = call_durations.index(call)
-                del self.abandon_group.row[row_index]
+                del self.src_files[r'Group Abandoned Calls'].row[row_index]
 
     def get_voicemails(self):
         voicemail_file_path = r'{0}\{1}'.format(self.src_doc_path,
@@ -489,24 +561,29 @@ class SlaReport(AReport):
 
     def retrieve_voicemail_cradle(self):
         voice_mail_dict = defaultdict(list)
-        for call_id_page in self.cradle_to_grave:
-            col_index = call_id_page.colnames
-            sheet_events = call_id_page.column['Event Type']
-            if 'Voicemail' in sheet_events:
-                voicemail_index = sheet_events.index('Voicemail')
-                real_voicemail = call_id_page[
-                                     voicemail_index, col_index.index('Receiving Party')] in self.clients_verbose
-                if real_voicemail:
-                    voicemail = {}
-                    receiving_party = call_id_page[voicemail_index, col_index.index('Receiving Party')]
-                    telephone_number = str(call_id_page[voicemail_index, col_index.index('Calling Party')])[-4:]
-                    if telephone_number.isalpha():
-                        telephone_number = str(call_id_page[0, col_index.index('Calling Party')])[-4:]
-                    call_time = call_id_page[voicemail_index, col_index.index('End Time')]
-                    voicemail['call_id'] = call_id_page.name
-                    voicemail['number'] = telephone_number
-                    voicemail['call_time'] = call_time
-                    voice_mail_dict[receiving_party].append(voicemail)
+        for call_id_page in self.src_files[r'Cradle to Grave']:
+            try:
+                col_index = call_id_page.colnames
+                sheet_events = call_id_page.column['Event Type']
+            except IndexError:
+                pass
+            else:
+                if 'Voicemail' in sheet_events:
+                    voicemail_index = sheet_events.index('Voicemail')
+                    real_voicemail = call_id_page[
+                                         voicemail_index, col_index.index('Receiving Party')] in self.clients_verbose
+                    if real_voicemail:
+                        voicemail = {}
+                        receiving_party = call_id_page[voicemail_index, col_index.index('Receiving Party')]
+                        telephone_number = str(call_id_page[voicemail_index, col_index.index('Calling Party')])[-4:]
+                        if telephone_number.isalpha():
+                            telephone_number = str(call_id_page[0, col_index.index('Calling Party')])[-4:]
+                        call_time = call_id_page[voicemail_index, col_index.index('End Time')]
+                        voicemail['call_id'] = call_id_page.name
+                        voicemail['number'] = telephone_number
+                        voicemail['call_time'] = call_time
+                        voice_mail_dict[receiving_party].append(voicemail)
+            print('read {} successfully.'.format(call_id_page.name))
         return voice_mail_dict
 
     def make_voicemail_data(self):
@@ -558,10 +635,6 @@ class SlaReport(AReport):
     def __str__(self):
         for arg in vars(self):
             print(arg)
-
-    def check_finished(self):
-        the_file = r'{0}_Incoming DID Summary.xlsx'.format(self.dates.strftime("%m%d%Y"))
-        return super().report_finished('sla_report', the_file)
 
 
 class Client:

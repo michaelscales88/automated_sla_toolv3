@@ -19,6 +19,7 @@ class SqlWriter(QueryWriter):
             print(error, flush=True)
 
     def get_conn(self):
+        print(self.params.connection_string())
         return ps.connect(self.params.connection_string())
 
     def refresh_connection(self):

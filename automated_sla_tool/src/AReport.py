@@ -1,5 +1,6 @@
 import pyexcel as pe
 import os
+import re
 from datetime import timedelta, datetime, time
 from dateutil.parser import parse
 from automated_sla_tool.src.UtilityObject import UtilityObject
@@ -42,6 +43,17 @@ class AReport(UtilityObject):
         file_dir = r'{0}\{1}\{2}'.format(os.path.dirname(self.path), 'Attachment Archive', self.dates.strftime('%m%d'))
         self.change_dir(file_dir)
         return os.getcwd()
+
+    def clean_src_loc(self):
+        import os
+        filelist = [f for f in os.listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
+        for f in filelist:
+            f_name, ext = os.path.splitext(f)
+            f_name = re.sub(r'\d+', '', f_name)
+            f_name = f_name.replace('-', ' ')
+            f_name = f_name.replace('_', ' ')
+            f_name = f_name.strip()
+            os.rename(f, r'{0}{1}'.format(f_name, ext))
 
     '''
     Report Utilities
@@ -173,8 +185,8 @@ class AReport(UtilityObject):
     def add_time(self, dt_t, add_time=None):
         return (datetime.combine(datetime.today(), dt_t) + add_time).time()
 
-    def check_finished(self):
-        file_name = r'{0}.xlsx'.format(self.final_report.name)
+    def check_finished(self, report_string=None):
+        file_name = r'{0}.xlsx'.format(self.final_report.name if report_string is None else report_string)
         the_path = os.path.dirname(self.path)
         the_file = r'{0}\Output\{1}\{2}'.format(the_path, self.final_report.type, file_name)
         if os.path.isfile(the_file):

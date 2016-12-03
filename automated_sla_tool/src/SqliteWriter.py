@@ -1,7 +1,9 @@
 import sqlite3 as lite
+import pyexcel as pe
 import sys
 import traceback
-from datetime import time
+from datetime import time, date
+from collections import defaultdict
 from automated_sla_tool.src.QueryWriter import QueryWriter
 from automated_sla_tool.src.QueryParam import QueryParam
 
@@ -25,7 +27,9 @@ class SqliteWriter(QueryWriter):
             None: 'NULL',
             int: 'INTEGER',
             float: 'REAL',
-            str: 'TEXT'
+            str: 'TEXT',
+            time: 'TEXT',
+            date: 'INTEGER'
         }
         try:
             self.conn = self.get_conn()
@@ -40,13 +44,15 @@ class SqliteWriter(QueryWriter):
 
     def insert(self, table):
         print('inside insert')
-        try:
-            self.drop_table('mars_report')
-            self.drop_table('test2')
-        except Exception as e:
-            print(e)
+        for dtable in self.get_tables():
+            try:
+                self.drop_table(dtable)
+            except Exception as e:
+                print(e)
         self.commit_changes()
-
+        print(table)
+        print(table.colnames)
+        print([table.name] + table.colnames)
         # test_data = [
         #     ['name1', 'val1'],
         #     ['name2', 'val2']
@@ -68,28 +74,54 @@ class SqliteWriter(QueryWriter):
         # '''
         # test_cur = self.conn.cursor()
         # test_cur.executemany(test_insert, test_data)
-        data = table.query_format()
-        table_name = self.get_table_name(table.name)  # TODO refactor this to get
-        (create_query,
-         execute_query) = self.make_query(table_name, data)
-        print(create_query)
-        self.conn.execute(create_query)
-        print(execute_query)
-        insert_row = [{
-                          'Late': row.get('Late'),
-                          'Absent': row.get('Late'),
-                          'Inbound_Lost': row.get('Inbound_Lost'),
-                          'Employee': row.get('Employee'),
-                          'Notes': row.get('Notes'),
-                          'Avail': row.get('Avail'),
-                          'numDND': row.get('numDND'),
-                          'Inbound_Ans': row.get('Inbound_Ans'),
-                          'Outbound': row.get('Outbound'),
-                      } for row in data]
-        self.conn.executemany(execute_query, insert_row)
-        # self.conn.executemany(execute_query, data)
-        self.commit_changes()
-        self.query('mars_report')
+        # data = table.query_format()
+        # table_name = self.get_table_name(table.name)  # TODO refactor this to get
+        # (create_query,
+        #  execute_query) = self.make_query(table_name, data)
+        # print(create_query)
+        # self.conn.execute(create_query)
+        # print(execute_query)
+        # self.commit_changes()
+        # # for row in data:
+        # #     insert_row = {
+        # #                       'Late': row.get('Late'),
+        # #                       'Absent': row.get('Late'),
+        # #                       'Inbound_Lost': row.get('Inbound_Lost'),
+        # #                       'Employee': row.get('Employee'),
+        # #                       'Notes': row.get('Notes'),
+        # #                       'Avail': row.get('Avail'),
+        # #                       'numDND': row.get('numDND'),
+        # #                       'Inbound_Ans': row.get('Inbound_Ans'),
+        # #                       'Outbound': row.get('Outbound'),
+        # #     }
+        # #     print('Starting insert: ' + insert_row['Employee'])
+        # #     self.conn.execute(execute_query, insert_row)
+        # #     print('Completed insert: ' + insert_row['Employee'])
+        # f = lambda: None
+        # insert_row = [defaultdict(f,
+        #     {
+        #         'Late': row.get('Late'),
+        #         'Absent': row.get('Absent'),
+        #         'Inbound_Lost': row.get('Inbound Lost'),
+        #         'Employee': row.get('Employee'),
+        #         'Notes': row.get('Notes'),
+        #         'Avail': row.get('Avail'),
+        #         'numDND': row.get('numDND'),
+        #         'Inbound_Ans': row.get('Inbound Ans'),
+        #         'Outbound': row.get('Outbound'),
+        #     }
+        # ) for row in data]
+        # self.conn.executemany(execute_query, insert_row)
+        # # self.conn.executemany(execute_query, data)
+        # self.commit_changes()
+
+        # rtn_data = self.query('mars_report')
+        ###################################
+
+
+        # TODO Below is diff
+        # new_sheet = pe.get_sheet(records=)
+        # print(new_sheet)
 
 
         # make_table = '''
@@ -169,8 +201,8 @@ class SqliteWriter(QueryWriter):
         test_row = data[0].items()
         values = ', '.join(['{0}'.format(k.replace(' ', '_')) for k, v in test_row if type(v) is not time])
         values_types = 'ID INTEGER PRIMARY KEY AUTOINCREMENT, ' + ', '.join(['{0} {1}'.format(k.replace(' ', '_'),
-                                                                                             self.ci[type(v)]) for k, v
-                                                                            in test_row if type(v) is not time])
+                                                                                              self.ci[type(v)]) for k, v
+                                                                             in test_row if type(v) is not time])
         # print(values)
         place_holders = ', '.join([':{0}'.format(k.replace(' ', '_')) for k, v in test_row if type(v) is not time])
         # print(place_holders)
@@ -193,7 +225,20 @@ class SqliteWriter(QueryWriter):
         test_cur = self.conn.cursor()
         test_cur.execute(cmd)
         all_rows = test_cur.fetchall()
-        print([[row] for row in all_rows])
+        headers = [col_name[0] for col_name in test_cur.description]
+        # print(headers)
+        # print([[row] for row in all_rows])
+        rtn_sheet = pe.Sheet()
+        rtn_sheet.row += headers
+        rtn_sheet.name_columns_by_row(0)
+        for row in all_rows:
+            print(row)
+            try:
+                rtn_sheet.row += list(row)
+            except Exception as e:
+                print(e.__cause__)
+                print(e)
+        print(rtn_sheet)
 
     def no_table(self, table):
         print('Could not identify table for {}'.format(table.name))

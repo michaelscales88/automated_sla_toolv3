@@ -13,16 +13,21 @@ class QueryParam(object):
     def name(self):
         return self.get_ext_db() or self._params['local_db']
 
-    def get_port(self):
+    @property
+    def port(self):
         return self._params['port']
 
-    def get_host(self):
+    @property
+    def host(self):
         return self._params['host']
 
-    def get_user(self):
+    @property
+    def user(self):
         return self._params['user']
 
-    def get_pw(self):
+    @property
+    # setter format = @pw.setter
+    def pw(self):
         return self._params['password']
 
     def get_ext_db(self):

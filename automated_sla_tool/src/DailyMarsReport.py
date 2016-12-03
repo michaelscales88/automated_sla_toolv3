@@ -59,7 +59,7 @@ class DailyMarsReport(AReport):
                     finally:
                         # TODO this needs to be redone for the new FinalReport class
                         self.final_report.row += self.tracker[ext]
-            # self.finalize_report()
+            self.finalize_report()
 
     def test(self):
         print(self.final_report)
@@ -275,13 +275,14 @@ class DailyMarsReport(AReport):
             'host': '10.1.3.17',
             'port': 9086
         }
-        # conn = lite(pg_db=True, **params2)
-        conn = lite(**params1)
-        print(conn.get_tables())
+        from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
+        conn = ps_write(**params2)
+        # conn = lite(**params1)
+        # print(conn.get_tables())
         # if input('Drop mars_report?') == 1:
         #     conn.drop_table('mars_report')
         # print(conn.get_tables())
-        conn.insert(self.final_report)
+        # conn.insert(self.final_report)
         # print(self.final_report)
 
     def load_documents(self):
@@ -289,6 +290,7 @@ class DailyMarsReport(AReport):
         if self.final_report.finished:
             return
         else:
+            self.clean_src_loc()
             loaded_files = {}
             unloaded_files = []
             for f_name in self.req_src_files:
@@ -314,17 +316,6 @@ class DailyMarsReport(AReport):
 
             for f_name in loaded_files.keys():
                 self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
-                # Working
-                # agent_time_card_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Time Card.xlsx')
-                # agent_feature_trace_file = r'{0}\{1}'.format(self.src_doc_path, r'Agent Realtime Feature Trace.xlsx')
-                # try:
-                #     agent_time_card = pe.get_book(file_name=agent_time_card_file)
-                #     agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
-                # except FileNotFoundError:
-                #     self.download_documents(files=[r'Agent Time Card.xlsx', r'Agent Realtime Feature Trace.xlsx'])
-                #     agent_time_card = pe.get_book(file_name=agent_time_card_file)
-                #     agent_feature_trace = pe.get_book(file_name=agent_feature_trace_file)
-                # return self.filter_feature_report(agent_time_card), self.filter_feature_report(agent_feature_trace)
 
     def download_documents(self, files):
         if self.final_report.finished:
