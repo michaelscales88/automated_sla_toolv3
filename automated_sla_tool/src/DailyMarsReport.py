@@ -4,6 +4,7 @@ import pyexcel as pe
 import pypyodbc as ps
 from datetime import datetime, time, timedelta
 from collections import namedtuple
+from glob import glob as glob
 from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.UtilityObject import UtilityObject
@@ -290,32 +291,56 @@ class DailyMarsReport(AReport):
         if self.final_report.finished:
             return
         else:
-            self.clean_src_loc()
-            loaded_files = {}
-            unloaded_files = []
-            for f_name in self.req_src_files:
-                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
+            # loaded_files = {}
+            # unloaded_files = []
+            #
+            # for f_name in self.req_src_files:
+            #     src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
+            #     try:
+            #         src_file_obj = pe.get_book(file_name=src_file)
+            #     except FileNotFoundError:
+            #         unloaded_files.append(f_name)
+            #     else:
+            #         loaded_files[f_name] = src_file_obj
+            #
+            # self.download_documents(files=unloaded_files)
+            # self.clean_src_loc()
+            #
+            # for f_name in unloaded_files:
+            #     src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
+            #     try:
+            #         src_file_obj = pe.get_book(file_name=src_file)
+            #     except FileNotFoundError:
+            #         raise FileNotFoundError("Could not open src documents"
+            #                                 "-> {0}.load_documents: {1}".format(self.final_report.type, src_file))
+            #     else:
+            #         loaded_files[f_name] = src_file_obj
+            for (f, p) in self.r_loader(self.req_src_files).items():
                 try:
-                    src_file_obj = pe.get_book(file_name=src_file)
-                except FileNotFoundError:
-                    unloaded_files.append(f_name)
-                else:
-                    loaded_files[f_name] = src_file_obj
-
-            self.download_documents(files=unloaded_files)
-
-            for f_name in unloaded_files:
-                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
-                try:
-                    src_file_obj = pe.get_book(file_name=src_file)
+                    file = pe.get_book(file_name=p)
                 except FileNotFoundError:
                     raise FileNotFoundError("Could not open src documents"
-                                            "-> DailyMarsReport.load_documents")
+                                            "-> {0}.load_documents: {1}".format(self.final_report.type, f))
                 else:
-                    loaded_files[f_name] = src_file_obj
+                    self.src_files[f] = self.filter_agent_reports(file)
+            # for f_name in loaded_files.keys():
+            #     self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
 
-            for f_name in loaded_files.keys():
-                self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
+    def r_loader(self, unloaded_files, run2=False):
+        if run2 is True:
+            return {}
+        loaded_files = {}
+        self.clean_src_loc()
+        for f_name in reversed(unloaded_files):
+            src_f = glob(r'{0}\{1}*.xlsx'.format(self.src_doc_path, f_name))
+            if len(src_f) is 1:
+                loaded_files[f_name] = src_f[0]
+                unloaded_files.remove(f_name)
+            else:
+                # TODO additional error handling for file names that have not been excluded?
+                pass
+        self.download_documents(files=unloaded_files)
+        return {**loaded_files, **self.r_loader(unloaded_files, True)}
 
     def download_documents(self, files):
         if self.final_report.finished:

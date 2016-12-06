@@ -70,7 +70,7 @@ class SlaReport(AReport):
                     src_file_obj = pe.get_book(file_name=src_file)
                 except FileNotFoundError:
                     raise FileNotFoundError("Could not open src documents"
-                                            "-> {0}.load_documents".format(self.final_report.type))
+                                            "-> {0}.load_documents: {1}".format(self.final_report.type, src_file))
                 else:
                     loaded_files[f_name] = src_file_obj
 

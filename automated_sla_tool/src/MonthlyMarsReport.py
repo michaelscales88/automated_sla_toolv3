@@ -47,7 +47,10 @@ class MonthlyMarsReport(AReport):
                 pass
             finally:
                 run_date += timedelta(days=1)
-        self.prep_sheets()
+        try:
+            self.prep_sheets()
+        except IndexError:
+            pass
 
     def print_queue(self):
         print(self.file_queue)

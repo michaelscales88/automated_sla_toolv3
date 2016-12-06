@@ -4,6 +4,9 @@ from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.UtilityObject import UtilityObject
 import pyexcel as pe
 from automated_sla_tool.src.FinalReport import FinalReport
+import os
+import re
+from glob import glob as glob
 
 import sqlite3
 
@@ -18,15 +21,34 @@ class Point(object):
 
 
 def main():
+    import os
+    filelist = [f for f in os.listdir(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203') if f.endswith((".xlsx", ".xls"))]
+    spc_ch = ['-', '_']
+    del_ch = ['(', ')', '%' r'\d+']
+    for f in filelist:
+        f_name, ext = os.path.splitext(f)
+        f_name = re.sub('[{0}]'.format(''.join(spc_ch)), ' ', f_name)
+        f_name = re.sub('[{0}]'.format(''.join(del_ch)), '', f_name)
+        f_name = f_name.strip()
+        # print(f_name)
+        full_f = r'{0}{1}'.format(f_name, ext)
+        print(f)
+        print(full_f)
+        os.rename(f, full_f)
+    file_string = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203\Call Details*.xlsx'
+    file_list = os.listdir(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203')
+    print(file_list)
+    print(glob(file_string))
+    print('Call Details*.xlsx' in file_list)
     # con = sqlite3.connect(":memory:")
     # cur = con.cursor()
     #
     # p = Point(4.0, -3.2)
     # cur.execute("SELECT ?", (p,))
     # print(cur.fetchone()[0])
-    report = FinalReport()
+    # report = FinalReport()
     # print(report)
-    report.open_report(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Output\mars_report\11032016_mars_report.xlsx')
+    # report.open_report(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Output\mars_report\11032016_mars_report.xlsx')
 
     # time1 = timedelta(minutes=10, seconds=12)
     # time2 = timedelta(hours=24)

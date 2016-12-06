@@ -28,7 +28,7 @@ def main(report_date_delta):
                 file.scrutinize_abandon_group()
                 file.extract_report_information()
                 file.process_report()
-                # file.save_report()
+                file.save_report()
                 print("Program ran successfully for date: {}".format(start_date.strftime("%m%d%Y")))
             except SystemExit:
                 raise SystemExit('SysExiting SLAReport...')

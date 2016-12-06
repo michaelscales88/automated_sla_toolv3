@@ -45,13 +45,15 @@ class AReport(UtilityObject):
         return os.getcwd()
 
     def clean_src_loc(self):
+        # TODO today test this more... doesn't merge/delete original file
         import os
         filelist = [f for f in os.listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
+        spc_ch = ['-', '_']
+        del_ch = ['%', r'\d+']  # '(', ')',
         for f in filelist:
             f_name, ext = os.path.splitext(f)
-            f_name = re.sub(r'\d+', '', f_name)
-            f_name = f_name.replace('-', ' ')
-            f_name = f_name.replace('_', ' ')
+            f_name = re.sub('[{0}]'.format(''.join(spc_ch)), ' ', f_name)
+            f_name = re.sub('[{0}]'.format(''.join(del_ch)), '', f_name)
             f_name = f_name.strip()
             os.rename(f, r'{0}{1}'.format(f_name, ext))
 
