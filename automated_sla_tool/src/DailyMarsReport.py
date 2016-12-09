@@ -354,6 +354,7 @@ class DailyMarsReport(AReport):
                     break
 
     def get_data_measurements(self):
+        print(self.src_files.keys())
         # TODO refactor this to collate src_files + take program provided names
         if self.is_empty_wb(self.src_files['Agent Time Card']):
             raise OSError('No agents for report')

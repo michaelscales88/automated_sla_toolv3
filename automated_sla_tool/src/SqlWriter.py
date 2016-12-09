@@ -20,7 +20,18 @@ class SqlWriter(QueryWriter):
 
     def get_conn(self):
         print(self.params.connection_string())
-        return ps.connect(self.params.connection_string())
+        conn_string = (
+            '''
+            DRIVER={PostgreSQL Unicode};
+            DATABASE=chronicall;
+            UID=Chronicall;
+            PWD=ChR0n1c@ll1337;
+            SERVER=10.1.3.17;
+            PORT=9086;
+            Trusted_Connection=yes
+            '''
+        )
+        return ps.connect(conn_string)
 
     def refresh_connection(self):
         self.conn.close()

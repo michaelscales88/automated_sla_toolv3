@@ -56,14 +56,18 @@ class MonthlyMarsReport(AReport):
         print(self.file_queue)
 
     def summarize_queue(self):
+        print('starting to summarize queue')
         if self.is_empty_wb(self.file_queue):
             return
         agent_summary = AgentSummary(fields=self.final_report_fields)
+        print('number of files in queue: {}'.format(self.file_queue.number_of_sheets()))
         for report in self.file_queue:
             for agent in report.rownames:
                 if agent == 'Notes':
                     break
+                print('summarizing report for {0} {1}'.format(agent, report.name))
                 agent_summary.collect_data(agent, report)
+                print(agent_summary)
                 # agent_summary[(agent, 'Absent'] = report[agent, 'Absent']
                 # agent_summary[(agent, 'Late'] = report[agent, 'Late']
                 # agent_summary[(agent, 'DND'] = report[agent, 'DND']
@@ -127,19 +131,27 @@ class AgentSummary(TupleKeyDict):
         return ['Employee'] + sorted(self.fields)
 
     def __setitem__(self, key, value):
+        print('entering set_item {0} {1}'.format(key, value))
         try:
             add_secs = int(timedelta(hours=value.hour, minutes=value.minute, seconds=value.second).total_seconds())
         except AttributeError:
             super().__setitem__(key, value)
         else:
-            super().__setitem__(key, add_secs)
+            try:
+                comb_secs = self[key] + add_secs
+                super().__setitem__(key, comb_secs)
+            except KeyError:
+                super().__setitem__(key, add_secs)
 
     def __getitem__(self, key):
         return super().__getitem__(key)
 
     def collect_data(self, agent, report):
         for column in self.fields:
-            try:
-                self[agent, column] += report[agent, column]
-            except KeyError:
-                self[agent, column] = report[agent, column]
+            self.__setitem__(agent, report[agent, column])
+            # try:
+            #     self[agent, column] += report[agent, column]
+            #     print('setting via norm (collect_data)')
+            # except KeyError:
+            #     self[agent, column] = report[agent, column]
+            #     print('setting via KeyError (collect_data)')

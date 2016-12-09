@@ -7,6 +7,9 @@ from automated_sla_tool.src.FinalReport import FinalReport
 import os
 import re
 from glob import glob as glob
+from socket import *
+from queue import Queue
+from threading import Thread
 
 import sqlite3
 
@@ -19,27 +22,54 @@ class Point(object):
         if protocol is sqlite3.PrepareProtocol:
             return "%f;%f" % (self.x, self.y)
 
+def worker():
+    while True:
+        item = q.get()
+        do_work(item)
+        q.task_done()
+
 
 def main():
-    import os
-    filelist = [f for f in os.listdir(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203') if f.endswith((".xlsx", ".xls"))]
-    spc_ch = ['-', '_']
-    del_ch = ['(', ')', '%' r'\d+']
-    for f in filelist:
-        f_name, ext = os.path.splitext(f)
-        f_name = re.sub('[{0}]'.format(''.join(spc_ch)), ' ', f_name)
-        f_name = re.sub('[{0}]'.format(''.join(del_ch)), '', f_name)
-        f_name = f_name.strip()
-        # print(f_name)
-        full_f = r'{0}{1}'.format(f_name, ext)
-        print(f)
-        print(full_f)
-        os.rename(f, full_f)
-    file_string = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203\Call Details*.xlsx'
-    file_list = os.listdir(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203')
-    print(file_list)
-    print(glob(file_string))
-    print('Call Details*.xlsx' in file_list)
+    q = Queue()
+    for i in range(3):
+        t = Thread(target=worker, )
+        t.daemon = True
+        t.start()
+
+    for item in source():
+        q.put(item)
+
+    q.join()  # block until all tasks are done
+    # import win32api
+    # import win32net
+    # ip = '192.168.1.18'
+    # username = 'ram'
+    # password = 'ram@123'
+    #
+    # use_dict = {}
+    # use_dict['remote'] = unicode('\\\\192.168.1.18\C$')
+    # use_dict['password'] = unicode(password)
+    # use_dict['username'] = unicode(username)
+    # win32net.NetUseAdd(None, 2, use_dict)
+    # import os
+    # filelist = [f for f in os.listdir(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203') if f.endswith((".xlsx", ".xls"))]
+    # spc_ch = ['-', '_']
+    # del_ch = ['(', ')', '%' r'\d+']
+    # for f in filelist:
+    #     f_name, ext = os.path.splitext(f)
+    #     f_name = re.sub('[{0}]'.format(''.join(spc_ch)), ' ', f_name)
+    #     f_name = re.sub('[{0}]'.format(''.join(del_ch)), '', f_name)
+    #     f_name = f_name.strip()
+    #     # print(f_name)
+    #     full_f = r'{0}{1}'.format(f_name, ext)
+    #     print(f)
+    #     print(full_f)
+    #     os.rename(f, full_f)
+    # file_string = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203\Call Details*.xlsx'
+    # file_list = os.listdir(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\1203')
+    # print(file_list)
+    # print(glob(file_string))
+    # print('Call Details*.xlsx' in file_list)
     # con = sqlite3.connect(":memory:")
     # cur = con.cursor()
     #

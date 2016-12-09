@@ -7,7 +7,7 @@ def main(s_date=None, days=None):
     file = MonthlyMarsReport(start_date=s_date, run_days=days)
     file.run()
     # file.print_queue()
-    # file.summarize_queue()
+    file.summarize_queue()
     # file.save_report()
 
 

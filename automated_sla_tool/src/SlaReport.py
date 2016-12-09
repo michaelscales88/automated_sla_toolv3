@@ -40,10 +40,12 @@ class SlaReport(AReport):
         else:
             self.download_chronicall_files(file_list=files)
             src_file_directory = os.listdir(self.src_doc_path)
-            for file in src_file_directory:
-                if file.endswith(".xls"):
-                    self.copy_and_convert(self.src_doc_path, src_file_directory)
-                    break
+
+            # for file in src_file_directory:
+            #     print(file)
+            #     if file.endswith(".xls"):
+            #         self.copy_and_convert(self.src_doc_path, src_file_directory)
+            #         break
 
     def load_documents(self):
         # TODO abstract this -> *args
@@ -79,6 +81,7 @@ class SlaReport(AReport):
                     del loaded_files[file]['Summary']
                 except Exception as e:
                     print(e)
+
             temp_sheet = pe.Sheet()
             for row in loaded_files[r'Call Details (Basic)'][0].rows():
                 temp_sheet.row += row
@@ -105,12 +108,12 @@ class SlaReport(AReport):
                 sheet.filter(cradle_filter)
                 sheet.name_columns_by_row(0)
             self.src_files[r'Cradle to Grave'] = loaded_files[r'Cradle to Grave']
-            local_db = os.path.join(self.path, r'db\automated_sla_tool.db')
-            params1 = {
-                'local_db': local_db,
-            }
-            conn = lite(**params1)
-            conn.insert(self.src_files[r'Cradle to Grave'][0])
+            # local_db = os.path.join(self.path, r'db\automated_sla_tool.db')
+            # params1 = {
+            #     'local_db': local_db,
+            # }
+            # conn = lite(**params1)
+            # conn.insert(self.src_files[r'Cradle to Grave'][0])
             # for f_name in loaded_files.keys():
             # self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
 
