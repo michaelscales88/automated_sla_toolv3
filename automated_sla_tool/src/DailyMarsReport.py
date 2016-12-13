@@ -404,9 +404,9 @@ class DailyMarsReport(AReport):
                                                    'Do Not Disturb')
         emp_data.data['numDND'] = num_dnd
         emp_data.data['Avail'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
-        emp_data.data['DND'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
-        if emp_data.data['DND'] > emp_data.data['Duration']:
-            emp_data.data['DND'] = emp_data.data['Duration']
+        emp_data.data['DND Duration'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
+        if emp_data.data['DND Duration'] > emp_data.data['Duration']:
+            emp_data.data['DND Duration'] = emp_data.data['Duration']
 
     def read_call_card(self, call_card, emp_data):
         (inb_ans,
@@ -557,7 +557,7 @@ class EmployeeData(object):
         self.__dict['Outbound Duration'] = 0
         self.__dict['Absent'] = 0
         self.__dict['Late'] = 0
-        self.__dict['DND'] = 0
+        self.__dict['DND Duration'] = 0
         self.__dict['numDND'] = 0
         self.__dict['Avail'] = 0
         self.__dict['Notes'] = ''

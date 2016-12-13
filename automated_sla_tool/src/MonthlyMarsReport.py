@@ -8,11 +8,13 @@ from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
 
 class MonthlyMarsReport(AReport):
     def __init__(self, start_date, run_days):
-        super().__init__(report_dates=start_date)
+        # TODO improve report_dates to be a month and run for the month
+        super().__init__(report_dates=start_date,
+                         report_type='monthly_mars_report')
         self.last_date = start_date + timedelta(days=run_days)
         self.file_queue = pe.Book()
-        self.final_report_fields = ['Absent', 'Late', 'DND', 'Duration', 'numDND', 'Inbound Ans', 'Inbound Lost',
-                                    'Outbound', 'Inbound Duration', 'Outbound Duration']
+        self.final_report_fields = ['Absent', 'Late', 'DND Duration', 'Duration', 'numDND', 'Inbound Ans',
+                                    'Inbound Lost', 'Outbound', 'Inbound Duration', 'Outbound Duration']
     '''
     UI Section
     '''
@@ -60,20 +62,13 @@ class MonthlyMarsReport(AReport):
         if self.is_empty_wb(self.file_queue):
             return
         agent_summary = AgentSummary(fields=self.final_report_fields)
-        print('number of files in queue: {}'.format(self.file_queue.number_of_sheets()))
         for report in self.file_queue:
+            print(report)
             for agent in report.rownames:
                 if agent == 'Notes':
                     break
-                print('summarizing report for {0} {1}'.format(agent, report.name))
                 agent_summary.collect_data(agent, report)
-                print(agent_summary)
-                # agent_summary[(agent, 'Absent'] = report[agent, 'Absent']
-                # agent_summary[(agent, 'Late'] = report[agent, 'Late']
-                # agent_summary[(agent, 'DND'] = report[agent, 'DND']
-                # agent_summary[(agent, 'Duration')] = report[agent, 'Duration']
-                # agent_summary[(agent, 'numDND')] = report[agent, 'numDND']
-        self.create_final_report(agent_summary)
+        self.set_final_report(agent_summary)
 
     '''
     Utilities Section
@@ -84,16 +79,14 @@ class MonthlyMarsReport(AReport):
             sheet.name_rows_by_column(0)
             sheet.name_columns_by_row(0)
 
-    def create_final_report(self, report_summary):
-        report_header = report_summary.get_header()
-        display_report = self.create_sheet(report_header)
+    def set_final_report(self, report_summary):
+        self.final_report.set_header(report_summary.get_header())
         for (agent, data) in report_summary.items():
             row = [agent] + [data[k] for k in sorted(data.keys())]
-            display_report.row += row
-        display_report.name_rows_by_column(0)
-        self.final_report = display_report
-        self.generate_program_columns()
-        self.time_stamp_format_col("DND", "Duration")
+            self.final_report.row += row
+        self.final_report.make_programatic_column(self.calculate_avail, "Avail")
+        self.final_report.format_columns_with(self.convert_time_stamp, "Duration")
+        print(self.final_report)
 
     def create_sheet(self, headers):
         sheet = pe.Sheet()
@@ -108,30 +101,45 @@ class MonthlyMarsReport(AReport):
         file_string = r'.\{0}.xlsx'.format(the_file)
         self.final_report.save_as(filename=file_string)
 
-    def generate_program_columns(self):
-        # TODO: Add row to count number of times in and out
-        new_rows = pe.Sheet()
-        new_rows.row += ["Avail"]
-        for row in range(self.final_report.number_of_rows()):
-            try:
-                p_avail = ((self.final_report[row, "Duration"] - self.final_report[row, "DND"]) /
-                           self.final_report[row, "Duration"])
-                new_rows.row += [r'{0:.1%}'.format(p_avail)]
-            except ZeroDivisionError:
-                new_rows.row += [0]
-        self.final_report.column += new_rows
+    # def generate_program_columns(self):
+    #     # TODO: Add row to count number of times in and out
+    #     new_rows = pe.Sheet()
+    #     new_rows.row += ["Avail"]
+    #     for row in range(self.final_report.number_of_rows()):
+    #         try:
+    #             p_avail = ((self.final_report[row, "Duration"] - self.final_report[row, "DND Duration"]) /
+    #                        self.final_report[row, "Duration"])
+    #             new_rows.row += [r'{0:.1%}'.format(p_avail)]
+    #         except ZeroDivisionError:
+    #             new_rows.row += [0]
+    #     self.final_report.column += new_rows
+
+    def calculate_avail(self, row):
+        rtn_val = [r'{0:.1%}'.format(0)]
+        try:
+            print('val: {0} type: {1}'.format(row["Duration"], type(row["Duration"])))
+            print('val: {0} type: {1}'.format(row["DND Duration"], type(row["DND Duration"])))
+            p_avail = ((row["Duration"] - row["DND Duration"]) /
+                       row["Duration"])
+            rtn_val = [r'{0:.1%}'.format(p_avail)]
+        except (ZeroDivisionError, KeyError) as e:
+            print('passing calculate avail bc of {}'.format(e))
+        return rtn_val
 
 
 class AgentSummary(TupleKeyDict):
     def __init__(self, fields=None):
         super().__init__()
-        self.fields = fields
+        self._fields = fields
+
+    @property
+    def fields(self):
+        return self._fields
 
     def get_header(self):
         return ['Employee'] + sorted(self.fields)
 
     def __setitem__(self, key, value):
-        print('entering set_item {0} {1}'.format(key, value))
         try:
             add_secs = int(timedelta(hours=value.hour, minutes=value.minute, seconds=value.second).total_seconds())
         except AttributeError:
@@ -148,10 +156,8 @@ class AgentSummary(TupleKeyDict):
 
     def collect_data(self, agent, report):
         for column in self.fields:
-            self.__setitem__(agent, report[agent, column])
-            # try:
-            #     self[agent, column] += report[agent, column]
-            #     print('setting via norm (collect_data)')
-            # except KeyError:
-            #     self[agent, column] = report[agent, column]
-            #     print('setting via KeyError (collect_data)')
+            try:
+                self.__setitem__((agent, column), report[agent, column])
+            except ValueError:
+                print('Could not retrieve field: <{0}> '
+                      'from file: {1}'.format(column, report.name))

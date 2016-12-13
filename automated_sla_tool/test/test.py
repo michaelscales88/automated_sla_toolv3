@@ -24,22 +24,38 @@ class Point(object):
 
 def worker():
     while True:
-        item = q.get()
-        do_work(item)
-        q.task_done()
+        pass
+        # item = q.get()
+        # do_work(item)
+        # q.task_done()
 
 
 def main():
-    q = Queue()
-    for i in range(3):
-        t = Thread(target=worker, )
-        t.daemon = True
-        t.start()
+    # q = Queue()
+    # for i in range(3):
+    #     t = Thread(target=worker, )
+    #     t.daemon = True
+    #     t.start()
+    #
+    # for item in source():
+    #     q.put(item)
 
-    for item in source():
-        q.put(item)
+    # q.join()  # block until all tasks are done
+    new_sheet = pe.Sheet()
+    new_sheet.row += ['1', '2', '3']
+    new_sheet.name_columns_by_row(0)
+    print(new_sheet)
+    new_sheet.colnames += '4'
+    print(new_sheet)
 
-    q.join()  # block until all tasks are done
+
+
+
+
+
+
+
+    #####################################
     # import win32api
     # import win32net
     # ip = '192.168.1.18'
