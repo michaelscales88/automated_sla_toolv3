@@ -18,16 +18,21 @@ class AReport(UtilityObject):
         self.final_report = FinalReport(report_type, self.dates)
 
         self.src_files = {}
-        self.util_datetime = datetime.combine(self.dates, time())
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.day_of_wk = self.dates.weekday()
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
         self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
-        self.src_doc_path = self.open_src_dir()
+        try:
+            # TODO this will undoubtable break and need fixing
+            self.util_datetime = datetime.combine(self.dates, time())
+            self.day_of_wk = self.dates.weekday()
+            self.src_doc_path = self.open_src_dir()
+        except TypeError:
+            self.util_datetime = None
+            self.day_of_wk = None
 
     def save(self):
         self.set_save_path(self.final_report.type)

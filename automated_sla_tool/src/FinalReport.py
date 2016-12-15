@@ -12,7 +12,10 @@ class FinalReport(pe.Sheet):
         self._finished = False
         self._type = report_type
         self._date = report_date
-        self.name = '{0}_{1}'.format(self._date.strftime('%m%d%Y'), self._type)
+        try:
+            self.name = '{0}_{1}'.format(self._date.strftime('%m%d%Y'), self._type)
+        except AttributeError:
+            self.name = '{0}_{1}'.format(self._date, self._type)
 
     @property
     def finished(self):
@@ -70,7 +73,7 @@ class FinalReport(pe.Sheet):
                 for row_index, row_val in enumerate(self.column_at(col_index)):
                     self[row_index, col_index] = f(row_val)
 
-    def make_programatic_column(self, f, column):
+    def make_programatic_column_with(self, f, column):
         # TODO could add colname and add values directly to final report **mind not handle issues well**
         new_rows = pe.Sheet()
         new_rows.row += [column]

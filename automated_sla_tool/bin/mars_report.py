@@ -4,20 +4,23 @@ from automated_sla_tool.src.MonthlyMarsReport import MonthlyMarsReport
 
 
 def main(s_date=None, days=None):
-    file = MonthlyMarsReport(start_date=s_date, run_days=days)
+    file = MonthlyMarsReport(start_date=s_date)
     file.run()
     # file.print_queue()
     file.summarize_queue()
-    # file.save_report()
+    file.save_report()
 
 
 if __name__ == "__main__":
-    start_date = input(r'What day to start?')
-    number_days = input(r'How many days?')
+    # start_date = input(r'What day to start?')
+    # number_days = input(r'How many days?')
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
-    run_date = (datetime.today().date() - timedelta(days=1) if start_date is '' else
-                datetime.strptime(start_date, '%m%d%Y').date())
-    run_days = (0 if number_days is '' else int(number_days))
-    main(s_date=run_date, days=run_days)
+    # run_date = (datetime.today().date() - timedelta(days=1) if start_date is '' else
+    #             datetime.strptime(start_date, '%m%d%Y').date())
+    # run_days = (0 if number_days is '' else int(number_days))
+    cal_ui = dict(enumerate(['January', 'February', 'March', 'April', 'May', 'June', 'July',
+                             'August', 'September', 'October', 'November', 'December'], start=1))
+    # main(s_date=run_date, days=run_days)
+    main(s_date=cal_ui[int(input(cal_ui))])
 else:
     print('entered from else mars_report')

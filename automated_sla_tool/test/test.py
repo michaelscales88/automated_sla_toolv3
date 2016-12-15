@@ -4,6 +4,7 @@ from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.UtilityObject import UtilityObject
 import pyexcel as pe
 from automated_sla_tool.src.FinalReport import FinalReport
+from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
 import os
 import re
 from glob import glob as glob
@@ -31,6 +32,13 @@ def worker():
 
 
 def main():
+    cal_ui = dict(enumerate(['January', 'February', 'March', 'April', 'May', 'June',
+                             'July', 'August', 'September', 'October', 'November', 'December']))
+    print(cal_ui)
+    # month = input('Enter month')
+    # print(month)
+    # dt = datetime.strptime(month, '%B').date().replace(year=2016)
+    # print(dt)
     # q = Queue()
     # for i in range(3):
     #     t = Thread(target=worker, )
@@ -40,13 +48,7 @@ def main():
     # for item in source():
     #     q.put(item)
 
-    # q.join()  # block until all tasks are done
-    new_sheet = pe.Sheet()
-    new_sheet.row += ['1', '2', '3']
-    new_sheet.name_columns_by_row(0)
-    print(new_sheet)
-    new_sheet.colnames += '4'
-    print(new_sheet)
+    # q.join()  # block until all tasks are don
 
 
 
