@@ -1,7 +1,7 @@
 import pyexcel as pe
 import os
 import re
-from datetime import timedelta, datetime, time
+from datetime import timedelta, datetime, time, date
 from dateutil.parser import parse
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.FinalReport import FinalReport
@@ -16,7 +16,6 @@ class AReport(UtilityObject):
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
         self.final_report = FinalReport(report_type, self.dates)
-
         self.src_files = {}
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
@@ -25,12 +24,11 @@ class AReport(UtilityObject):
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
-        try:
-            # TODO this will undoubtable break and need fixing
+        if isinstance(self.dates, date):
             self.util_datetime = datetime.combine(self.dates, time())
             self.day_of_wk = self.dates.weekday()
             self.src_doc_path = self.open_src_dir()
-        except TypeError:
+        else:
             self.util_datetime = None
             self.day_of_wk = None
 
@@ -54,7 +52,7 @@ class AReport(UtilityObject):
         import os
         filelist = [f for f in os.listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
         spc_ch = ['-', '_']
-        del_ch = ['%', r'\d+']  # '(', ')',
+        del_ch = ['%', r'\d+']
         for f in filelist:
             f_name, ext = os.path.splitext(f)
             f_name = re.sub('[{0}]'.format(''.join(spc_ch)), ' ', f_name)
@@ -84,12 +82,6 @@ class AReport(UtilityObject):
             src = os.path.join(self.active_directory, src_file)
             des = os.path.join(file_location, src_file)
             move(src, des)
-
-    def time_stamp_format_col(self, *columns):
-        for column in columns:
-            col_index = self.final_report.colnames.index(column)
-            for index, row_val in enumerate(self.final_report.column[column]):
-                self.final_report[index, col_index] = self.convert_time_stamp(row_val)
 
     def prepare_sheet_header(self, lst, first_index):
         return_list = [i for i in lst]

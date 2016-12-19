@@ -1,20 +1,31 @@
 import traceback
+import time
 import pyexcel as pe
+import multiprocessing as mp
 from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from automated_sla_tool.src.DailyMarsReport import DailyMarsReport
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
+from automated_sla_tool.src.ReportModel import ReportModel
+from automated_sla_tool.src.ReportDispatcher import ReportDispatcher as Dispatch
 
 
 class MonthlyMarsReport(AReport):
-    def __init__(self, start_date):
+    def __init__(self, month):
         # TODO improve report_dates to be a month and run for the month until not the month
-        super().__init__(report_dates=start_date,
+        super().__init__(report_dates=month,
                          report_type='monthly_mars_report')
-        self.file_queue = pe.Book()
+        self.report_model = pe.Book()
+        self.dispatch = Dispatch()
+        self.report_model2 = ReportModel(month)
+        # print(self.report_model2)
         self.final_report_fields = ['Absent', 'Late', 'DND Duration', 'Duration', 'numDND', 'Inbound Ans',
                                     'Inbound Lost', 'Outbound', 'Inbound Duration', 'Outbound Duration']
+        self.run2()
+        print(self.report_model2)
+        # print(self.report_model2.print_contents())
+
     '''
     UI Section
     '''
@@ -23,12 +34,10 @@ class MonthlyMarsReport(AReport):
         # TODO Make this a dispatcher -> threading
         run_date = datetime.strptime(self.dates, '%B').date().replace(year=2016)
         end_date = run_date + relativedelta(months=1)
-        print(run_date)
-        print(end_date)
         while run_date < end_date:
             try:
                 try:
-                    file = DailyMarsReport(month=run_date)
+                    file = DailyMarsReport(day=run_date)
                     file.run()
                     # file.test()
                     # file.read_sql()
@@ -47,7 +56,7 @@ class MonthlyMarsReport(AReport):
                     print(error)
                 else:
                     print("Program ran successfully for date: {}".format(run_date.strftime("%m%d%Y")))
-                    self.file_queue += file.transmit_report()
+                    self.report_model += file.transmit_report()
             except SystemExit:
                 pass
             finally:
@@ -56,16 +65,30 @@ class MonthlyMarsReport(AReport):
             self.prep_sheets()
         except IndexError:
             pass
+        else:
+            self.summarize_queue()
+
+    def run2(self):
+        print('inside run2')
+        while self.report_model2.active:
+            try:
+                if self.dispatch.ready_next():
+                    next_task = self.report_model2.get_next()
+                    self.dispatch.start_task(target=DailyMarsReport, output=next_task, day=next_task.name)
+                else:
+                    time.sleep(5)
+            except AttributeError:
+                print('passing for attrib error')
 
     def print_queue(self):
-        print(self.file_queue)
+        print(self.report_model)
 
     def summarize_queue(self):
         print('starting to summarize queue')
-        if self.is_empty_wb(self.file_queue):
+        if self.is_empty_wb(self.report_model):
             return
         agent_summary = AgentSummary(fields=self.final_report_fields)
-        for report in self.file_queue:
+        for report in self.report_model:
             for agent in report.rownames:
                 if agent == 'Notes':
                     break
@@ -77,7 +100,7 @@ class MonthlyMarsReport(AReport):
     '''
 
     def prep_sheets(self):
-        for sheet in self.file_queue:
+        for sheet in self.report_model:
             sheet.name_rows_by_column(0)
             sheet.name_columns_by_row(0)
 
@@ -140,8 +163,7 @@ class AgentSummary(TupleKeyDict):
                 try:
                     self[key] += add_val
                 except KeyError:
-                    super().__setitem__(key, 0)
-                    self[key] += add_val
+                    super().__setitem__(key, add_val)
             except ValueError:
                 print('Could not retrieve field: <{0}> '
                       'from file: {1}'.format(column, report.name))

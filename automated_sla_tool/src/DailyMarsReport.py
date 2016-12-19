@@ -12,9 +12,9 @@ from automated_sla_tool.src.Notes import Notes
 
 
 class DailyMarsReport(AReport):
-    def __init__(self, month=None):
+    def __init__(self, day=None):
         # TODO: add xslx writer for spreadsheet formatting
-        super().__init__(report_dates=month,
+        super().__init__(report_dates=day,
                          report_type='mars_report')
         if self.check_finished():
             print('Report Complete for {}'.format(self.dates))
@@ -25,6 +25,7 @@ class DailyMarsReport(AReport):
             spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
             self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
             self.notes = Notes()
+            self.run2()
 
     '''
     UI Section
@@ -62,6 +63,47 @@ class DailyMarsReport(AReport):
                         self.final_report.row += self.tracker[ext]
             self.finalize_report()
 
+    def run2(self):
+        if self.final_report.finished:
+            return
+        else:
+            agents = self.tracker.get_tracker()
+            self.final_report.set_header(self.tracker.get_header())
+            for (ext, agent) in agents.items():
+                if agent[self.day_of_wk]:
+                    sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
+                    try:
+                        self.read_time_card2(agent)
+                    except IndexError:
+                        agent.data.add_note(self.notes.add_note(r'Data Error: No Valid Time Data'))
+                    # try:
+                    #     time_card = self.src_files['Agent Time Card'][sheet_name]
+                    # except KeyError:
+                    #     time_card = None
+                    #     agent.data['Absent'] = 1
+                    # else:
+                    #     try:
+                    #         self.read_time_card(time_card, agent)
+                    #     except IndexError:
+                    #         agent.data.add_note(self.notes.add_note(r'Data Error: No Valid Time Data'))
+
+                    try:
+                        feature_card = self.src_files['Agent Realtime Feature Trace'][sheet_name]
+                    except KeyError:
+                        feature_card = None
+                    else:
+                        self.read_feature_card(feature_card, agent)
+
+                    try:
+                        agent_call_card = self.src_files['Agent Calls'][sheet_name]
+                    except KeyError:
+                        agent_call_card = None
+                    else:
+                        self.read_call_card(agent_call_card, agent)
+
+                    self.final_report.row += self.tracker[ext]
+            self.finalize_report()
+
     def test(self):
         print(self.final_report)
         print(self.final_report.query_format())
@@ -90,9 +132,7 @@ class DailyMarsReport(AReport):
             clocked_out = False
         else:
             clocked_out = end_time <= time(hour=23)
-        # if time_card.name == 'Steve McMillan(7540)':
-        #     print(clocked_out)
-        #     print()
+
         # TODO improve this... checking for agents who didn't clock out and are late
         if not clocked_in and time_card.number_of_rows() is 2:
             start_time = self.get_start_time(time_card.column['Logged In'], overnight=True)
@@ -291,30 +331,6 @@ class DailyMarsReport(AReport):
         if self.final_report.finished:
             return
         else:
-            # loaded_files = {}
-            # unloaded_files = []
-            #
-            # for f_name in self.req_src_files:
-            #     src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
-            #     try:
-            #         src_file_obj = pe.get_book(file_name=src_file)
-            #     except FileNotFoundError:
-            #         unloaded_files.append(f_name)
-            #     else:
-            #         loaded_files[f_name] = src_file_obj
-            #
-            # self.download_documents(files=unloaded_files)
-            # self.clean_src_loc()
-            #
-            # for f_name in unloaded_files:
-            #     src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
-            #     try:
-            #         src_file_obj = pe.get_book(file_name=src_file)
-            #     except FileNotFoundError:
-            #         raise FileNotFoundError("Could not open src documents"
-            #                                 "-> {0}.load_documents: {1}".format(self.final_report.type, src_file))
-            #     else:
-            #         loaded_files[f_name] = src_file_obj
             for (f, p) in self.r_loader(self.req_src_files).items():
                 try:
                     file = pe.get_book(file_name=p)
@@ -323,8 +339,6 @@ class DailyMarsReport(AReport):
                                             "-> {0}.load_documents: {1}".format(self.final_report.type, f))
                 else:
                     self.src_files[f] = self.filter_agent_reports(file)
-            # for f_name in loaded_files.keys():
-            #     self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
 
     def r_loader(self, unloaded_files, run2=False):
         if run2 is True:
@@ -427,6 +441,93 @@ class DailyMarsReport(AReport):
                                                                        timedelta(
                                                                            seconds=out_talk_dur // out_calls)).time()
 
+    def open_rpt_pg(self, rpt, rpt_pg):
+        try:
+            file = self.src_files[rpt][rpt_pg]
+        except KeyError:
+            file = None
+        return file
+
+    def read_time_card2(self, emp_data):
+        # TODO get into this in a serious way...
+        rtn_data = {
+            'Logged In': 0,
+            'Logged Out': 0,
+            'Duration': 0,
+            'Late': 0
+        }
+        time_card = self.open_rpt_pg('Agent Time Card',
+                                     r'{0} {1}({2})'.format(emp_data.f_name, emp_data.l_name, emp_data))
+        if time_card:
+            shift_start = emp_data[self.day_of_wk].start
+            shift_end = emp_data[self.day_of_wk].end
+            is_normal_shift = time(hour=0) <= shift_start <= time(hour=18, minute=59)
+
+            if is_normal_shift:
+                (rtn_data['Logged In'],
+                 rtn_data['Logged Out'],
+                 clocked_in,
+                 clocked_out) = self.check_day_card(time_card, shift_start, shift_end)
+            else:
+                (rtn_data['Logged In'],
+                 rtn_data['Logged Out'],
+                 clocked_in,
+                 clocked_out) = self.check_night_card(time_card, shift_start, shift_end)
+                if clocked_in:
+                    emp_data.data.add_note(self.notes.add_note(r'Logged in {}'.format(
+                        self.dates - timedelta(days=1)))
+                    )
+            if clocked_in is False:
+                emp_data.data.add_note(self.notes.add_note(r'No Login'))
+            if clocked_out is False:
+                emp_data.data.add_note(self.notes.add_note(r'No Logout'))
+            try:
+                duration = (datetime.min +
+                            (datetime.combine(self.dates, emp_data.data['Logged Out']) -
+                             datetime.combine(self.dates, emp_data.data['Logged In']))).time()
+            except OverflowError:
+                duration = (datetime.min +
+                            (datetime.combine(self.dates + timedelta(days=1), rtn_data['Logged Out']) -
+                             datetime.combine(self.dates, rtn_data['Logged In']))).time()
+            rtn_data['Duration'] = duration
+            late = self.read_time(rtn_data['Logged In']) > self.check_grace_pd(shift_start,
+                                                                               minutes=timedelta(minutes=5))
+            if clocked_in and late:
+                rtn_data['Late'] = 1
+        else:
+            rtn_data['Absent'] = 1
+        return rtn_data
+
+    def read_feature_card2(self, feature_card, emp_data):
+        # TODO this needs to check for overnight
+        num_dnd, dnd_sec = self.correlate_dnd_data(feature_card.column['Feature Type'],
+                                                   feature_card.column['Duration'],
+                                                   'Do Not Disturb')
+        emp_data.data['numDND'] = num_dnd
+        emp_data.data['Avail'] = self.get_percent_avail(emp_data.data['Duration'], dnd_sec)
+        emp_data.data['DND Duration'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
+        if emp_data.data['DND Duration'] > emp_data.data['Duration']:
+            emp_data.data['DND Duration'] = emp_data.data['Duration']
+
+    def read_call_card2(self, call_card, emp_data):
+        (inb_ans,
+         inb_lost,
+         inb_talk_dur) = self.count_inbound_calls(call_card.column['Call Direction'],
+                                                  (call_card.column['Answered'], call_card.column['Talking Duration']),
+                                                  'Inbound')
+        (out_calls,
+         out_talk_dur) = self.count_outbound_calls(call_card.column['Call Direction'],
+                                                   call_card.column['Talking Duration'],
+                                                   'Outbound')
+        emp_data.data['Inbound Ans'] = inb_ans
+        emp_data.data['Inbound Lost'] = inb_lost
+        emp_data.data['Outbound'] = out_calls
+        emp_data.data['Inbound Duration'] = 0 if inb_ans is 0 else (datetime.min +
+                                                                    timedelta(seconds=inb_talk_dur // inb_ans)).time()
+        emp_data.data['Outbound Duration'] = 0 if out_calls is 0 else (datetime.min +
+                                                                       timedelta(
+                                                                           seconds=out_talk_dur // out_calls)).time()
+
     def correlate_dnd_data(self, src_list, list_to_correlate, key):
         dnd_list = super().correlate_list_time_data(src_list, list_to_correlate, key)
         return len(dnd_list), sum(v for v in dnd_list)
@@ -447,13 +548,10 @@ class DailyMarsReport(AReport):
         return float(r'{0:.2f}'.format(((dt_delta - dnd_delta) / dt_delta) * 100))
 
     def get_start_time(self, column, overnight=False):
-        # try:
         if overnight:
             return_time = max(self.safe_parse(item).time() for item in column)
         else:
             return_time = min(self.safe_parse(item).time() for item in column)
-        # except AttributeError:
-        #     return_time = 'No Clock In'
         return return_time
 
     def get_end_time(self, column):
@@ -486,6 +584,9 @@ class DailyMarsReport(AReport):
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
 
+    def __repr__(self):
+        return '\n'.join(['{}'.format(item) for item in self.final_report.to_array()])
+
 
 class EmployeeTracker(UtilityObject):
     # TODO add overnight checking. should be a data attribute and should be a bool
@@ -498,11 +599,12 @@ class EmployeeTracker(UtilityObject):
     def create_schedule(self, data, report_data):
         return_dict = {}
         new_schedule = namedtuple('this_emp', 'Monday Tuesday Wednesday Thursday Friday '
-                                              'Saturday Sunday f_name l_name data')
+                                              'Saturday Sunday f_name l_name data ext')
         new_schedule.__new__.__defaults__ = (None,) * len(new_schedule._fields)
         for emp in data.rownames:
             emp_schedule = new_schedule(f_name=data[emp, 'First'],
                                         l_name=data[emp, 'Last'],
+                                        ext=int(emp),
                                         Monday=self.date_factory(data[emp, 'Monday']),
                                         Tuesday=self.date_factory(data[emp, 'Tuesday']),
                                         Wednesday=self.date_factory(data[emp, 'Wednesday']),
@@ -568,12 +670,13 @@ class EmployeeData(object):
         self.__dict[key] += val
 
     def __setitem__(self, key, item):
-        if key not in self.__dict:
-            raise KeyError("The key {} is not defined.".format(key))
         self.__dict[key] = item
 
     def __getitem__(self, key):
-        return self.__dict[key]
+        try:
+            return self.__dict[key]
+        except KeyError:
+            print('Key does not exist: {}'.format(key))
 
     def add_note(self, note):
         self.increment_key('Notes', r'{} '.format(note))

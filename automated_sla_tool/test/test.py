@@ -9,10 +9,28 @@ import os
 import re
 from glob import glob as glob
 from socket import *
+import multiprocessing
+from dateutil.parser import parse
+import time
+import sys
 from queue import Queue
-from threading import Thread
-
 import sqlite3
+
+
+class Test:
+
+    def __init__(self):
+        self._finished = False
+
+    @property
+    def finished(self):
+        return self._finished
+
+    def set_finished(self):
+        self._finished = True
+
+    def run(self):
+        print('running..')
 
 
 class Point(object):
@@ -23,32 +41,40 @@ class Point(object):
         if protocol is sqlite3.PrepareProtocol:
             return "%f;%f" % (self.x, self.y)
 
+
 def worker():
-    while True:
-        pass
-        # item = q.get()
-        # do_work(item)
-        # q.task_done()
+    p = multiprocessing.current_process()
+    print('worker {0} {1}'.format(p.name, datetime.now().time()))
+    sys.stdout.flush()
+    time.sleep(2)
+    print('worker {0} {1}'.format(p.name, datetime.now().time()))
+    sys.stdout.flush()
 
 
 def main():
-    cal_ui = dict(enumerate(['January', 'February', 'March', 'April', 'May', 'June',
-                             'July', 'August', 'September', 'October', 'November', 'December']))
-    print(cal_ui)
+    _model = { 1: 'stuff' }
+    any([i for i in _model.values()])
+    # list = []
+    # for i in range(3):
+    #     t = multiprocessing.Process(name='cool{}'.format(i), target=worker)
+    #     t.daemon = True
+    #     list.append(t)
+    #     t.start()
+    #
+    # for t in list:
+    #     t.join()
+    # print((True, False)[any([False, False, None])])
+    # tuple_obj = (1, 2)
+    # date_obj = datetime.today().date()
+    # string_obj = str("Stuff Bitches")
+    # print([type(date_obj), type(string_obj)])
+    # print([date, str])
+    # print(all(x in [type(tuple_obj), type(date_obj), type(string_obj)] for x in [tuple, date, str]))
     # month = input('Enter month')
     # print(month)
     # dt = datetime.strptime(month, '%B').date().replace(year=2016)
     # print(dt)
-    # q = Queue()
-    # for i in range(3):
-    #     t = Thread(target=worker, )
-    #     t.daemon = True
-    #     t.start()
-    #
-    # for item in source():
-    #     q.put(item)
 
-    # q.join()  # block until all tasks are don
 
 
 
