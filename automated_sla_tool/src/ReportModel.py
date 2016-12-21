@@ -2,17 +2,26 @@ from datetime import datetime as dt, timedelta as td
 from dateutil.relativedelta import relativedelta as rd
 
 
-class ReportDay(dict):
+class ReportTask(dict):
     def __init__(self, date=0):
         super().__init__()
         self._name = date
-        self._data = {'data': None,
+        self._data = {'target': None,
+                      'data': None,
                       'started': False,
                       'completed': False
                       }
 
     @property
-    def name(self):
+    def target(self):
+        return self._data['target']
+
+    @target.setter
+    def target(self, new_target):
+        self._data['target'] = new_target
+
+    @property
+    def day(self):
         return self._name
 
     @property
@@ -41,7 +50,10 @@ class ReportDay(dict):
         return (True, False)[any((self._data['started'], self._data['completed']))]
 
     def __repr__(self):
-        return "{0}:\n{1}".format(self.name, self._data['data'])
+        return ("Task name: {0}:\n"
+                "Status: {1}\n"
+                "Completed: {2}\n"
+                "Data: {3}\n".format(self.day, self.running, self.complete, self._data['data']))
 
     def __getitem__(self, item):
         return self._data[item]
@@ -54,7 +66,7 @@ class ReportModel(object):
 
     @property
     def active(self):
-        return False in [i.complete for i in self._model.values()]
+        return False in [i.running for i in self._model.values()]
 
     def init_model(self, month, year):
         first_day = dt.strptime(month, '%B').date().replace(year=year)
@@ -62,7 +74,7 @@ class ReportModel(object):
         today = dt.now().date()
         end_date = today if end_date > today else end_date
         while first_day < end_date:
-            self._model[first_day] = ReportDay(first_day)
+            self._model[first_day] = ReportTask(first_day)
             first_day += td(days=1)
 
     def __getitem__(self, item):
@@ -75,14 +87,3 @@ class ReportModel(object):
         for k, v in self._model.items():
             if self[k].ready is True:
                 return self[k]
-
-    def print_contents(self):
-        for k, v in self._model.items():
-            try:
-                print(k)
-                print(v)
-                # print(v.data)
-                # print((type(v)))
-                # print((type(v.data)))
-            except Exception as e:
-                print('passed for {}'.format(e))

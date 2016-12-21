@@ -17,14 +17,8 @@ class MonthlyMarsReport(AReport):
         super().__init__(report_dates=month,
                          report_type='monthly_mars_report')
         self.report_model = pe.Book()
-        self.dispatch = Dispatch()
-        self.report_model2 = ReportModel(month)
-        # print(self.report_model2)
         self.final_report_fields = ['Absent', 'Late', 'DND Duration', 'Duration', 'numDND', 'Inbound Ans',
                                     'Inbound Lost', 'Outbound', 'Inbound Duration', 'Outbound Duration']
-        self.run2()
-        print(self.report_model2)
-        # print(self.report_model2.print_contents())
 
     '''
     UI Section
@@ -38,10 +32,7 @@ class MonthlyMarsReport(AReport):
             try:
                 try:
                     file = DailyMarsReport(day=run_date)
-                    file.run()
-                    # file.test()
-                    # file.read_sql()
-                    # file.write_sqlite()
+                    # file.run()
                     file.save()
                 except (OSError, FileNotFoundError) as e:
                     print('Could not open report for date {}'.format(run_date))
@@ -68,23 +59,10 @@ class MonthlyMarsReport(AReport):
         else:
             self.summarize_queue()
 
-    def run2(self):
-        print('inside run2')
-        while self.report_model2.active:
-            try:
-                if self.dispatch.ready_next():
-                    next_task = self.report_model2.get_next()
-                    self.dispatch.start_task(target=DailyMarsReport, output=next_task, day=next_task.name)
-                else:
-                    time.sleep(5)
-            except AttributeError:
-                print('passing for attrib error')
-
     def print_queue(self):
         print(self.report_model)
 
     def summarize_queue(self):
-        print('starting to summarize queue')
         if self.is_empty_wb(self.report_model):
             return
         agent_summary = AgentSummary(fields=self.final_report_fields)
@@ -122,7 +100,7 @@ class MonthlyMarsReport(AReport):
     def save_report(self):
         self.set_save_path('monthly_mars_report')
         the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))
-        self.final_report.name = self.dates.strftime('%B %Y')
+        self.final_report.day = self.dates.strftime('%B %Y')
         file_string = r'.\{0}.xlsx'.format(the_file)
         self.final_report.save_as(filename=file_string)
 
@@ -166,7 +144,7 @@ class AgentSummary(TupleKeyDict):
                     super().__setitem__(key, add_val)
             except ValueError:
                 print('Could not retrieve field: <{0}> '
-                      'from file: {1}'.format(column, report.name))
+                      'from file: {1}'.format(column, report.day))
             #
             #
             #

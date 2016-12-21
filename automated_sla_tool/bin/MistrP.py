@@ -242,5 +242,3 @@ if __name__ == "__main__":
 
     sys.path.append(path.dirname(path.dirname(path.abspath(path.abspath(__file__)))))
     main()
-else:
-    print('entered from else MistrP')

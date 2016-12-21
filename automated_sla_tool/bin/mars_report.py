@@ -15,5 +15,4 @@ if __name__ == "__main__":
     cal_ui = dict(enumerate(['January', 'February', 'March', 'April', 'May', 'June', 'July',
                              'August', 'September', 'October', 'November', 'December'], start=1))
     main(selection=cal_ui[int(input(cal_ui))])
-else:
-    print('entered from else mars_report')
+

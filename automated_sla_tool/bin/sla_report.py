@@ -67,5 +67,3 @@ if __name__ == "__main__":
                 datetime.strptime(start_date, '%m%d%Y').date())
     run_days = (0 if number_days is '' else datetime.today().date() + timedelta(days=number_days))
     main([run_date, run_days])
-else:
-    print('entered from else sla_report')

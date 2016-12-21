@@ -45,7 +45,7 @@ class SettingsWidget(QWidget):
 
     def color_picker(self):
         color = QColorDialog.getColor(initial=Qt.darkBlue)
-        self.selected_color.emit("QMainWindow { background-color: %s}" % color.name())
+        self.selected_color.emit("QMainWindow { background-color: %s}" % color.day())
 
     def style_choice(self, text):
         self.styleChoice.setText(text)

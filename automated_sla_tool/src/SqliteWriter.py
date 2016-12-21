@@ -52,7 +52,7 @@ class SqliteWriter(QueryWriter):
         self.commit_changes()
         print(table)
         print(table.colnames)
-        print([table.name] + table.colnames)
+        print([table.day] + table.colnames)
         # test_data = [
         #     ['name1', 'val1'],
         #     ['name2', 'val2']
@@ -241,7 +241,7 @@ class SqliteWriter(QueryWriter):
         print(rtn_sheet)
 
     def no_table(self, table):
-        print('Could not identify table for {}'.format(table.name))
+        print('Could not identify table for {}'.format(table.day))
         rec_tables = dict(enumerate(self.get_tables()))
         selection = input('Did you mean? ...'
                           '{0}\n'
