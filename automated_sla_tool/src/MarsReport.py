@@ -46,32 +46,34 @@ class MarsReport(ReportDispatcher):
                                       datetime.combine(today, start))).time()))
 
     def queue_test(self):
-        today = datetime.today().date()
-        start = datetime.now().time()
-        print('starting start_task {}'.format(start))
-        selection = datetime.today().date().replace(day=8)
-        next_task = self._model[selection]
-        next_task.target = DailyMarsReport
-        next_task.running = True
-        self.submit_job(next_task)
-        self.dispatch()
-        selection = datetime.today().date().replace(day=15)
-        next_task = self._model[selection]
-        next_task.target = DailyMarsReport
-        next_task.running = True
-        self.submit_job(next_task)
-        self.dispatch()
-        selection = datetime.today().date().replace(day=16)
-        next_task = self._model[selection]
-        next_task.target = DailyMarsReport
-        next_task.running = True
-        self.submit_job(next_task)
-        self.dispatch()
-        end = datetime.now().time()
-        print('ended start_task {}'.format(end))
-        print('duration: {}'.format((datetime.min +
-                                     (datetime.combine(today, end) -
-                                      datetime.combine(today, start))).time()))
+        raise ValueError("i'm a test {x} time {t} pid {id}".format(x=1, t=datetime.now().time(), id=id(self)))
+
+        # today = datetime.today().date()
+        # start = datetime.now().time()
+        # print('starting start_task {}'.format(start))
+        # selection = datetime.today().date().replace(day=8)
+        # next_task = self._model[selection]
+        # next_task.target = DailyMarsReport
+        # next_task.running = True
+        # self.submit_job(next_task)
+        # self.dispatch()
+        # selection = datetime.today().date().replace(day=15)
+        # next_task = self._model[selection]
+        # next_task.target = DailyMarsReport
+        # next_task.running = True
+        # self.submit_job(next_task)
+        # self.dispatch()
+        # selection = datetime.today().date().replace(day=16)
+        # next_task = self._model[selection]
+        # next_task.target = DailyMarsReport
+        # next_task.running = True
+        # self.submit_job(next_task)
+        # self.dispatch()
+        # end = datetime.now().time()
+        # print('ended start_task {}'.format(end))
+        # print('duration: {}'.format((datetime.min +
+        #                              (datetime.combine(today, end) -
+        #                               datetime.combine(today, start))).time()))
         # run1 = {
         #     'target': self.task1,
         #     'task_name': '1',
@@ -104,6 +106,12 @@ class MarsReport(ReportDispatcher):
         # print('ending non start_task {}'.format(datetime.now().time()))
         # self.start_task(target=self.task2)
         # self.start_task(target=self.task3)
+
+    def r_test(self, rd=1):
+        if rd is 3:
+            raise ValueError("hit basecase")
+
+        self.r_test(rd+1)
 
     def task1(self, x=2, task_name=None, sleep_time=2):
         rtn_string = ''

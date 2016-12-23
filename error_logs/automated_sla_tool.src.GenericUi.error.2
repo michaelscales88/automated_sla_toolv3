@@ -1,0 +1,13 @@
+Error Value: i'm a test 1 time 15:55:16.219796 pid 34006160
+Error Type: <class 'ValueError'>
+<traceback object at 0x047ABA58>
+Traceback (most recent call last):
+  File "C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\src\stackedtracebackdecorator.py", line 18, in decorated
+    fn(*args, **kwargs)
+  File "C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\src\GenericUi.py", line 127, in exc_fnc_safe_mode
+    return self.exc_fnc()
+  File "C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\src\GenericUi.py", line 117, in exc_fnc
+    return func()
+  File "C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\src\MarsReport.py", line 49, in queue_test
+    raise ValueError("i'm a test {x} time {t} pid {id}".format(x=1, t=datetime.now().time(), id=id(self)))
+ValueError: i'm a test 1 time 15:55:16.219796 pid 34006160

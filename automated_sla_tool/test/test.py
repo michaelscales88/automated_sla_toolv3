@@ -15,7 +15,15 @@ import time
 import sys
 from queue import Queue
 import sqlite3
+import logging
+import logging.config
+from automated_sla_tool.src.SysLog import SysLog
+from time import sleep
+from collections import defaultdict
 
+def get_config(config_path, name):
+    logging.config.dictConfig(config_path)
+    return logging.getLogger(name)
 
 class Test:
 
@@ -52,8 +60,29 @@ def worker():
 
 
 def main():
-    _model = { 1: 'stuff' }
-    any([i for i in _model.values()])
+    #TODO build dictionary builder
+    from os import path
+    log_file_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
+    d = SysLog(__name__, file_path=log_file_path)
+    print(type(d))
+    print('Complete')
+        # ev, ei, tb =
+        # print('{e}\n{tb}'.format(e=e, tb=tb))
+    # d = {}
+    # with open(log_file_path, 'r') as log_file:
+    #     d = dict(x.rstrip().split(None, 1) for x in log_file)
+    # logging.config.fileConfig(log_file_path)
+    # logger = logging.getLogger(__name__)
+    # create logger
+    # print(__name__)
+    # logger = logging.getLogger('simpleExample')
+    # logger = get_config(log_file_path, __name__)
+    # 'application' code
+    # logger.debug('debug message')
+    # logger.info('info message')
+    # logger.warn('warn message')
+    # logger.error('error message')
+    # logger.critical('critical message')
     # list = []
     # for i in range(3):
     #     t = multiprocessing.Process(name='cool{}'.format(i), target=worker)
