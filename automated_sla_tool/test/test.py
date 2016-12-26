@@ -21,12 +21,13 @@ from automated_sla_tool.src.SysLog import SysLog
 from time import sleep
 from collections import defaultdict
 
+
 def get_config(config_path, name):
     logging.config.dictConfig(config_path)
     return logging.getLogger(name)
 
-class Test:
 
+class Test:
     def __init__(self):
         self._finished = False
 
@@ -60,14 +61,89 @@ def worker():
 
 
 def main():
-    #TODO build dictionary builder
-    from os import path
-    log_file_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
-    d = SysLog(__name__, file_path=log_file_path)
-    print(type(d))
+    # TODO build dictionary builder
+    # from os import path
+    # log_file_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
+    # d = SysLog(__name__, file_path=log_file_path)
+    # print(type(d))
+    conn_string = {
+        'DATABASE': 'chronicall',
+        'UID': 'Chronicall',
+        'PWD': 'ChR0n1c@ll1337',
+        'SERVER': '10.1.3.17',
+        'PORT': '9086'
+    }
+    sql_command = (
+        '''
+        SELECT  c_event.calling_party,
+            inbound_calls.inbound_count as InboundCount,
+            outbound_calls.outbound_count as OutboundCount,
+            (inbound_calls.inbound_talkDur / inbound_calls.inbound_count) as inboundAVG,
+            (outbound_calls.outbound_talkDur / outbound_calls.outbound_count) as outboundAVG
+
+        FROM c_event
+            INNER JOIN c_call on c_call.call_id = c_event.call_id
+            LEFT JOIN
+                (SELECT c_event.receiving_party, count(distinct c_call.call_id) as inbound_count, sum(DISTINCT c_event.end_time - c_event.start_time) as inbound_talkDur
+
+                FROM c_event
+                    INNER JOIN c_call on c_event.call_id = c_call.call_id
+
+                WHERE
+                    c_event.receiving_party like '%(%' and
+                    c_call.call_direction = 1 and
+                    to_char(c_call.start_time, 'YYYY-MM') = '2016-10' and
+                    c_event.event_type = 4
+
+                Group by  c_event.receiving_party
+                ) as inbound_calls on c_event.calling_party = inbound_calls.receiving_party
+            LEFT JOIN
+                (SELECT c_event.calling_party, count(distinct c_call.call_id) as outbound_count, sum(DISTINCT c_event.end_time - c_event.start_time) as outbound_talkDur
+
+                FROM c_event
+                    INNER JOIN c_call on c_event.call_id = c_call.call_id
+
+                WHERE
+                    c_event.calling_party like '%(%' and
+                    c_call.call_direction = 2 and
+                    to_char(c_call.start_time, 'YYYY-MM') = '2016-10'
+
+                Group by  c_event.calling_party
+                ) as outbound_calls on c_event.calling_party = outbound_calls.calling_party
+        WHERE
+            to_char(c_call.start_time, 'YYYY-MM') = '2016-10' and
+            c_event.calling_party like '%(%' and
+            c_event.calling_party not similar to '%(3500|NoUser|4221|4222|4228|4229|4232|4233|7501|7502|7536|7559|7570|7574|7575|7532|7534|7586|7598|7552|7584
+                                |7535|7555|7599|7582|7571|7503|7504|7537|7583|7584|7585|7999|80)%'
+        Group by
+            c_event.calling_party,
+            InboundCount,
+            OutboundCount,
+            inbound_calls.inbound_talkDur,
+            outbound_calls.outbound_talkDur
+        Order by InboundCount DESC
+        '''
+    )
+    sql_command2 = (
+        '''
+        SELECT c_call.call_id
+        FROM c_call
+             INNER JOIN c_event on c_call.call_id = c_event.call_id
+        WHERE to_char(c_call.start_time, 'YYYY-MM-DD') = '2015-09-01' AND
+              c_call.call_direction = 1 AND
+              c_event.event_type in (4)
+        '''
+    )
+    from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
+    conn = ps_write(**conn_string)
+    conn.rtn_excel(sql_command2)
+    # conn.rtn_excel(sql_command)
+    # conn.get_db_info()
+    # cnx = conn.get_conn()
+    # print('cnx')
     print('Complete')
-        # ev, ei, tb =
-        # print('{e}\n{tb}'.format(e=e, tb=tb))
+    # ev, ei, tb =
+    # print('{e}\n{tb}'.format(e=e, tb=tb))
     # d = {}
     # with open(log_file_path, 'r') as log_file:
     #     d = dict(x.rstrip().split(None, 1) for x in log_file)
@@ -215,6 +291,7 @@ def main():
     # time_difference = abs(time - time_example)
     # print(time_difference)
     # print(type(time_difference))
+
 
 if __name__ == "__main__":
     main()
