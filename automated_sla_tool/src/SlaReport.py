@@ -4,7 +4,6 @@ import pyexcel as pe
 from datetime import time, timedelta
 from dateutil.parser import parse
 from collections import defaultdict, namedtuple
-from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 

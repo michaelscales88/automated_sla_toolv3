@@ -1,14 +1,12 @@
 import pypyodbc as ps
-import pyexcel as pe
 from automated_sla_tool.src.QueryWriter import QueryWriter
 
 
 class SqlWriter(QueryWriter):
     def __init__(self, **parameters):
         super().__init__()
-        self._params = {}
         self.init_params(**parameters)
-        self.conn = self.get_conn()
+        self._conn = self.get_conn()
         print('Successful connection to:\n{0}'.format(self))
 
     def get_conn(self):
@@ -26,37 +24,32 @@ class SqlWriter(QueryWriter):
                                                                kwargs.get('Trusted_Connection', 'yes'))
 
     def refresh_connection(self):
-        self.conn.close()
-        self.conn = self.get_conn()
-
-    def __repr__(self):
-        return '\n'.join([v for v in self._params.values()])
+        self._conn.close()
+        self._conn = self.get_conn()
 
     def rtn_excel(self, sql_command):
         columns, data = self.get_data(sql_command)
-        test = pe.Sheet()
-        test.row += columns
-        test.name_columns_by_row(0)
-        for rows in data:
-            test.row += list(rows)
-        print(test)
+        return data
 
     def rtn_dict(self, sql_command):
         columns, data = self.get_data(sql_command)
         results = []
         for row in data:
-            results.append(dict(zip(columns, row)))
+            results.append(dict(zip(columns.keys(), row)))
+        return results
 
-    def get_data(self, sql_command):
-        cur = self.exc_cmd(sql_command)
-        return [column[0] for column in cur.description], cur.fetchall()
-
-    def exc_cmd(self, sql_command):
-        return self.conn.cursor().execute(sql_command)
+    # def replicate_to(self, dest_conn=None, sql_commands=()):
+    #     if dest_conn:
+    #         for sql_command in sql_commands:
+    #             columns, data = self.get_data(sql_command.cmd)
+    #             data.name = sql_command.name
+    #             dest_conn.copy_tables(columns, data)
+    #     else:
+    #         print('No connection to transfer to.')
 
     def get_db_info(self):
-        cursor1 = self.conn.cursor()
-        cursor2 = self.conn.cursor()
+        cursor1 = self._conn.cursor()
+        cursor2 = self._conn.cursor()
 
         for i, rows in enumerate(cursor1.tables()):
             if rows['table_type'] == "TABLE":
