@@ -8,11 +8,6 @@ def main():
     my_ui = ui()
     my_ui.object = my_obj
     my_ui.run()
-    # status_code = True
-    # while status_code:
-    #     print(status_code)
-    #     status_code = my_ui.ui
-    #     print(status_code)
 
 
 if __name__ == '__main__':

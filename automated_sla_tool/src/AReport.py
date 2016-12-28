@@ -2,9 +2,16 @@ import pyexcel as pe
 import os
 import re
 from datetime import timedelta, datetime, time, date
+from glob import glob
 from dateutil.parser import parse
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.FinalReport import FinalReport
+
+
+class UniqueDict(dict):
+    def __setitem__(self, key, value):
+        if key not in self:
+            dict.__setitem__(self, key, value)
 
 
 class AReport(UtilityObject):
@@ -17,6 +24,7 @@ class AReport(UtilityObject):
         self.dates = report_dates
         self.final_report = FinalReport(report_type, self.dates)
         self.src_files = {}
+        self.req_src_files = []
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
@@ -32,12 +40,28 @@ class AReport(UtilityObject):
             self.util_datetime = None
             self.day_of_wk = None
 
+    def load_documents(self):
+        # TODO abstract this -> *args
+        if self.final_report.finished:
+            return
+        else:
+            for (f, p) in self.r_loader(self.req_src_files).items():
+                try:
+                    file = pe.get_book(file_name=p)
+                except FileNotFoundError:
+                    print("Could not open src documents"
+                          "-> {0}.load_documents: {1}".format(self.final_report.type, f))
+                else:
+                    self.src_files[f] = self.filter_chronicall_reports(file)
+
     def save(self):
         self.set_save_path(self.final_report.type)
         self.final_report.save_report()
+
     '''
     OS Operations
     '''
+
     def set_save_path(self, report_type):
         save_path = r'{0}\Output\{1}'.format(os.path.dirname(self.path), report_type)
         self.change_dir(save_path)
@@ -60,9 +84,49 @@ class AReport(UtilityObject):
             f_name = f_name.strip()
             os.rename(f, r'{0}{1}'.format(f_name, ext))
 
+    def r_loader(self, unloaded_files, run2=False):
+        if run2 is True:
+            return {}
+        loaded_files = {}
+        self.clean_src_loc()
+        for f_name in reversed(unloaded_files):
+            src_f = glob(r'{0}\{1}*.xlsx'.format(self.src_doc_path, f_name))
+            if len(src_f) is 1:
+                loaded_files[f_name] = src_f[0]
+                unloaded_files.remove(f_name)
+            else:
+                # TODO additional error handling for file names that have not been excluded?
+                pass
+        self.download_documents(files=unloaded_files)
+        return {**loaded_files, **self.r_loader(unloaded_files, True)}
+
+    def download_documents(self, files):
+        if self.final_report.finished:
+            return
+        else:
+            self.download_chronicall_files(file_list=files)
+            src_file_directory = os.listdir(self.src_doc_path)
+            for file in src_file_directory:
+                if file.endswith(".xls"):
+                    self.copy_and_convert(self.src_doc_path, src_file_directory)
+                    break
+
     '''
     Report Utilities
     '''
+
+    def apply_formatters_to_wb(self, wb, filters=(), one_filter=None):
+        for sheet in wb:
+            self.apply_formatters_to_sheet(sheet, filters, one_filter)
+
+    def apply_formatters_to_sheet(self, sheet, filters=(), one_filter=None):
+        for a_filter in filters:
+            this_filter = pe.RowValueFilter(a_filter)
+            sheet.filter(this_filter)
+        if one_filter:
+            this_filter = pe.RowValueFilter(one_filter)
+            sheet.filter(this_filter)
+
     def copy_and_convert(self, file_location, directory):
         from shutil import move
         for src_file in directory:
@@ -88,9 +152,62 @@ class AReport(UtilityObject):
         return_list.insert(0, first_index)
         return [return_list]
 
+    def filter_chronicall_reports(self, workbook):
+        try:
+            del workbook['Summary']
+        except KeyError:
+            pass
+        chronicall_report_filter = pe.RowValueFilter(self.header_filter)
+        for sheet in workbook:
+            sheet.filter(chronicall_report_filter)
+            sheet.name_columns_by_row(0)
+            sheet.name_rows_by_column(0)
+            self.chck_rpt_dates(sheet)
+        return workbook
+
+    def header_filter(self, row):
+        corner_case = re.split('\(| - ', row[0])
+        bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
+        return True if len(corner_case) > 1 else bad_word
+
+    def chck_rpt_dates(self, sheet):
+        first = self.chck_w_in_days(sheet.column['Start Time'][0])
+        try:
+            last = self.chck_w_in_days(sheet.column['End Time'][-1])
+        except ValueError:
+            last = True
+        if first and last:
+            pass
+        else:
+            raise ValueError
+
+    def collate_wb_to_sheet(self, wb=()):
+        headers = ['row_names'] + wb[0].colnames
+        sheet_to_replace_wb = pe.Sheet(colnames=headers)
+        unique_records = UniqueDict()
+        for sheet in wb:
+            for i, name in enumerate(sheet.rownames):
+                unique_records[name] = sheet.row_at(i)
+        for rec in sorted(unique_records.keys()):
+            sheet_to_replace_wb.row += [rec] + unique_records[rec]
+        sheet_to_replace_wb.name_rows_by_column(0)
+        return sheet_to_replace_wb
+
     '''
     General Utilities
     '''
+
+    def chck_w_in_days(self, doc_dt, num_days=1):
+        try:
+            date_time = parse(doc_dt)
+        except ValueError:
+            return False
+        else:
+            if (date_time - self.util_datetime) <= timedelta(days=num_days):
+                return True
+            else:
+                return False
+
     def download_chronicall_files(self, file_list):
         '''
         Temporary
@@ -164,16 +281,6 @@ class AReport(UtilityObject):
 
     def transmit_report(self):
         return self.final_report
-
-    def make_distinct_and_sort(self, worksheet, delim=None):
-        worksheet.name_rows_by_column(0)
-        sorted_list = [item for item in sorted(worksheet.rownames, reverse=False) if delim not in item]
-        new_sheet = pe.Sheet()
-        for item in sorted_list:
-            temp_list = worksheet.row[item]
-            temp_list.insert(0, item)
-            new_sheet.row += temp_list
-        return new_sheet
 
     def make_summary(self, headers):
         todays_summary = pe.Sheet()

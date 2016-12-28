@@ -1,4 +1,3 @@
-import os
 import operator
 import pyexcel as pe
 from datetime import time, timedelta
@@ -15,8 +14,8 @@ class SlaReport(AReport):
     def __init__(self, report_date=None):
         super(SlaReport, self).__init__(report_dates=report_date,
                                         report_type='sla_report')
-        the_file = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
-        if self.check_finished(the_file):
+        file_fmt = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
+        if self.check_finished(report_string=file_fmt):
             print('Report Complete for {}'.format(self.dates))
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
@@ -33,134 +32,21 @@ class SlaReport(AReport):
     UI Section
     '''
 
-    def download_documents(self, files):
-        if self.final_report.finished:
-            return
-        else:
-            self.download_chronicall_files(file_list=files)
-            src_file_directory = os.listdir(self.src_doc_path)
-
-            # for file in src_file_directory:
-            #     print(file)
-            #     if file.endswith(".xls"):
-            #         self.copy_and_convert(self.src_doc_path, src_file_directory)
-            #         break
-
     def load_documents(self):
-        # TODO abstract this -> *args
-        if self.final_report.finished:
-            return
-        else:
-            loaded_files = {}
-            unloaded_files = []
-            for f_name in self.req_src_files:
-                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
-                try:
-                    src_file_obj = pe.get_book(file_name=src_file)
-                except FileNotFoundError:
-                    unloaded_files.append(f_name)
-                else:
-                    loaded_files[f_name] = src_file_obj
-
-            self.download_documents(files=unloaded_files)
-            self.clean_src_loc()
-
-            for f_name in unloaded_files:
-                src_file = os.path.join(self.src_doc_path, r'{0}.xlsx'.format(f_name))
-                try:
-                    src_file_obj = pe.get_book(file_name=src_file)
-                except FileNotFoundError:
-                    raise FileNotFoundError("Could not open src documents"
-                                            "-> {0}.load_documents: {1}".format(self.final_report.type, src_file))
-                else:
-                    loaded_files[f_name] = src_file_obj
-
-            for file in loaded_files.keys():
-                try:
-                    del loaded_files[file]['Summary']
-                except Exception as e:
-                    print(e)
-
-            temp_sheet = pe.Sheet()
-            for row in loaded_files[r'Call Details (Basic)'][0].rows():
-                temp_sheet.row += row
-            loaded_files[r'Call Details (Basic)'] = temp_sheet
-            if self.check_valid_date(loaded_files[r'Call Details (Basic)']['A2']) is not True:
-                raise ValueError('Invalid date for file {}'.format('Call Details'))
-            self.src_files[r'Call Details (Basic)'] = self.filter_call_details(loaded_files[r'Call Details (Basic)'])
-            self.src_files[r'Call Details (Basic)'].name_columns_by_row(0)
-            self.src_files[r'Call Details (Basic)'].name = 'call_details'
-
-            if self.check_valid_date(loaded_files[r'Group Abandoned Calls'][0]['A3']) is not True:
-                raise ValueError('Invalid date for file {}'.format(r'Group Abandoned Calls'))
-            loaded_files[r'Group Abandoned Calls'] = self.merge_sheets(loaded_files[r'Group Abandoned Calls'])
-            self.src_files[r'Group Abandoned Calls'] = self.make_distinct_and_sort(
-                loaded_files[r'Group Abandoned Calls'], delim='-')
-            self.src_files[r'Group Abandoned Calls'].name_columns_by_row(0)
-            self.filter_abandon_group(self.src_files[r'Group Abandoned Calls'])
-            self.src_files[r'Group Abandoned Calls'].name = 'abandon_group'
-
-            if self.check_valid_date(loaded_files[r'Cradle to Grave'][0]['A3']) is not True:
-                raise ValueError('Invalid date for file {}'.format(r'Cradle to Grave'))
-            cradle_filter = pe.RowValueFilter(self.cradle_report_row_filter)
-            for sheet in loaded_files[r'Cradle to Grave']:
-                sheet.filter(cradle_filter)
-                sheet.name_columns_by_row(0)
-            self.src_files[r'Cradle to Grave'] = loaded_files[r'Cradle to Grave']
-            # local_db = os.path.join(self.path, r'db\automated_sla_tool.db')
-            # params1 = {
-            #     'local_db': local_db,
-            # }
-            # conn = lite(**params1)
-            # conn.insert(self.src_files[r'Cradle to Grave'][0])
-            # for f_name in loaded_files.keys():
-            # self.src_files[f_name] = self.filter_agent_reports(loaded_files[f_name])
-
-    # def load_documents(self):
-    #     '''
-    #
-    #     :return:
-    #     '''
-    #     if self.final_report.finished:
-    #         return
-    #     else:
-    #         call_details_file = r'{0}\{1}'.format(self.src_doc_path, r'Call Details (Basic).xlsx')
-    #         abandon_group_file = r'{0}\{1}'.format(self.src_doc_path, r'Group Abandoned Calls.xlsx')
-    #         cradle_to_grave_file = r'{0}\{1}'.format(self.src_doc_path, r'Cradle to Grave.xlsx')
-    #
-    #         call_details = pe.get_sheet(file_name=call_details_file)
-    #         if self.check_valid_date(call_details['A2']) is not True:
-    #             raise ValueError('Invalid date for file {}'.format(call_details_file))
-    #         self.call_details = self.filter_call_details(call_details)
-    #         self.call_details.name_columns_by_row(0)
-    #         self.call_details.name = 'call_details'
-    #
-    #         abandon_group = pe.get_book(file_name=abandon_group_file)
-    #         del abandon_group['Summary']
-    #         if self.check_valid_date(abandon_group[0]['A3']) is not True:
-    #             raise ValueError('Invalid date for file {}'.format(abandon_group_file))
-    #         abandon_group = self.merge_sheets(abandon_group)
-    #         self.abandon_group = self.make_distinct_and_sort(abandon_group, delim='-')
-    #         self.abandon_group.name_columns_by_row(0)
-    #         self.filter_abandon_group(self.abandon_group)
-    #         self.abandon_group.name = 'abandon_group'
-    #
-    #         cradle_to_grave = pe.get_book(file_name=cradle_to_grave_file)
-    #         del cradle_to_grave['Summary']
-    #         if self.check_valid_date(cradle_to_grave[0]['A3']) is not True:
-    #             raise ValueError('Invalid date for file {}'.format(cradle_to_grave_file))
-    #         cradle_filter = pe.RowValueFilter(self.cradle_report_row_filter)
-    #         for sheet in cradle_to_grave:
-    #             sheet.filter(cradle_filter)
-    #             sheet.name_columns_by_row(0)
-    #         self.cradle_to_grave = cradle_to_grave
-    #         self.get_voicemails()
+        super().load_documents()
+        call_details_filters = [
+            self.inbound_call_filter,
+            self.zero_duration_filter,
+            self.remove_internal_inbound_filter
+        ]
+        self.src_files[r'Call Details (Basic)'] = self.collate_wb_to_sheet(wb=self.src_files[r'Call Details (Basic)'])
+        self.apply_formatters_to_sheet(sheet=self.src_files[r'Call Details (Basic)'],
+                                       filters=call_details_filters)
+        self.src_files[r'Group Abandoned Calls'] = self.collate_wb_to_sheet(wb=self.src_files[r'Group Abandoned Calls'])
+        self.apply_formatters_to_sheet(sheet=(self.src_files[r'Group Abandoned Calls']),
+                                       one_filter=self.answered_filter)
 
     def compile_call_details(self):
-        '''
-
-                :return:
-                '''
         if self.final_report.finished:
             return
         else:
@@ -170,7 +56,7 @@ class SlaReport(AReport):
             additional_times = [['Wait Time', 'Hold Time']]
 
             col_index = self.src_files[r'Call Details (Basic)'].colnames
-
+            #TODO this is the starting place
             for row in self.src_files[r'Call Details (Basic)'].rows():
                 call_id = row[col_index.index('Call')].replace(':', ' ')
                 sheet = self.src_files[r'Cradle to Grave'][call_id]
@@ -316,6 +202,31 @@ class SlaReport(AReport):
                 pass
 
     '''
+    Report Filters
+    '''
+
+    def blank_row_filter(self, row):
+        result = [element for element in str(row[3]) if element != '']
+        return len(result) == 0
+
+    def answered_filter(self, row):
+        try:
+            answered = row[-5]
+        except ValueError:
+            answered = False
+        return answered
+
+    def inbound_call_filter(self, row):
+        return row[0] not in ('Inbound', 'Call Direction')
+
+    def zero_duration_filter(self, row):
+        result = [element for element in row[-1] if element != '']
+        return len(result) == 0
+
+    def remove_internal_inbound_filter(self, row):
+        return row[-2] == row[-3]
+
+    '''
     Utilities Section
     '''
 
@@ -405,17 +316,6 @@ class SlaReport(AReport):
                 tr['Average Wait Lost'] = operator.floordiv(tr['Average Wait Lost'],
                                                             tr['I/C Lost'])
 
-    def check_valid_date(self, doc_date):
-        try:
-            date_time = parse(doc_date.split(' - ')[0]).date()
-        except ValueError:
-            return False
-        else:
-            if (date_time - self.dates) <= timedelta(days=1):
-                return True
-            else:
-                return False
-
     def make_verbose_dict(self):
         return dict((value.name, key) for key, value in self.clients.items())
 
@@ -436,31 +336,6 @@ class SlaReport(AReport):
     def abandon_group_row_filter(self, row):
         unique_cell = row[0].split(' ')
         return unique_cell[0] != 'Call'
-
-    def blank_row_filter(self, row):
-        result = [element for element in row[3] if element != '']
-        return len(result) == 0
-
-    def answered_filter(self, row):
-        try:
-            answered = row[-5]
-        except ValueError:
-            answered = False
-        return answered
-
-    def inbound_call_filter(self, row):
-        return row[1] not in "Inbound 'Call Direction'"
-
-    def zero_duration_filter(self, row):
-        result = [element for element in row[-1] if element != '']
-        return len(result) == 0
-
-    def remove_internal_inbound_filter(self, row):
-        return row[-2] == row[-3]
-
-    def cradle_report_row_filter(self, row):
-        result = row[0].split(' ')
-        return result[0] != 'Event'
 
     def find_non_distinct(self, lst):
         icount = {}
@@ -494,22 +369,6 @@ class SlaReport(AReport):
             pass
         finally:
             return return_value
-
-    def filter_call_details(self, call_details):
-        call_filter = pe.RowValueFilter(self.blank_row_filter)
-        inbound_call_filter = pe.RowValueFilter(self.inbound_call_filter)
-        zero_duration = pe.RowValueFilter(self.zero_duration_filter)
-        internal_inbound = pe.RowValueFilter(self.remove_internal_inbound_filter)
-        call_details.filter(call_filter)
-        call_details.filter(inbound_call_filter)
-        call_details.filter(zero_duration)
-        call_details.filter(internal_inbound)
-
-        return call_details
-
-    def filter_abandon_group(self, abandon_group):
-        rm_ans_calls_filter = pe.RowValueFilter(self.answered_filter)
-        abandon_group.filter(rm_ans_calls_filter)
 
     def remove_duplicate_calls(self):
         internal_parties = self.src_files[r'Group Abandoned Calls'].column['Internal Party']
@@ -633,10 +492,6 @@ class SlaReport(AReport):
                                      full_service=is_fullservice)
                 return_dict[settings[row, 'Client Number']] = this_client
         return return_dict
-
-    def __str__(self):
-        for arg in vars(self):
-            print(arg)
 
 
 class Client:

@@ -13,9 +13,9 @@ from automated_sla_tool.src.SysLog import SysLog
 
 class GenericUi(object):
     obj_set = False
-    _log_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
-    _logger = SysLog(__name__, file_path=_log_path)
-    _logger.setLevel(logging.INFO)
+    # _log_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
+    # _logger = SysLog(__name__, file_path=_log_path)
+    # _logger.setLevel(logging.INFO)
     # LOG_FILENAME = '.\error_logs\{log}.error'.format(log=__name__)
     # # logging.basicConfig(level=logging.DEBUG)
     # err_handler = logging.handlers.RotatingFileHandler(LOG_FILENAME,
@@ -23,15 +23,15 @@ class GenericUi(object):
     #                                                    backupCount=2,
     #                                                    encoding='utf-8')
     # err_handler.setLevel(logging.ERROR)
-    info_handler = logging.StreamHandler()
-    info_handler.setLevel(logging.INFO)
+    # info_handler = logging.StreamHandler()
+    # info_handler.setLevel(logging.INFO)
     # _logger.addHandler(err_handler)
-    _logger.addHandler(info_handler)
+    # _logger.addHandler(info_handler)
     # log_file_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging.conf')
     # logging.config.fileConfig(log_file_path)
 
     # create logger
-    print(__name__)
+    # print(__name__)
     # logger = logging.getLogger(__name__)
 
     # 'application' code
@@ -52,13 +52,14 @@ class GenericUi(object):
 
     def run(self):
         while not self.finished:
-            try:
-                self.display_ui()
-            except Exception as e:
-                msg = "Recovering from {err}".format(err=e)
-                GenericUi._logger.info(msg)
-                print(msg)
-                sleep(1)
+            self.display_ui()
+            # try:
+            #     self.display_ui()
+            # except Exception as e:
+            #     msg = "Recovering from {err}".format(err=e)
+            #     # GenericUi._logger.info(msg)
+            #     print(msg)
+            #     sleep(1)
 
     # def log(self):
     #     logfiles = glob('%s*' % GenericUi.LOG_FILENAME)
@@ -91,7 +92,7 @@ class GenericUi(object):
             **dict(inspect.getmembers(obj, predicate=inspect.ismethod)),
             **{'Quit': self.exit,
                'Setmode Safe': self.toggle_safe_mode
-               } # 'log': self.log
+               }  # 'log': self.log
         }
         for e in self._exclusions:
             obj_ui.pop(e, None)

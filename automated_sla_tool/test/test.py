@@ -87,37 +87,59 @@ class SqlCommand(object):
 
 
 def test():
-    conn_string = {
-        'DATABASE': 'chronicall',
-        'UID': 'Chronicall',
-        'PWD': 'ChR0n1c@ll1337',
-        'SERVER': '10.1.3.17',
-        'PORT': '9086'
-    }
-    tables = ['c_call', 'c_event', 'c_feature']
-    commands = []
-    raw_commands = {
-        k: datetime.today().date() for k in tables
-    }
-    for k, v in raw_commands.items():
-        cmd = SqlCommand()
-        cmd.name = k
-        cmd.cmd = (
-            '''
-            SELECT *
-            FROM {t}
-            WHERE to_char({t}.start_time, 'YYYY-MM-DD') = '{v}'
-            '''.format(t=cmd.name, v=v.strftime('%Y-%m-%d'))
-        )
-        commands.append(cmd)
-    from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
-    from automated_sla_tool.src.SqliteWriter import SqliteWriter as sq_lite
-    conn = ps_write(**conn_string)
-    conn.replicate_to(dest_conn=sq_lite(), sql_commands=commands)
-    new_conn = sq_lite()
-    print(new_conn.query('c_call'))
-    print(new_conn.query('c_event'))
-    print(new_conn.query('c_feature'))
+    sheet = pe.Sheet(colnames=['row_name', 'row'])
+    rows = [
+        ['row {i}'.format(i=i), 'ex{i}'.format(i=i)] for i in range(5)
+    ]
+    rows.insert(-1, ['row 9', 'ex9'])
+    rows.insert(-1, ['row 8', 'ex8'])
+    rows.insert(-1, ['row 7', 'ex7'])
+    print(rows)
+    for row in rows:
+        sheet.row += row
+    print(sheet)
+    # conn_string = {
+    #     'DATABASE': 'chronicall',
+    #     'UID': 'Chronicall',
+    #     'PWD': 'ChR0n1c@ll1337',
+    #     'SERVER': '10.1.3.17',
+    #     'PORT': '9086'
+    # }
+    # tables = ['c_call', 'c_event', 'c_feature']
+    # commands = []
+    # raw_commands = {
+    #     k: datetime.today().date() for k in tables
+    # }
+    # for k, v in raw_commands.items():
+    #     cmd = SqlCommand()
+    #     cmd.name = k
+    #     cmd.cmd = (
+    #         '''
+    #         SELECT *
+    #         FROM {t}
+    #         WHERE to_char({t}.start_time, 'YYYY-MM-DD') = '{v}'
+    #         '''.format(t=cmd.name, v=v.strftime('%Y-%m-%d'))
+    #     )
+    #     commands.append(cmd)
+    # from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
+    # from automated_sla_tool.src.SqliteWriter import SqliteWriter as sq_lite
+    # conn = ps_write(**conn_string)
+    # conn.replicate_to(dest_conn=sq_lite(), sql_commands=commands)
+    # new_conn = sq_lite()
+    # print(new_conn.query('c_call'))
+    # print(new_conn.query('c_event'))
+    # print(new_conn.query('c_feature'))
+    # string = 'Call ID - 12312412'
+    # import re
+    # string = 'Cradle to, Grave - stuff'
+    # corner_case = re.split(', | - ', string)
+    # print(corner_case)
+    # first_split = string.split(' - ')
+    # second_split = first_split[0].split(' ')
+    # print(second_split)
+    # check_one = second_split[0] not in ('Feature', 'Call', 'Event')  # False
+    # print(len(first_split))
+    # print(True if len(first_split) > 1 else check_one)
     print('Complete')
 
 

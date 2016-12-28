@@ -4,8 +4,6 @@ import pyexcel as pe
 import pypyodbc as ps
 from datetime import datetime, time, timedelta
 from collections import namedtuple
-from glob import glob as glob
-from automated_sla_tool.src.SqliteWriter import SqliteWriter as lite
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.Notes import Notes
@@ -353,47 +351,6 @@ class DailyMarsReport(AReport):
         # conn.insert(self.final_report)
         # print(self.final_report)
 
-    def load_documents(self):
-        # TODO abstract this -> *args
-        if self.final_report.finished:
-            return
-        else:
-            for (f, p) in self.r_loader(self.req_src_files).items():
-                try:
-                    file = pe.get_book(file_name=p)
-                except FileNotFoundError:
-                    raise FileNotFoundError("Could not open src documents"
-                                            "-> {0}.load_documents: {1}".format(self.final_report.type, f))
-                else:
-                    self.src_files[f] = self.filter_agent_reports(file)
-
-    def r_loader(self, unloaded_files, run2=False):
-        if run2 is True:
-            return {}
-        loaded_files = {}
-        self.clean_src_loc()
-        for f_name in reversed(unloaded_files):
-            src_f = glob(r'{0}\{1}*.xlsx'.format(self.src_doc_path, f_name))
-            if len(src_f) is 1:
-                loaded_files[f_name] = src_f[0]
-                unloaded_files.remove(f_name)
-            else:
-                # TODO additional error handling for file names that have not been excluded?
-                pass
-        self.download_documents(files=unloaded_files)
-        return {**loaded_files, **self.r_loader(unloaded_files, True)}
-
-    def download_documents(self, files):
-        if self.final_report.finished:
-            return
-        else:
-            self.download_chronicall_files(file_list=files)
-            src_file_directory = os.listdir(self.src_doc_path)
-            for file in src_file_directory:
-                if file.endswith(".xls"):
-                    self.copy_and_convert(self.src_doc_path, src_file_directory)
-                    break
-
     def get_data_measurements(self):
         print('{0} {1}'.format(self.dates, self.src_files.keys()))
         # TODO refactor this to collate src_files + take program provided names
@@ -449,18 +406,6 @@ class DailyMarsReport(AReport):
         if emp_data.data['DND Duration'] > emp_data.data['Duration']:
             emp_data.data['DND Duration'] = emp_data.data['Duration']
 
-    def read_feature_card2(self, emp_data):
-        # TODO this needs to check for overnight
-        rtn_data = {}
-        feature_card = self.open_rpt_pg('Agent Realtime Feature Trace',
-                                        r'{0} {1}({2})'.format(emp_data.f_name, emp_data.l_name, emp_data.ext))
-        num_dnd, dnd_sec = self.correlate_dnd_data(feature_card.column['Feature Type'],
-                                                   feature_card.column['Duration'],
-                                                   'Do Not Disturb')
-        rtn_data['numDND'] = num_dnd
-        rtn_data['DND Duration'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
-        return rtn_data
-
     def read_call_card(self, call_card, emp_data):
         (inb_ans,
          inb_lost,
@@ -479,6 +424,18 @@ class DailyMarsReport(AReport):
         emp_data.data['Outbound Duration'] = 0 if out_calls is 0 else (datetime.min +
                                                                        timedelta(
                                                                            seconds=out_talk_dur // out_calls)).time()
+
+    def read_feature_card2(self, emp_data):
+        # TODO this needs to check for overnight
+        rtn_data = {}
+        feature_card = self.open_rpt_pg('Agent Realtime Feature Trace',
+                                        r'{0} {1}({2})'.format(emp_data.f_name, emp_data.l_name, emp_data.ext))
+        num_dnd, dnd_sec = self.correlate_dnd_data(feature_card.column['Feature Type'],
+                                                   feature_card.column['Duration'],
+                                                   'Do Not Disturb')
+        rtn_data['numDND'] = num_dnd
+        rtn_data['DND Duration'] = 0 if dnd_sec is 0 else (datetime.min + timedelta(seconds=dnd_sec)).time()
+        return rtn_data
 
     def read_call_card2(self, emp_data):
         rtn_data = {}
@@ -502,14 +459,6 @@ class DailyMarsReport(AReport):
                                                                   timedelta(
                                                                       seconds=out_talk_dur // out_calls)).time()
         return rtn_data
-
-    def open_rpt_pg(self, rpt, rpt_pg):
-        try:
-            file = self.src_files[rpt][rpt_pg]
-        except KeyError:
-            print('couldnt open file {0}{1}'.format(rpt, rpt_pg))
-            file = None
-        return file
 
     def read_time_card2(self, emp_data):
         # TODO get into this in a serious way...
@@ -556,6 +505,14 @@ class DailyMarsReport(AReport):
             rtn_data['Absent'] = 1
         return rtn_data
 
+    def open_rpt_pg(self, rpt, rpt_pg):
+        try:
+            file = self.src_files[rpt][rpt_pg]
+        except KeyError:
+            print('couldnt open file {0}{1}'.format(rpt, rpt_pg))
+            file = None
+        return file
+
     def correlate_dnd_data(self, src_list, list_to_correlate, key):
         dnd_list = super().correlate_list_time_data(src_list, list_to_correlate, key)
         return len(dnd_list), sum(v for v in dnd_list)
@@ -592,22 +549,6 @@ class DailyMarsReport(AReport):
                             'Error reading page number'
                             '-> bad sheet name')
         return return_value[0]
-
-    def filter_agent_reports(self, workbook):
-        try:
-            del workbook['Summary']
-        except KeyError:
-            pass
-        feature_report_filter = pe.RowValueFilter(self.agent_report_row_filter)
-        for sheet in workbook:
-            sheet.filter(feature_report_filter)
-            sheet.name_columns_by_row(0)
-            sheet.name_rows_by_column(0)
-        return workbook
-
-    def agent_report_row_filter(self, row):
-        row_name = row[0].split(' ')
-        return row_name[0] not in ('Feature', 'Call')
 
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
