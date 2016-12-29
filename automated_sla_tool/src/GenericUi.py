@@ -1,5 +1,6 @@
 import inspect
 import sys
+import traceback
 import logging
 import logging.handlers
 import logging.config
@@ -13,8 +14,9 @@ from automated_sla_tool.src.SysLog import SysLog
 
 class GenericUi(object):
     obj_set = False
+
     # _log_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
-    # _logger = SysLog(__name__, file_path=_log_path)
+    _logger = None  # SysLog(__name__, file_path=_log_path)
     # _logger.setLevel(logging.INFO)
     # LOG_FILENAME = '.\error_logs\{log}.error'.format(log=__name__)
     # # logging.basicConfig(level=logging.DEBUG)
@@ -52,14 +54,13 @@ class GenericUi(object):
 
     def run(self):
         while not self.finished:
-            self.display_ui()
-            # try:
-            #     self.display_ui()
-            # except Exception as e:
-            #     msg = "Recovering from {err}".format(err=e)
-            #     # GenericUi._logger.info(msg)
-            #     print(msg)
-            #     sleep(1)
+            try:
+                self.display_ui()
+            except Exception as e:
+                if GenericUi._logger:
+                    pass
+                else:
+                    print(traceback.format_exc())
 
     # def log(self):
     #     logfiles = glob('%s*' % GenericUi.LOG_FILENAME)

@@ -19,7 +19,7 @@ import logging
 import logging.config
 from automated_sla_tool.src.SysLog import SysLog
 from time import sleep
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 
 def get_config(config_path, name):
@@ -87,17 +87,49 @@ class SqlCommand(object):
 
 
 def test():
-    sheet = pe.Sheet(colnames=['row_name', 'row'])
+    sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
     rows = [
-        ['row {i}'.format(i=i), 'ex{i}'.format(i=i)] for i in range(5)
+        ['{i}'.format(i=chr(i * (x+1) + 97)) for x in reversed(range(5))] for i in range(5)
     ]
-    rows.insert(-1, ['row 9', 'ex9'])
-    rows.insert(-1, ['row 8', 'ex8'])
-    rows.insert(-1, ['row 7', 'ex7'])
-    print(rows)
     for row in rows:
         sheet.row += row
+    sheet.name_rows_by_column(0)
+    # print(sheet.rownames)
+    # print(sheet.colnames)
+    # print(sheet)
+    # sheet.colnames += ['e', 'f']
+    # print(sheet.colnames)
+    # new_rows = [
+    #     ['e', 'f'],
+    #     ['1', '2'],
+    #     ['2', '2'],
+    #     ['3', '3'],
+    #     ['4', '4'],
+    #     ['5', '5']
+    #     # ['', 'e', 'f'],
+    #     # ['a', '1', '2'],
+    #     # ['f', '2', '2'],
+    #     # ['k', '3', '3'],
+    #     # ['p', '4', '4'],
+    #     # ['u', '5', '5']
+    # ]
+    # new_sheet = pe.Sheet(new_rows)
+    # new_sheet.name_rows_by_column(0)
+    new_rows = OrderedDict(
+        [
+            ('e', ['1', '2', '3', '4', '5']),
+            ('f', ['1', '2', '3', '4', '5'])
+        ]
+    )
+    print(new_rows)
+    # new_sheet.name_rows_by_column(0)
+    # sheet.column['e'] += new_sheet.column['e']
+    # sheet.column['f'] += new_sheet.column['f']
+    sheet.extend_columns(new_rows)
     print(sheet)
+    # print(sheet.column['e'])
+    # sheet.column += new_sheet
+    # print(sheet)
     # conn_string = {
     #     'DATABASE': 'chronicall',
     #     'UID': 'Chronicall',

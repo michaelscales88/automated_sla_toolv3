@@ -32,6 +32,7 @@ class AReport(UtilityObject):
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
+        self._manifest = None
         if isinstance(self.dates, date):
             self.util_datetime = datetime.combine(self.dates, time())
             self.day_of_wk = self.dates.weekday()
@@ -39,6 +40,14 @@ class AReport(UtilityObject):
         else:
             self.util_datetime = None
             self.day_of_wk = None
+
+    @property
+    def manifest(self):
+        return self._manifest
+
+    @manifest.setter
+    def manifest(self, rpt_manifest):
+        self._manifest = rpt_manifest
 
     def load_documents(self):
         # TODO abstract this -> *args

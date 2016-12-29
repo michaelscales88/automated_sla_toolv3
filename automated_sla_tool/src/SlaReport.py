@@ -2,7 +2,7 @@ import operator
 import pyexcel as pe
 from datetime import time, timedelta
 from dateutil.parser import parse
-from collections import defaultdict, namedtuple
+from collections import defaultdict, namedtuple, OrderedDict
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 
@@ -20,6 +20,7 @@ class SlaReport(AReport):
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
             self.req_src_files = [r'Call Details (Basic)', r'Group Abandoned Calls', r'Cradle to Grave']
+            # TODO create clients into 'Report Manifest' -> AReport
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
             self.load_documents()
@@ -45,57 +46,62 @@ class SlaReport(AReport):
         self.src_files[r'Group Abandoned Calls'] = self.collate_wb_to_sheet(wb=self.src_files[r'Group Abandoned Calls'])
         self.apply_formatters_to_sheet(sheet=(self.src_files[r'Group Abandoned Calls']),
                                        one_filter=self.answered_filter)
+        self.src_files[r'Call Details (Basic)'].name = 'call_details'
+        self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
 
     def compile_call_details(self):
         if self.final_report.finished:
             return
         else:
-            client = namedtuple('this_client',
-                                'hold_amount park_amount conference_amount transfer_amount additional_time')
-            client.__new__.__defaults__ = (0,) * len(client._fields)
-            additional_times = [['Wait Time', 'Hold Time']]
-
-            col_index = self.src_files[r'Call Details (Basic)'].colnames
-            #TODO this is the starting place
-            for row in self.src_files[r'Call Details (Basic)'].rows():
-                call_id = row[col_index.index('Call')].replace(':', ' ')
+            time_not_talking = namedtuple('this_call',
+                                          'hold_amount park_amount conference_amount transfer_amount additional_time')
+            time_not_talking.__new__.__defaults__ = (0,) * len(time_not_talking._fields)
+            additional_times = {
+                'Wait Time': [],
+                'Hold Time': []
+            }
+            for row_name in self.src_files[r'Call Details (Basic)'].rownames:
+                call_id = row_name.replace(':', ' ')
                 sheet = self.src_files[r'Cradle to Grave'][call_id]
                 sheet_events = sheet.column['Event Type']
                 transfer_hold = 'Transfer Hold' in sheet_events
                 had_hold = 'Hold' in sheet_events
                 had_park = 'Park' in sheet_events
                 had_conference = 'Conference' in sheet_events
-                call_duration = self.get_sec(row[col_index.index('Call Duration')])
-                talk_duration = self.get_sec(row[col_index.index('Talking Duration')])
+                tot_call_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration'])
+                talk_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration'])
                 if (transfer_hold or had_hold or had_park or had_conference) is True:
                     event_durations = sheet.column['Event Duration']
-                    this_client = client(hold_amount=self.correlate_event_data(sheet_events,
-                                                                               event_durations,
-                                                                               'Hold'),
-                                         park_amount=self.correlate_event_data(sheet_events,
-                                                                               event_durations,
-                                                                               'Park'),
-                                         conference_amount=self.correlate_event_data(sheet_events,
-                                                                                     event_durations,
-                                                                                     'Conference'),
-                                         transfer_amount=self.correlate_event_data(sheet_events,
-                                                                                   event_durations,
-                                                                                   'Transfer Hold'))
+                    this_call = time_not_talking(hold_amount=self.correlate_event_data(sheet_events,
+                                                                                       event_durations,
+                                                                                       'Hold'),
+                                                 park_amount=self.correlate_event_data(sheet_events,
+                                                                                       event_durations,
+                                                                                       'Park'),
+                                                 conference_amount=self.correlate_event_data(sheet_events,
+                                                                                             event_durations,
+                                                                                             'Conference'),
+                                                 transfer_amount=self.correlate_event_data(sheet_events,
+                                                                                           event_durations,
+                                                                                           'Transfer Hold'))
                     if transfer_hold is True and had_conference is False:
                         transfer_hold_index = sheet_events.index('Transfer Hold')
-                        this_client = this_client._replace(
+                        this_call = this_call._replace(
                             additional_time=self.correlate_event_data(sheet_events[transfer_hold_index:],
                                                                       event_durations[transfer_hold_index:],
                                                                       'Talking')
                         )
-                    client_sum = sum(int(i) for i in this_client)
-                    wait_time = self.convert_time_stamp((call_duration - talk_duration) - client_sum)
-                    additional_times.append([wait_time, self.convert_time_stamp(client_sum)])
+                    time_not_talking_duration = sum(int(i) for i in this_call)
+                    wait_time = self.convert_time_stamp((tot_call_duration - talk_duration) - time_not_talking_duration)
                 else:
-                    wait_time = self.convert_time_stamp((call_duration - talk_duration))
-                    additional_times.append([wait_time, self.convert_time_stamp(0)])
-            additional_time_column = pe.Sheet(additional_times)
-            self.src_files[r'Call Details (Basic)'].column += additional_time_column
+                    time_not_talking_duration = 0
+                    wait_time = self.convert_time_stamp((tot_call_duration - talk_duration))
+                additional_times['Wait Time'].append(wait_time)
+                additional_times['Hold Time'].append(self.convert_time_stamp(time_not_talking_duration))
+            new_columns = OrderedDict(
+                (column, additional_times[column]) for column in reversed(sorted(additional_times.keys()))
+            )
+            self.src_files[r'Call Details (Basic)'].extend_columns(new_columns)
 
     def scrutinize_abandon_group(self):
         '''
@@ -108,24 +114,26 @@ class SlaReport(AReport):
             self.remove_calls_less_than_twenty_seconds()
             self.remove_duplicate_calls()
 
+    def test_run(self):
+        self.compile_call_details()
+        self.scrutinize_abandon_group()
+        self.extract_report_information()
+        self.process_report()
+        self.save_report()
+
     def extract_report_information(self):
         if self.final_report.finished:
             return
         else:
-            client_ans = self.read_report(self.src_files[r'Call Details (Basic)'])
-            client_lost = self.read_report(self.src_files[r'Group Abandoned Calls'])
+            ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details (Basic)'])
+            lost_cid_by_client = self.group_cid_by_client(self.src_files[r'Group Abandoned Calls'])
             for client in self.clients.keys():
-                calls_answered = self.get_client_info(client_ans, client)
-                calls_lost = self.get_client_info(client_lost, client)
-                voicemails = self.get_client_info(self.voicemail, self.clients[client].name)
                 self.sla_report[client] = Client(name=client,
-                                                 answered_calls=calls_answered,
-                                                 lost_calls=calls_lost,
-                                                 voicemail=voicemails,
+                                                 answered_calls=ans_cid_by_client.get(client, []),
+                                                 lost_calls=lost_cid_by_client.get(client, []),
+                                                 voicemail=self.voicemail.get(self.clients[client].name, []),
                                                  full_service=self.clients[client].full_service)
-                if self.sla_report[client].is_empty():
-                    pass
-                else:
+                if not self.sla_report[client].is_empty():
                     if self.sla_report[client].no_answered() is False:
                         self.sla_report[client].extract_call_details(self.src_files[r'Call Details (Basic)'])
                     if self.sla_report[client].no_lost() is False:
@@ -343,32 +351,21 @@ class SlaReport(AReport):
             icount[i] = icount.get(i, 0) + 1
         return {k: v for k, v in icount.items() if v > 1}
 
-    def read_report(self, report):
+    def group_cid_by_client(self, report):
         report_details = defaultdict(list)
-        col_index = report.colnames
-        for row in report.rows():
-            call_id = row[col_index.index('Call')]
+        for row_name in report.rownames:
             try:
-                client = int(row[col_index.index('Internal Party')])
+                client = int(report[row_name, 'Internal Party'])
             except ValueError:
-                client = self.handle_read_value_error(call_id)
+                client = self.handle_read_value_error(row_name)
             finally:
-                report_details[client].append(call_id)
+                report_details[client].append(row_name)
         return report_details
 
     def handle_read_value_error(self, call_id):
         sheet = self.src_files[r'Cradle to Grave'][call_id.replace(':', ' ')]
         hunt_index = sheet.column['Event Type'].index('Ringing')
         return sheet.column['Receiving Party'][hunt_index]
-
-    def get_client_info(self, dict, key):
-        return_value = None
-        try:
-            return_value = dict[key]
-        except KeyError:
-            pass
-        finally:
-            return return_value
 
     def remove_duplicate_calls(self):
         internal_parties = self.src_files[r'Group Abandoned Calls'].column['Internal Party']
@@ -498,16 +495,17 @@ class Client:
     earliest_call = time(hour=7)
     latest_call = time(hour=20)
 
-    def __init__(self, name=None,
-                 answered_calls=None,
-                 lost_calls=None,
-                 voicemail=None,
-                 full_service=False):
-        self.name = name
-        self.full_service = full_service
-        self.answered_calls = answered_calls
-        self.lost_calls = lost_calls
-        self.voicemails = voicemail
+    def __init__(self, **kwargs):
+    # def __init__(self, name=None,
+    #              answered_calls=None,
+    #              lost_calls=None,
+    #              voicemail=None,
+    #              full_service=False):
+        self.name = kwargs.get('name', None)
+        self.full_service = kwargs.get('full_service', False)
+        self.answered_calls = kwargs.get('answered_calls', [])
+        self.lost_calls = kwargs.get('lost_calls', [])
+        self.voicemails = kwargs.get('voicemail', [])
         self.remove_voicemails()
         self.longest_answered = 0
         self.call_details_duration = timedelta(seconds=0)
@@ -557,31 +555,25 @@ class Client:
                                                        call_group=self.lost_calls)
 
     def read_report(self, report=None, call_group=None, call_ticker=None, wait_answered=None):
-        col_index = report.colnames
-        call_ids = report.column['Call']
-        start_time_index = col_index.index('Start Time')
-        call_duration_index = col_index.index('Call Duration')
         duration_counter = timedelta(seconds=0)
-        for call in reversed(call_group):
-            row_index = call_ids.index(call)
-            start_time = report[row_index, start_time_index]
+        for call_id in reversed(call_group):
+            start_time = report[call_id, 'Start Time']
             if self.valid_time(parse(start_time)) or self.full_service:
-                duration_datetime = parse(report[row_index, call_duration_index])
+                duration_datetime = parse(report[call_id, 'Call Duration'])
                 converted_seconds = self.convert_datetime_seconds(duration_datetime)
                 if report.name == 'call_details' or converted_seconds >= 20:
                     duration_counter += timedelta(seconds=converted_seconds)
                     if call_ticker is not None:
-                        wait_duration_index = col_index.index('Wait Time')
-                        hold_duration = parse(report[row_index, wait_duration_index])
+                        hold_duration = parse(report[call_id, 'Wait Time'])
                         hold_duration_seconds = self.convert_datetime_seconds(hold_duration)
                         wait_answered.append(hold_duration_seconds)
                         call_ticker.add_range_item(hold_duration_seconds)
                         if hold_duration_seconds > self.longest_answered:
                             self.longest_answered = hold_duration_seconds
                 else:
-                    call_group.remove(call)
+                    call_group.remove(call_id)
             else:
-                call_group.remove(call)
+                call_group.remove(call_id)
         return duration_counter
 
     def valid_time(self, call_datetime):
