@@ -82,13 +82,13 @@ class MonthlyMarsReport(AReport):
             sheet.name_columns_by_row(0)
 
     def set_final_report(self, report_summary):
-        self.final_report.set_header(report_summary.get_header())
+        self.fr.set_header(report_summary.get_header())
         for (agent, data) in report_summary.items():
             row = [agent] + [data[k] for k in sorted(data.keys())]
-            self.final_report.row += row
-        self.final_report.make_programatic_column_with(self.calculate_avail, "Avail")
-        self.final_report.format_columns_with(self.convert_time_stamp, "Duration")
-        print(self.final_report)
+            self.fr.row += row
+        self.fr.make_programatic_column_with(self.calculate_avail, "Avail")
+        self.fr.format_columns_with(self.convert_time_stamp, "Duration")
+        print(self.fr)
 
     def create_sheet(self, headers):
         sheet = pe.Sheet()
@@ -99,9 +99,9 @@ class MonthlyMarsReport(AReport):
     def save_report(self):
         self.set_save_path('monthly_mars_report')
         the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))
-        self.final_report.day = self.dates.strftime('%B %Y')
+        self.fr.day = self.dates.strftime('%B %Y')
         file_string = r'.\{0}.xlsx'.format(the_file)
-        self.final_report.save_as(filename=file_string)
+        self.fr.save_as(filename=file_string)
 
     def calculate_avail(self, row):
         rtn_val = [r'{0:.1%}'.format(0)]

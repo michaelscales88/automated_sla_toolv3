@@ -13,13 +13,13 @@ class SlaSlicer(AReport):
 
     def prepare_final_report(self):
         final_header = self.prepare_sheet_header(self.report_values, 'Compiled')
-        self.final_report.row += final_header
-        self.final_report.name_columns_by_row(0)
+        self.fr.row += final_header
+        self.fr.name_columns_by_row(0)
         for (client_num, client_name) in self.clients.items():
             label = '{0} {1}'.format(client_num, client_name)
             temp_row = [0] * (len(self.report_values) + 1)
             temp_row[0] = label
-            self.final_report.row += temp_row
+            self.fr.row += temp_row
 
     def open_reports(self):
         if len(self.dates) != 2:
@@ -64,7 +64,7 @@ class SlaSlicer(AReport):
             sheet.name_columns_by_row(0)
             for v_index in range(sheet.number_of_rows()):
                 for h_index in range(1, len(sheet.row[v_index])):
-                    self.final_report[v_index, h_index] += sheet.row[v_index][h_index]
+                    self.fr[v_index, h_index] += sheet.row[v_index][h_index]
 
     def get_final_report(self):
-        return self.final_report
+        return self.fr

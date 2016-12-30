@@ -7,15 +7,23 @@ from copy import deepcopy as copy
 # TODO this might be better as an object with a sheet ->
 # TODO to handle name conflict with nominable Sheet and prop sheet
 class FinalReport(pe.Sheet):
-    def __init__(self, report_type, report_date):
-        super().__init__()
+    def __init__(self, **kwargs):
+        self._data = {
+            'type': kwargs.get('report_type', None),
+            'date': kwargs.get('report_date', None)
+        }
+        super().__init__(name=self._data['date'].strftime("%m-%d-%Y"))
         self._finished = False
-        self._type = report_type
-        self._date = report_date
-        try:
-            self.name = '{0}_{1}'.format(self._date.strftime('%m%d%Y'), self._type)
-        except AttributeError:
-            self.name = '{0}_{1}'.format(self._date, self._type)
+        self._table_set = False
+        self._summary = {
+            'label': 'Summary',
+            'summary_count': 0
+        }
+
+    @property
+    def rpt_name(self):
+        return '{d}_{t}'.format(d=self._data['date'].strftime("%m%d%Y"),
+                                t=self._data['type'])
 
     @property
     def finished(self):
@@ -23,11 +31,35 @@ class FinalReport(pe.Sheet):
 
     @property
     def type(self):
-        return self._type
+        return self._data['type']
 
     @property
     def date(self):
-        return self._date
+        return self._data['date']
+
+    def init_table(self):
+        if not self._table_set and self.set('colnames') and self.set('rownames'):
+            self.colnames += [''] + self._data['colnames']
+            for row in self._data['rownames']:
+                self.row += [row] + [0 for x in range(len(self.colnames) - 1)]
+            self.name_rows_by_column(0)
+            self._table_set = True
+
+    def add_and_summarize(self, row):
+        for key, val in row.items():
+            if key in self._summary:
+                self._summary[key] += val
+            else:
+                self._summary[key] = val
+        self._summary['summary_count'] += 1
+
+    def set_summary_high_val(self, high_vals):
+        for key, val in high_vals.items():
+            if key in self._summary:
+                if self._summary[key] < val:
+                    self._summary[key] = val
+            else:
+                self._summary[key] = val
 
     def open_report(self, the_file):
         if not self.finished and self.my_business(the_file):
@@ -39,14 +71,17 @@ class FinalReport(pe.Sheet):
 
     def my_business(self, raw_file_string):
         file_string, ext = splitext(self.path_leaf(raw_file_string))
-        if file_string == self.name:
+        if file_string == self.rpt_name:
             my_business = True
         else:
             my_business = self.check_fstring(file_string)
         return my_business
 
+    def set_val(self, row, col, val):
+        self[row, col] = val
+
     def check_fstring(self, f):
-        return all(x in self._type.split('_') + [self._date.strftime('%m%d%Y')] for x in f.split('_'))
+        return all(x in self._data['type'].split('_') + [self._data['date'].strftime('%m%d%Y')] for x in f.split('_'))
 
     def path_leaf(self, path):
         head, tail = ntpath.split(path)
@@ -54,8 +89,14 @@ class FinalReport(pe.Sheet):
 
     def set_header(self, header):
         if not self.finished:
-            self.row += header
-            self.name_columns_by_row(0)
+            self._data['colnames'] = header
+            if self.set('rownames'):
+                self.init_table()
+
+    def set_rows(self, rows):
+        if not self.finished:
+            self._data['rownames'] = rows
+            self.init_table()
 
     def save_report(self, user_string=None, save_format='xlsx'):
         file_string = r'.\{0}_{1}.{2}'.format(self.date.strftime('%m%d%Y'),
@@ -82,3 +123,9 @@ class FinalReport(pe.Sheet):
             row_w_headers = dict(zip(self.colnames, row))
             new_rows.row += f(row_w_headers)
         self.column += new_rows
+
+    def set(self, key):
+        return self._data.get(key, None)
+
+    def __setitem__(self, key, value):
+        super().__setitem__((self.rownames.index(key[0]), self.colnames.index(key[1])), value)

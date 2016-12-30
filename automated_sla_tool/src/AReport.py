@@ -22,7 +22,7 @@ class AReport(UtilityObject):
         if report_dates is None:
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
-        self.final_report = FinalReport(report_type, self.dates)
+        self.fr = FinalReport(report_type=report_type, report_date=self.dates)
         self.src_files = {}
         self.req_src_files = []
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -47,11 +47,17 @@ class AReport(UtilityObject):
 
     @manifest.setter
     def manifest(self, rpt_manifest):
-        self._manifest = rpt_manifest
+        try:
+            self.fr.set_header(rpt_manifest.tgt_header)
+            self.fr.set_rows(rpt_manifest.tgt_rows)
+        except Exception as e:
+            print(e)
+        else:
+            self._manifest = rpt_manifest
 
     def load_documents(self):
         # TODO abstract this -> *args
-        if self.final_report.finished:
+        if self.fr.finished:
             return
         else:
             for (f, p) in self.r_loader(self.req_src_files).items():
@@ -59,13 +65,13 @@ class AReport(UtilityObject):
                     file = pe.get_book(file_name=p)
                 except FileNotFoundError:
                     print("Could not open src documents"
-                          "-> {0}.load_documents: {1}".format(self.final_report.type, f))
+                          "-> {0}.load_documents: {1}".format(self.fr.type, f))
                 else:
                     self.src_files[f] = self.filter_chronicall_reports(file)
 
     def save(self):
-        self.set_save_path(self.final_report.type)
-        self.final_report.save_report()
+        self.set_save_path(self.fr.type)
+        self.fr.save_report()
 
     '''
     OS Operations
@@ -110,7 +116,7 @@ class AReport(UtilityObject):
         return {**loaded_files, **self.r_loader(unloaded_files, True)}
 
     def download_documents(self, files):
-        if self.final_report.finished:
+        if self.fr.finished:
             return
         else:
             self.download_chronicall_files(file_list=files)
@@ -205,6 +211,17 @@ class AReport(UtilityObject):
     '''
     General Utilities
     '''
+    # TODO make a typedef decorator
+
+    def return_selection(self, input_opt):
+        selection = list(input_opt.values())
+        return selection[
+            int(
+                input(
+                    ''.join(['{k}: {i}\n'.format(k=k, i=i) for i, k in enumerate(input_opt)])
+                )
+            )
+        ]
 
     def chck_w_in_days(self, doc_dt, num_days=1):
         try:
@@ -289,7 +306,7 @@ class AReport(UtilityObject):
         return book.number_of_sheets() is 0
 
     def transmit_report(self):
-        return self.final_report
+        return self.fr
 
     def make_summary(self, headers):
         todays_summary = pe.Sheet()
@@ -301,12 +318,12 @@ class AReport(UtilityObject):
         return (datetime.combine(datetime.today(), dt_t) + add_time).time()
 
     def check_finished(self, report_string=None):
-        file_name = r'{0}.xlsx'.format(self.final_report.name if report_string is None else report_string)
+        file_name = r'{0}.xlsx'.format(self.fr.name if report_string is None else report_string)
         the_path = os.path.dirname(self.path)
-        the_file = r'{0}\Output\{1}\{2}'.format(the_path, self.final_report.type, file_name)
+        the_file = r'{0}\Output\{1}\{2}'.format(the_path, self.fr.type, file_name)
         if os.path.isfile(the_file):
-            self.final_report.open_report(the_file)
-        return self.final_report.finished
+            self.fr.open_report(the_file)
+        return self.fr.finished
 
     def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
         try:

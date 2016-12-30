@@ -63,11 +63,11 @@ class DailyMarsReport(AReport):
     #         self.finalize_report()
 
     def run2(self):
-        if self.final_report.finished:
+        if self.fr.finished:
             return
         else:
             agents = self.tracker.get_tracker()
-            self.final_report.set_header(self.tracker.get_header())
+            self.fr.set_header(self.tracker.get_header())
             for (ext, agent) in agents.items():
                 if agent[self.day_of_wk]:
                     sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
@@ -124,14 +124,14 @@ class DailyMarsReport(AReport):
                         pass
                     row_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
                     row_portion = [test[k] for k in sorted(test.keys())]
-                    self.final_report.row += [row_name] + row_portion
+                    self.fr.row += [row_name] + row_portion
 
             self.finalize_report()
             # self.save()
 
     def test(self):
-        print(self.final_report)
-        print(self.final_report.query_format())
+        print(self.fr)
+        print(self.fr.query_format())
 
     '''
     Utilities Section
@@ -142,9 +142,9 @@ class DailyMarsReport(AReport):
 
     def finalize_report(self):
         notes_label = [self.notes.pop(0)]
-        self.final_report.row += notes_label
-        self.final_report.row += self.notes.get_notes()
-        self.final_report.name_rows_by_column(0)
+        self.fr.row += notes_label
+        self.fr.row += self.notes.get_notes()
+        self.fr.name_rows_by_column(0)
 
     def check_day_card(self, time_card, shift_start, shift_end):
         prev_day = self.dates - timedelta(days=1)
@@ -554,7 +554,7 @@ class DailyMarsReport(AReport):
         return self.add_time(dt_t, add_time=minutes)
 
     def __repr__(self):
-        return '\n'.join(['{}'.format(item) for item in self.final_report.to_array()])
+        return '\n'.join(['{}'.format(item) for item in self.fr.to_array()])
 
 
 class EmployeeTracker(UtilityObject):

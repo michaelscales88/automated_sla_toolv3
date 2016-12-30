@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 
 
 def main():
-    my_obj = SlaReport(report_date=datetime.today().date() - timedelta(days=2))
+    my_obj = SlaReport()
     my_ui = ui()
     my_ui.object = my_obj
     my_ui.run()

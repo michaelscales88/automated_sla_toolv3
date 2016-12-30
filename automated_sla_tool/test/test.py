@@ -87,13 +87,26 @@ class SqlCommand(object):
 
 
 def test():
+    # sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
     sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
-    rows = [
-        ['{i}'.format(i=chr(i * (x+1) + 97)) for x in reversed(range(5))] for i in range(5)
-    ]
-    for row in rows:
-        sheet.row += row
+    rownames = ['a', 'b', 'c', 'd']
+    print(['row'] + [0 for x in range(len(sheet.colnames)-1)])
+    for row in rownames:
+        sheet.row += [row] + [0 for x in range(len(sheet.colnames)-1)]
     sheet.name_rows_by_column(0)
+    print(sheet)
+    # rows = [
+    #     ['{i}'.format(i=chr(i * (x+1) + 97)) for x in reversed(range(5))] for i in range(5)
+    # ]
+    # for row in rows:
+    #     sheet.row += row
+    # for x in range(3):
+    #     sheet.row += [x, '0', '0', '0', '0']
+    # sheet.name_rows_by_column(0)
+    # print(sheet)
+    # for i, row in enumerate(sheet.rownames):
+    #     sheet.set_row_at(i, ['a', 'b', 'c', 'd'])
+    # print(sheet)
     # print(sheet.rownames)
     # print(sheet.colnames)
     # print(sheet)
@@ -115,18 +128,18 @@ def test():
     # ]
     # new_sheet = pe.Sheet(new_rows)
     # new_sheet.name_rows_by_column(0)
-    new_rows = OrderedDict(
-        [
-            ('e', ['1', '2', '3', '4', '5']),
-            ('f', ['1', '2', '3', '4', '5'])
-        ]
-    )
-    print(new_rows)
+    # new_rows = OrderedDict(
+    #     [
+    #         ('e', ['1', '2', '3', '4', '5']),
+    #         ('f', ['1', '2', '3', '4', '5'])
+    #     ]
+    # )
+    # print(new_rows)
     # new_sheet.name_rows_by_column(0)
     # sheet.column['e'] += new_sheet.column['e']
     # sheet.column['f'] += new_sheet.column['f']
-    sheet.extend_columns(new_rows)
-    print(sheet)
+    # sheet.extend_columns(new_rows)
+    # print(sheet)
     # print(sheet.column['e'])
     # sheet.column += new_sheet
     # print(sheet)
@@ -172,6 +185,32 @@ def test():
     # check_one = second_split[0] not in ('Feature', 'Call', 'Event')  # False
     # print(len(first_split))
     # print(True if len(first_split) > 1 else check_one)
+    # input_opt = OrderedDict(
+    #     [('Today', 0),
+    #      ('Tomorrow', 1),
+    #      ('Yesterday', -1)]
+    # )
+    # input_opt2 = ['Today', ]
+    # selection = list(input_opt.values())
+    # chc = selection[
+    #         int(
+    #             input(
+    #                 ''.join(['{k}: {i}\n'.format(k=k, i=i) for i, k in enumerate(input_opt)])
+    #             )
+    #         )
+    #     ]
+    # print(
+    #     date.today() + timedelta(days=chc)
+    # )
+    # from automated_sla_tool.src.FinalReport import FinalReport
+    # rpt = FinalReport(report_date=date.today(), report_type='sla_report')
+    # print(rpt.name)
+    # rpt.name = 'something else'
+    # print(rpt.name)
+    # rpt.save_as('C:/Users/mscales/desktop/test.xlsx')
+    print(
+        [0 for x in range(10)]
+    )
     print('Complete')
 
 
