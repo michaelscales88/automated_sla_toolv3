@@ -25,14 +25,46 @@ class SlaReport(AReport):
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
             # TODO move this into .conf file
+            headers_w_meta = OrderedDict(
+                [
+                    ('I/C Presented', self.sum),
+                    ('I/C Answered', self.sum),
+                    ('I/C Lost', self.sum),
+                    ('Voice Mails', self.sum),
+                    ('Incoming Answered (%)', {'fn': self.true_div,
+                                               'col1': 'I/C Answered',
+                                               'col2': 'I/C Presented'}),
+                    ('Incoming Lost (%)', {'fn': self.true_div_comb,
+                                           'col1': 'I/C Lost',
+                                           'col2': 'Voice Mails',
+                                           'col3': 'I/C Presented'}),
+                    ('Average Incoming Duration', {'fn': self.floor_div_weighted,
+                                                   'col1': 'Average Incoming Duration',
+                                                   'col2': 'I/C Answered',
+                                                   'col3': 'I/C Answered'}),
+                    ('Average Wait Answered', {'fn': self.floor_div_weighted,
+                                               'col1': 'Average Wait Answered',
+                                               'col2': 'I/C Answered',
+                                               'col3': 'I/C Answered'}),
+                    ('Average Wait Lost', {'fn': self.floor_div_weighted,
+                                           'col1': 'Average Wait Lost',
+                                           'col2': 'I/C Lost',
+                                           'col3': 'I/C Lost'}),
+                    ('Calls Ans Within 15', self.sum),
+                    ('Calls Ans Within 30', self.sum),
+                    ('Calls Ans Within 45', self.sum),
+                    ('Calls Ans Within 60', self.sum),
+                    ('Calls Ans Within 999', self.sum),
+                    ('Call Ans + 999', self.sum),
+                    ('Longest Waiting Answered', self.max_val),
+                    ('PCA', {'fn': self.true_div_comb,
+                             'col1': 'Calls Ans Within 15',
+                             'col2': 'Calls Ans Within 30',
+                             'col3': 'I/C Presented'})
+                ]
+            )
             self.manifest = ReportManifest(
-                header=['I/C Presented', 'I/C Answered', 'I/C Lost',
-                        'Voice Mails',
-                        'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
-                        'Average Wait Answered',
-                        'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
-                        'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
-                        'PCA'],
+                header=headers_w_meta,
                 rows=self.clients
             )
             self.load_documents()
@@ -48,8 +80,8 @@ class SlaReport(AReport):
     # TODO rethink this to compensate for diff kinds of reports and move to AReport
     def manual_input(self):
         input_opt = OrderedDict(
-            [('Today', 0),
-             ('Tomorrow', 1),
+            [('-3 Days', -3),
+             ('-2 Days', -2),
              ('Yesterday', -1)]
         )
         return date.today() + timedelta(days=self.return_selection(input_opt))
@@ -140,6 +172,7 @@ class SlaReport(AReport):
         self.scrutinize_abandon_group()
         self.extract_report_information()
         self.process_report2()
+        self.test_summary()
 
     def extract_report_information(self):
         if self.fr.finished:
@@ -221,14 +254,14 @@ class SlaReport(AReport):
             return
         else:
             # TODO extend this for clarity possible client in final_report_clients or something
-            for i, row_name in enumerate(self.fr.rownames):
+            for row_name in self.fr.rownames:
+                client_number = int(row_name)
                 try:
-                    num_calls = self.sla_report[int(row_name)].get_number_of_calls()
-                    ticker_stats = self.sla_report[int(row_name)].get_call_ticker()
+                    num_calls = self.sla_report[client_number].get_number_of_calls()
                 except KeyError:
-                    print('passed for keyerror')
                     pass
                 else:
+                    ticker_stats = self.sla_report[client_number].get_call_ticker()
                     self.fr[row_name, 'I/C Presented'] = sum(num_calls.values())
                     self.fr[row_name, 'I/C Answered'] = num_calls['answered']
                     self.fr[row_name, 'I/C Lost'] = num_calls['lost']
@@ -237,55 +270,40 @@ class SlaReport(AReport):
                                                                                sum(num_calls.values()))
                     self.fr[row_name, 'Incoming Lost (%)'] = self.safe_div(num_calls['lost'] + num_calls['voicemails'],
                                                                            sum(num_calls.values()))
-                    self.fr[row_name, 'Average Incoming Duration'] = self.sla_report[int(row_name)].get_avg_call_duration()
-                    self.fr[row_name, 'Average Wait Answered'] = self.sla_report[int(row_name)].get_avg_wait_answered()
-                    self.fr[row_name, 'Average Wait Lost'] = self.sla_report[int(row_name)].get_avg_lost_duration()
-                    try:
-                        ticker_stats = self.sla_report[int(row_name)].get_call_ticker()
-                    except KeyError:
-                        self.fr[row_name, 'Calls Ans Within 15'] = 0
-                        self.fr[row_name, 'Calls Ans Within 30'] = 0
-                        self.fr[row_name, 'Calls Ans Within 45'] = 0
-                        self.fr[row_name, 'Calls Ans Within 60'] = 0
-                        self.fr[row_name, 'Calls Ans Within 999'] = 0
-                        self.fr[row_name, 'Call Ans + 999'] = 0
-                        self.fr[row_name, 'PCA'] = 0
-                    else:
-                        self.fr[row_name, 'Calls Ans Within 15'] = ticker_stats[15]
-                        self.fr[row_name, 'Calls Ans Within 30'] = ticker_stats[30]
-                        self.fr[row_name, 'Calls Ans Within 45'] = ticker_stats[45]
-                        self.fr[row_name, 'Calls Ans Within 60'] = ticker_stats[60]
-                        self.fr[row_name, 'Calls Ans Within 999'] = ticker_stats[999]
-                        self.fr[row_name, 'Call Ans + 999'] = ticker_stats[999999]
-                        self.fr[row_name, 'PCA'] = self.safe_div(ticker_stats[15] + ticker_stats[30],
-                                                                 num_calls['answered'])
-                    self.fr[row_name, 'Longest Waiting Answered'] = self.sla_report[int(row_name)].get_longest_answered()
+                    self.fr[row_name, 'Average Incoming Duration'] = self.sla_report[
+                        client_number].get_avg_call_duration()
+                    self.fr[row_name, 'Average Wait Answered'] = self.sla_report[client_number].get_avg_wait_answered()
+                    self.fr[row_name, 'Average Wait Lost'] = self.sla_report[client_number].get_avg_lost_duration()
+                    self.fr[row_name, 'Calls Ans Within 15'] = ticker_stats[15]
+                    self.fr[row_name, 'Calls Ans Within 30'] = ticker_stats[30]
+                    self.fr[row_name, 'Calls Ans Within 45'] = ticker_stats[45]
+                    self.fr[row_name, 'Calls Ans Within 60'] = ticker_stats[60]
+                    self.fr[row_name, 'Calls Ans Within 999'] = ticker_stats[999]
+                    self.fr[row_name, 'Call Ans + 999'] = ticker_stats[999999]
+                    self.fr[row_name, 'PCA'] = self.safe_div(ticker_stats[15] + ticker_stats[30],
+                                                             num_calls['answered'])
+                    self.fr[row_name, 'Longest Waiting Answered'] = self.sla_report[
+                        client_number].get_longest_answered()
 
-                    if self.fr[row_name, 'I/C Presented'] > 0:
-                        self.fr.add_and_summarize(
-                            {
-                                'I/C Presented': self.fr[row_name, 'I/C Presented'],
-                                'I/C Answered': self.fr[row_name, 'I/C Answered'],
-                                'I/C Lost': self.fr[row_name, 'I/C Lost'],
-                                'Voice Mails': self.fr[row_name, 'Voice Mails'],
-                                'Average Incoming Duration': self.fr[row_name, 'Average Incoming Duration'] * num_calls[
-                                    'answered'],
-                                'Average Wait Answered': self.fr[row_name, 'Average Wait Answered'] * num_calls['answered'],
-                                'Average Wait Lost': self.fr[row_name, 'Average Wait Lost'] * num_calls['lost'],
-                                'Calls Ans Within 15': ticker_stats[15],
-                                'Calls Ans Within 30': ticker_stats[30],
-                                'Calls Ans Within 45': ticker_stats[45],
-                                'Calls Ans Within 60': ticker_stats[60],
-                                'Calls Ans Within 999': ticker_stats[999],
-                                'Call Ans + 999': ticker_stats[999999]
-                            }
-                        )
-                    self.fr.set_summary_high_val(
-                        high_vals={
-                            'Longest Waiting Answered': self.fr[row_name, 'Longest Waiting Answered']
-                        }
-                    )
-            print(self.fr)
+                    # if self.fr[row_name, 'I/C Presented'] > 0:
+                    #     self.fr.add_and_summarize(
+                    #         summary_rows={
+                    #
+                    #             'Average Incoming Duration': self.fr[row_name, 'Average Incoming Duration'] * num_calls[
+                    #                 'answered'],
+                    #             'Average Wait Answered': self.fr[row_name, 'Average Wait Answered'] * num_calls[
+                    #                 'answered'],
+                    #             'Average Wait Lost': self.fr[row_name, 'Average Wait Lost'] * num_calls['lost']
+                    #         }
+                    #     )
+                    #
+
+    def test_summary(self):
+        test_sheet = pe.Sheet(colnames=[''] + self.fr.colnames)
+        for row_name in self.fr.rownames:
+            test_sheet.row += [row_name] + self.fr.row[row_name]
+        test_sheet.row += self.fr.summary
+        test_sheet.name_rows_by_column(0)
 
     def save_report(self):
         if self.fr.finished:
@@ -327,6 +345,34 @@ class SlaReport(AReport):
 
     def remove_internal_inbound_filter(self, row):
         return row[-2] == row[-3]
+
+    '''
+    Final Report Fnc
+    '''
+
+    def sum(self, col):
+        return sum(col)
+
+    def floor_div_weighted(self, col1=(), col2=(), col3=()):
+        return self.floor_div(col1=[a * b for a, b in zip(col1, col2)], col2=col3)
+
+    def floor_div(self, col1=(), col2=()):
+        try:
+            return operator.floordiv(sum(col1), sum(col2))
+        except ZeroDivisionError:
+            return 0
+
+    def true_div_comb(self, col1=(), col2=(), col3=()):
+        return self.true_div(col1=col1 + col2, col2=col3)
+
+    def true_div(self, col1=(), col2=()):
+        try:
+            return operator.truediv(sum(col1), sum(col2))
+        except ZeroDivisionError:
+            return 0
+
+    def max_val(self, col):
+        return max(col)
 
     '''
     Utilities Section

@@ -42,6 +42,11 @@ class Test:
         print('running..')
 
 
+def test_fn(stuff):
+    for thing in stuff:
+        print(thing)
+    print('something')
+
 class Point(object):
     def __init__(self, x, y):
         self.x, self.y = x, y
@@ -88,6 +93,17 @@ class SqlCommand(object):
 
 def test():
     # sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
+    tuple_ex = (test_fn, 'stuff', 'stuff2')
+    fn = tuple_ex[:1]
+    other_stuff = tuple_ex[1:]
+    print(fn)
+    print(other_stuff)
+    tuple_ex[:1](other_stuff)
+    key = 'stuff'
+    thing1 = key[0]
+    thing2 = key[2]
+    print(thing1)
+    print(thing2)
     sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
     rownames = ['a', 'b', 'c', 'd']
     print(['row'] + [0 for x in range(len(sheet.colnames)-1)])
