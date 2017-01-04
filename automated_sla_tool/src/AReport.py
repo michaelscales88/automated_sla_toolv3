@@ -23,6 +23,7 @@ class AReport(UtilityObject):
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
         self.fr = FinalReport(report_type=report_type, report_date=self.dates)
+        print('super pid: {pid}'.format(pid=id(self)))
         self.src_files = {}
         self.req_src_files = []
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -69,9 +70,9 @@ class AReport(UtilityObject):
                 else:
                     self.src_files[f] = self.filter_chronicall_reports(file)
 
-    def save(self):
+    def save(self, user_string=None):
         self.set_save_path(self.fr.type)
-        self.fr.save_report()
+        self.fr.save_report(user_string)
 
     '''
     OS Operations
@@ -82,7 +83,10 @@ class AReport(UtilityObject):
         self.change_dir(save_path)
 
     def open_src_dir(self):
-        file_dir = r'{0}\{1}\{2}'.format(os.path.dirname(self.path), 'Attachment Archive', self.dates.strftime('%m%d'))
+        file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=os.path.dirname(self.path),
+                                                    sub='Attachment Archive',
+                                                    yr=self.dates.strftime('%Y'),
+                                                    tgt=self.dates.strftime('%m%d'))
         self.change_dir(file_dir)
         return os.getcwd()
 
@@ -211,6 +215,7 @@ class AReport(UtilityObject):
     '''
     General Utilities
     '''
+
     # TODO make a typedef decorator
 
     def return_selection(self, input_opt):

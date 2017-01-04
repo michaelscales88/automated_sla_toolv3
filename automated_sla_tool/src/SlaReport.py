@@ -12,6 +12,7 @@ from automated_sla_tool.src.ReportManifest import ReportManifest
 
 
 class SlaReport(AReport):
+
     def __init__(self, report_date=None):
         report_date = report_date if report_date else self.manual_input()
         super().__init__(report_dates=report_date,
@@ -25,6 +26,7 @@ class SlaReport(AReport):
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
             # TODO move this into .conf file
+            # TODO probably good to force all nonprogramatic lists to conform to OrderedDicts Ex in docs .. isistance(thing, OD)
             headers_w_meta = OrderedDict(
                 [
                     ('I/C Presented', self.sum),
@@ -63,9 +65,14 @@ class SlaReport(AReport):
                              'col3': 'I/C Presented'})
                 ]
             )
+            rows_w_meta = OrderedDict(
+                [
+                    ('{num}'.format(num=num), '{name}'.format(name=info.name)) for num, info in self.clients.items()
+                ]
+            )
             self.manifest = ReportManifest(
                 header=headers_w_meta,
-                rows=self.clients
+                rows=rows_w_meta
             )
             self.load_documents()
             self.voicemail = defaultdict(list)
@@ -77,12 +84,41 @@ class SlaReport(AReport):
     UI Section
     '''
 
+    def zzfull_run(self):
+        if self.fr.finished:
+            return
+        else:
+            self.compile_call_details()
+            self.scrutinize_abandon_group()
+            self.extract_report_information()
+            self.process_report()
+            self.save()
+            self.fr.finished = True
+
+    def zztest_run(self):
+        if self.fr.finished:
+            return
+        else:
+            self.compile_call_details()
+            self.scrutinize_abandon_group()
+            self.extract_report_information()
+            self.process_report2()
+            self.fr.finished = True
+
+    def zzdisplay_fr(self):
+        print(self.fr.full_report)
+        self.fr.verbose_rows()
+        self.fr.full_report_w_fmt()
+
     # TODO rethink this to compensate for diff kinds of reports and move to AReport
     def manual_input(self):
         input_opt = OrderedDict(
-            [('-3 Days', -3),
-             ('-2 Days', -2),
-             ('Yesterday', -1)]
+            [
+                ('-4 Days', -4),
+                ('-3 Days', -3),
+                ('-2 Days', -2),
+                ('Yesterday', -1)
+            ]
         )
         return date.today() + timedelta(days=self.return_selection(input_opt))
 
@@ -167,13 +203,6 @@ class SlaReport(AReport):
             self.remove_calls_less_than_twenty_seconds()
             self.remove_duplicate_calls()
 
-    def test_run(self):
-        self.compile_call_details()
-        self.scrutinize_abandon_group()
-        self.extract_report_information()
-        self.process_report2()
-        self.test_summary()
-
     def extract_report_information(self):
         if self.fr.finished:
             return
@@ -192,6 +221,7 @@ class SlaReport(AReport):
                     if self.sla_report[client].no_lost() is False:
                         self.sla_report[client].extract_abandon_group_details(self.src_files[r'Group Abandoned Calls'])
 
+    #TODO could abstract this into FinalReport transform method
     def process_report(self):
         '''
 
@@ -206,22 +236,24 @@ class SlaReport(AReport):
                        'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
                        'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
                        'PCA']
-            # self.final_report.row += headers
-            # self.final_report.name_columns_by_row(0)
+            self.fr.row += headers
+            self.fr.name_columns_by_row(0)
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
             for client in sorted(self.clients.keys()):
-                answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
+                num_calls = self.sla_report[client].get_number_of_calls()
+                # answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
                 this_row = dict((value, 0) for value in headers[1:])
-                this_row['I/C Presented'] = answered + lost + voicemails
+                this_row['I/C Presented'] = sum(num_calls.values())
                 this_row['Label'] = '{0} {1}'.format(client, self.clients[client].name)
                 if this_row['I/C Presented'] > 0:
                     ticker_stats = self.sla_report[client].get_call_ticker()
-                    this_row['I/C Answered'] = answered
-                    this_row['I/C Lost'] = lost
-                    this_row['Voice Mails'] = voicemails
-                    this_row['Incoming Answered (%)'] = (answered / this_row['I/C Presented'])
-                    this_row['Incoming Lost (%)'] = ((lost + voicemails) / this_row['I/C Presented'])
+                    this_row['I/C Answered'] = num_calls['answered']
+                    this_row['I/C Lost'] = num_calls['lost']
+                    this_row['Voice Mails'] = num_calls['voicemails']
+                    this_row['Incoming Answered (%)'] = (num_calls['answered'] / this_row['I/C Presented'])
+                    this_row['Incoming Lost (%)'] = (
+                        (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
                     this_row['Average Incoming Duration'] = self.sla_report[client].get_avg_call_duration()
                     this_row['Average Wait Answered'] = self.sla_report[client].get_avg_wait_answered()
                     this_row['Average Wait Lost'] = self.sla_report[client].get_avg_lost_duration()
@@ -233,7 +265,7 @@ class SlaReport(AReport):
                     this_row['Call Ans + 999'] = ticker_stats[999999]
                     this_row['Longest Waiting Answered'] = self.sla_report[client].get_longest_answered()
                     try:
-                        this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / answered)
+                        this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / num_calls['answered'])
                     except ZeroDivisionError:
                         this_row['PCA'] = 0
 
@@ -285,44 +317,23 @@ class SlaReport(AReport):
                     self.fr[row_name, 'Longest Waiting Answered'] = self.sla_report[
                         client_number].get_longest_answered()
 
-                    # if self.fr[row_name, 'I/C Presented'] > 0:
-                    #     self.fr.add_and_summarize(
-                    #         summary_rows={
-                    #
-                    #             'Average Incoming Duration': self.fr[row_name, 'Average Incoming Duration'] * num_calls[
-                    #                 'answered'],
-                    #             'Average Wait Answered': self.fr[row_name, 'Average Wait Answered'] * num_calls[
-                    #                 'answered'],
-                    #             'Average Wait Lost': self.fr[row_name, 'Average Wait Lost'] * num_calls['lost']
-                    #         }
-                    #     )
-                    #
-
-    def test_summary(self):
-        test_sheet = pe.Sheet(colnames=[''] + self.fr.colnames)
-        for row_name in self.fr.rownames:
-            test_sheet.row += [row_name] + self.fr.row[row_name]
-        test_sheet.row += self.fr.summary
-        test_sheet.name_rows_by_column(0)
-
-    def save_report(self):
+    def save(self, user_string=None):
         if self.fr.finished:
             return
         else:
+            # TODO build this into manifest E.g. tgt delivery
             self.validate_final_report()
-            self.set_save_path('sla_report')
-            network_dir = r'M:\Help Desk\Daily SLA Report\2016'
-            the_file = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
-            file_string = r'.\{0}.xlsx'.format(the_file)
-            self.fr.save_as(filename=file_string)
+            the_file = user_string if user_string else r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
+            super().save(user_string=the_file)
+            network_dir = r'M:\Help Desk\Daily SLA Report\{yr}'.format(yr=self.dates.strftime('%Y'))
+            self.change_dir(network_dir)
             try:
-                network_file = r'{0}\{1}.xlsx'.format(network_dir, the_file)
-                self.fr.save_as(filename=network_file)
+                self.fr.save_report(user_string=the_file)
             except OSError:
-                pass
+                print('passing os_error')
 
     '''
-    Report Filters
+    Report Filters by row
     '''
 
     def blank_row_filter(self, row):
@@ -347,7 +358,7 @@ class SlaReport(AReport):
         return row[-2] == row[-3]
 
     '''
-    Final Report Fnc
+    Final Report Fnc by column
     '''
 
     def sum(self, col):

@@ -33,7 +33,7 @@ def main(report_date_delta):
                 print('extracted')
                 file.process_report()
                 print('processed')
-                file.save_report()
+                file.save()
                 print('saved')
                 print("Program ran successfully for date: {}".format(start_date.strftime("%m%d%Y")))
             except SystemExit:
