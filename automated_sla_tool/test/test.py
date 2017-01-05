@@ -92,25 +92,41 @@ class SqlCommand(object):
 
 
 def test():
+    test_sheet = pe.Sheet()
+    test_sheet.row += [['', 'A', 'B', 'C', 'D'],
+                       [1, 2, 3, 4, 5],
+                       [6, 7, 8, 9, 10]]
+    test_sheet.name_columns_by_row(0)
+    test_sheet.name_rows_by_column(0)
+    print(test_sheet)
+    for i, column in enumerate(test_sheet.columns()):
+        print(test_sheet.colnames[i])
+        print(column)
+    # im_a_dict = {
+    #     'value': 0
+    # }
+    # if im_a_dict['value']:
+    #     print('i evaluated to true')
+    # print(im_a_dict['value'] is False)
     # sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
-    tuple_ex = (test_fn, 'stuff', 'stuff2')
-    fn = tuple_ex[:1]
-    other_stuff = tuple_ex[1:]
-    print(fn)
-    print(other_stuff)
-    tuple_ex[:1](other_stuff)
-    key = 'stuff'
-    thing1 = key[0]
-    thing2 = key[2]
-    print(thing1)
-    print(thing2)
-    sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
-    rownames = ['a', 'b', 'c', 'd']
-    print(['row'] + [0 for x in range(len(sheet.colnames)-1)])
-    for row in rownames:
-        sheet.row += [row] + [0 for x in range(len(sheet.colnames)-1)]
-    sheet.name_rows_by_column(0)
-    print(sheet)
+    # tuple_ex = (test_fn, 'stuff', 'stuff2')
+    # fn = tuple_ex[:1]
+    # other_stuff = tuple_ex[1:]
+    # print(fn)
+    # print(other_stuff)
+    # tuple_ex[:1](other_stuff)
+    # key = 'stuff'
+    # thing1 = key[0]
+    # thing2 = key[2]
+    # print(thing1)
+    # print(thing2)
+    # sheet = pe.Sheet(colnames=['', 'a', 'b', 'c', 'd'])
+    # rownames = ['a', 'b', 'c', 'd']
+    # print(['row'] + [0 for x in range(len(sheet.colnames)-1)])
+    # for row in rownames:
+    #     sheet.row += [row] + [0 for x in range(len(sheet.colnames)-1)]
+    # sheet.name_rows_by_column(0)
+    # print(sheet)
     # rows = [
     #     ['{i}'.format(i=chr(i * (x+1) + 97)) for x in reversed(range(5))] for i in range(5)
     # ]

@@ -23,7 +23,6 @@ class AReport(UtilityObject):
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
         self.fr = FinalReport(report_type=report_type, report_date=self.dates)
-        print('super pid: {pid}'.format(pid=id(self)))
         self.src_files = {}
         self.req_src_files = []
         self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -181,8 +180,17 @@ class AReport(UtilityObject):
             sheet.filter(chronicall_report_filter)
             sheet.name_columns_by_row(0)
             sheet.name_rows_by_column(0)
-            self.chck_rpt_dates(sheet)
+            try:
+                self.chck_rpt_dates(sheet)
+            except ValueError:
+                workbook.remove_sheet(sheet.name)
         return workbook
+
+    def ts_to_int(self, column):
+        rtn_col = []
+        for item in column:
+            rtn_col.append(self.get_sec(item))
+        return rtn_col
 
     def header_filter(self, row):
         corner_case = re.split('\(| - ', row[0])

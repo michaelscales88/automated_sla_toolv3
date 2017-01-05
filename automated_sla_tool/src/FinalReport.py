@@ -2,9 +2,7 @@ import pyexcel as pe
 import ntpath
 from os.path import splitext
 from copy import deepcopy as copy
-from pyexcel.sheets import nominablesheet
 from collections import OrderedDict
-from datetime import time, datetime
 
 
 # TODO this might be better as an object with a sheet ->
@@ -115,9 +113,7 @@ class FinalReport(pe.Sheet):
                 '{0:.1%}'.format(long_dec) for long_dec in full_report.column[column]
                 ]
             full_report.column[column] = new_column
-        print(full_report)
-        # for column in full_report.columns():
-        #     print(column)
+        return full_report
 
     def convert_time_stamp(self, convert_seconds):
         minutes, seconds = divmod(convert_seconds, 60)
@@ -151,11 +147,11 @@ class FinalReport(pe.Sheet):
         head, tail = ntpath.split(path)
         return tail or ntpath.basename(head)
 
-    def save_report(self, user_string=None, save_format='xlsx'):
+    def save_report(self, user_string=None, save_format='xlsx', tgt=None):
         file_string = user_string if user_string else '{0}_{1}'.format(self.date.strftime('%m%d%Y'), self.type)
         file_name = r'.\{f_string}.{fmt}'.format(f_string=file_string,
                                                  fmt=save_format)
-        self.save_as(filename=file_name)
+        tgt.save_as(filename=file_name) if tgt else self.save_as(filename=file_name)
 
     '''
     Default Column Fnc

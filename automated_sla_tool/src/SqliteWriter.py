@@ -46,10 +46,24 @@ class SqliteWriter(QueryWriter):
                                                            values=ph))
         self._conn.executemany(cmd, data.rows())
         self.commit_changes()
-        print('Finished insert {name} {time}'.format(name=data.name, time=datetime.now().time()), flush=True)
+        print('Finished insert {name} {time} # rows: {num_rows}'.format(name=data.name,
+                                                                        time=datetime.now().time(),
+                                                                        num_rows=data.number_of_rows()), flush=True)
 
     def query(self, table_name):
-        cmd = "SELECT * FROM {t}".format(t=table_name)
+        cmd = '''
+        SELECT count(ROWID)
+        FROM {t}
+        '''.format(t=table_name)
+        columns, data = self.get_data(cmd)
+        data.name = table_name
+        return data
+
+    def query2(self, table_name):
+        cmd = '''
+        SELECT *
+        FROM {t}
+        '''.format(t=table_name)
         columns, data = self.get_data(cmd)
         data.name = table_name
         return data

@@ -9,6 +9,10 @@ class QueryWriter(object):
         self._conn = None
         self._params = {}
 
+    @property
+    def name(self):
+        return self._params['local_db'] if self._params.get('local_db', None) else self._params.get('DATABASE', 'unknwn')
+
     def copy_table(self):
         print('No copy_table function provided.', flush=True)
 
@@ -46,6 +50,6 @@ class QueryWriter(object):
     def __del__(self):
         try:
             self._conn.close()
-            print(r'Connection successfully closed.')
+            print(r'Connection to {conn} successfully closed.'.format(conn=self.name))
         except AttributeError:
             print(r'No connection to close.')

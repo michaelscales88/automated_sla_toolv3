@@ -1,10 +1,12 @@
 import operator
 import pyexcel as pe
+from pyexcel import Sheet, Book
 from datetime import time, timedelta, date
 from dateutil.parser import parse
 from collections import defaultdict, namedtuple, OrderedDict
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
+from automated_sla_tool.src.ReportManifest import ReportManifest
 
 
 # TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
@@ -17,13 +19,63 @@ class SlaReport(AReport):
         super().__init__(report_dates=report_date,
                          report_type='sla_report')
         self.file_fmt = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
-        if self.check_finished(report_string=self.file_fmt):
-            print('Report Complete for {}'.format(self.dates))
+        self.override = True
+        if self.check_finished(report_string=self.file_fmt) and not self.override:
+            print('{report}: Complete'.format(report=self.file_fmt))
         else:
-            print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
+            print('Building: {report}'.format(report=self.file_fmt))
             self.req_src_files = [r'Call Details (Basic)', r'Group Abandoned Calls', r'Cradle to Grave']
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
+            # TODO move this into .conf file -> make dict extended settings class
+            # TODO probably good to force all nonprogramatic lists to conform to OrderedDicts Ex in docs .. isistance(thing, OD)
+            headers_w_meta = OrderedDict(
+                [
+                    ('I/C Presented', self.sum),
+                    ('I/C Answered', self.sum),
+                    ('I/C Lost', self.sum),
+                    ('Voice Mails', self.sum),
+                    ('Incoming Answered (%)', {'fn': self.true_div,
+                                               'col1': 'I/C Answered',
+                                               'col2': 'I/C Presented'}),
+                    ('Incoming Lost (%)', {'fn': self.true_div_comb,
+                                           'col1': 'I/C Lost',
+                                           'col2': 'Voice Mails',
+                                           'col3': 'I/C Presented'}),
+                    ('Average Incoming Duration', {'fn': self.floor_div_weighted,
+                                                   'col1': 'Average Incoming Duration',
+                                                   'col2': 'I/C Answered',
+                                                   'col3': 'I/C Answered'}),
+                    ('Average Wait Answered', {'fn': self.floor_div_weighted,
+                                               'col1': 'Average Wait Answered',
+                                               'col2': 'I/C Answered',
+                                               'col3': 'I/C Answered'}),
+                    ('Average Wait Lost', {'fn': self.floor_div_weighted,
+                                           'col1': 'Average Wait Lost',
+                                           'col2': 'I/C Lost',
+                                           'col3': 'I/C Lost'}),
+                    ('Calls Ans Within 15', self.sum),
+                    ('Calls Ans Within 30', self.sum),
+                    ('Calls Ans Within 45', self.sum),
+                    ('Calls Ans Within 60', self.sum),
+                    ('Calls Ans Within 999', self.sum),
+                    ('Call Ans + 999', self.sum),
+                    ('Longest Waiting Answered', self.max_val),
+                    ('PCA', {'fn': self.true_div_comb,
+                             'col1': 'Calls Ans Within 15',
+                             'col2': 'Calls Ans Within 30',
+                             'col3': 'I/C Presented'})
+                ]
+            )
+            rows_w_meta = OrderedDict(
+                [
+                    ('{num}'.format(num=num), '{name}'.format(name=info.name)) for num, info in self.clients.items()
+                ]
+            )
+            self.manifest = ReportManifest(
+                header=headers_w_meta,
+                rows=rows_w_meta
+            )
             self.load_documents()
             self.orphaned_voicemails = None
             self.sla_report = {}
@@ -31,7 +83,8 @@ class SlaReport(AReport):
     '''
     UI Section
     '''
-    def run(self):
+
+    def zzfull_run(self):
         if self.fr.finished:
             return
         else:
@@ -40,7 +93,25 @@ class SlaReport(AReport):
             self.extract_report_information()
             self.process_report()
             self.save()
+            # print(self.fr)
+            self.fr.finished = True
 
+    def zztest_run(self):
+        if self.fr.finished:
+            return
+        else:
+            self.compile_call_details2()
+            self.scrutinize_abandon_group()
+            self.extract_report_information()
+            self.process_report2()
+            self.fr.finished = True
+
+    def zzdisplay_fr(self):
+        self.fr.verbose_rows()
+        print(self.fr.full_report)
+        # self.fr.save_report(tgt=self.fr.full_report_w_fmt(), user_string=self.file_fmt)
+
+    # TODO rethink this to compensate for diff kinds of reports and move to AReport
     def manual_input(self):
         input_opt = OrderedDict(
             [
@@ -70,7 +141,18 @@ class SlaReport(AReport):
         self.src_files[r'Voice Mail'] = defaultdict(list)
         self.get_voicemails()
 
-    def compile_call_details(self):
+        for src_file in self.src_files.keys():
+            if isinstance(self.src_files[src_file], Sheet):
+                for col_name in self.src_files[src_file].colnames:
+                    if 'Duration' in col_name:
+                        self.src_files[src_file].column[col_name] = self.ts_to_int(self.src_files[src_file].column[col_name])
+            elif isinstance(self.src_files[src_file], Book):
+                for sheet in self.src_files[src_file]:
+                    for col_name in sheet.colnames:
+                        if 'Duration' in col_name:
+                            sheet.column[col_name] = self.ts_to_int(sheet.column[col_name])
+
+    def compile_call_details2(self):
         if self.fr.finished:
             return
         else:
@@ -85,19 +167,73 @@ class SlaReport(AReport):
                 unhandled_call_data = {
                     k: 0 for k in hold_events
                 }
-                tot_call_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration'])
-                talk_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration'])
+                tot_call_duration = self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration']
+                talk_duration = self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration']
                 call_id = row_name.replace(':', ' ')
                 cradle_sheet = self.src_files[r'Cradle to Grave'][call_id]
                 for event_row in cradle_sheet.rownames:
                     event_type = cradle_sheet[event_row, 'Event Type']
                     if event_type in hold_events:
-                        unhandled_call_data[event_type] += self.get_sec(cradle_sheet[event_row, 'Event Duration'])
+                        unhandled_call_data[event_type] += cradle_sheet[event_row, 'Event Duration']
                 raw_time_waited = sum(val for val in unhandled_call_data.values())
                 raw_hold_time = tot_call_duration - talk_duration - raw_time_waited
-                additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
-                additional_columns['Hold Time'].append(self.convert_time_stamp(raw_hold_time))
+                additional_columns['Wait Time'].append(raw_time_waited)
+                additional_columns['Hold Time'].append(raw_hold_time)
             self.src_files[r'Call Details (Basic)'].extend_columns(additional_columns)
+
+    def compile_call_details(self):
+        if self.fr.finished:
+            return
+        else:
+            time_not_talking = namedtuple('this_call',
+                                          'hold_amount park_amount conference_amount transfer_amount additional_time')
+            time_not_talking.__new__.__defaults__ = (0,) * len(time_not_talking._fields)
+            additional_times = {
+                'Wait Time': [],
+                'Hold Time': []
+            }
+            for row_name in self.src_files[r'Call Details (Basic)'].rownames:
+                call_id = row_name.replace(':', ' ')
+                sheet = self.src_files[r'Cradle to Grave'][call_id]
+                sheet_events = sheet.column['Event Type']
+                transfer_hold = 'Transfer Hold' in sheet_events
+                had_hold = 'Hold' in sheet_events
+                had_park = 'Park' in sheet_events
+                had_conference = 'Conference' in sheet_events
+                tot_call_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration'])
+                talk_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration'])
+                if (transfer_hold or had_hold or had_park or had_conference) is True:
+                    event_durations = sheet.column['Event Duration']
+                    this_call = time_not_talking(hold_amount=self.correlate_event_data(sheet_events,
+                                                                                       event_durations,
+                                                                                       'Hold'),
+                                                 park_amount=self.correlate_event_data(sheet_events,
+                                                                                       event_durations,
+                                                                                       'Park'),
+                                                 conference_amount=self.correlate_event_data(sheet_events,
+                                                                                             event_durations,
+                                                                                             'Conference'),
+                                                 transfer_amount=self.correlate_event_data(sheet_events,
+                                                                                           event_durations,
+                                                                                           'Transfer Hold'))
+                    if transfer_hold is True and had_conference is False:
+                        transfer_hold_index = sheet_events.index('Transfer Hold')
+                        this_call = this_call._replace(
+                            additional_time=self.correlate_event_data(sheet_events[transfer_hold_index:],
+                                                                      event_durations[transfer_hold_index:],
+                                                                      'Talking')
+                        )
+                    time_not_talking_duration = sum(int(i) for i in this_call)
+                    time_not_talking_duration = time_not_talking_duration - this_call.additional_time
+                else:
+                    time_not_talking_duration = 0
+                wait_time = self.convert_time_stamp((tot_call_duration - talk_duration))
+                additional_times['Wait Time'].append(wait_time)
+                additional_times['Hold Time'].append(self.convert_time_stamp(time_not_talking_duration))
+            new_columns = OrderedDict(
+                (column, additional_times[column]) for column in reversed(sorted(additional_times.keys()))
+            )
+            self.src_files[r'Call Details (Basic)'].extend_columns(new_columns)
 
     def scrutinize_abandon_group(self):
         '''
@@ -129,6 +265,7 @@ class SlaReport(AReport):
                     if self.sla_report[client].no_lost() is False:
                         self.sla_report[client].extract_abandon_group_details(self.src_files[r'Group Abandoned Calls'])
 
+    #TODO could abstract this into FinalReport transform method
     def process_report(self):
         '''
 
@@ -185,6 +322,46 @@ class SlaReport(AReport):
             self.finalize_total_row(total_row)
             self.add_row(total_row)
             self.fr.name_rows_by_column(0)
+
+    def process_report2(self):
+        '''
+
+            :return:
+        '''
+        if self.fr.finished:
+            return
+        else:
+            # TODO extend this for clarity possible client in final_report_clients or something
+            for row_name in self.fr.rownames:
+                client_number = int(row_name)
+                try:
+                    num_calls = self.sla_report[client_number].get_number_of_calls()
+                except KeyError:
+                    pass
+                else:
+                    ticker_stats = self.sla_report[client_number].get_call_ticker()
+                    self.fr[row_name, 'I/C Presented'] = sum(num_calls.values())
+                    self.fr[row_name, 'I/C Answered'] = num_calls['answered']
+                    self.fr[row_name, 'I/C Lost'] = num_calls['lost']
+                    self.fr[row_name, 'Voice Mails'] = num_calls['voicemails']
+                    self.fr[row_name, 'Incoming Answered (%)'] = self.safe_div(num_calls['answered'],
+                                                                               sum(num_calls.values()))
+                    self.fr[row_name, 'Incoming Lost (%)'] = self.safe_div(num_calls['lost'] + num_calls['voicemails'],
+                                                                           sum(num_calls.values()))
+                    self.fr[row_name, 'Average Incoming Duration'] = self.sla_report[
+                        client_number].get_avg_call_duration()
+                    self.fr[row_name, 'Average Wait Answered'] = self.sla_report[client_number].get_avg_wait_answered()
+                    self.fr[row_name, 'Average Wait Lost'] = self.sla_report[client_number].get_avg_lost_duration()
+                    self.fr[row_name, 'Calls Ans Within 15'] = ticker_stats[15]
+                    self.fr[row_name, 'Calls Ans Within 30'] = ticker_stats[30]
+                    self.fr[row_name, 'Calls Ans Within 45'] = ticker_stats[45]
+                    self.fr[row_name, 'Calls Ans Within 60'] = ticker_stats[60]
+                    self.fr[row_name, 'Calls Ans Within 999'] = ticker_stats[999]
+                    self.fr[row_name, 'Call Ans + 999'] = ticker_stats[999999]
+                    self.fr[row_name, 'PCA'] = self.safe_div(ticker_stats[15] + ticker_stats[30],
+                                                             num_calls['answered'])
+                    self.fr[row_name, 'Longest Waiting Answered'] = self.sla_report[
+                        client_number].get_longest_answered()
 
     def save(self, user_string=None):
         if self.fr.finished:

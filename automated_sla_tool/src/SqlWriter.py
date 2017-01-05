@@ -38,14 +38,14 @@ class SqlWriter(QueryWriter):
             results.append(dict(zip(columns.keys(), row)))
         return results
 
-    # def replicate_to(self, dest_conn=None, sql_commands=()):
-    #     if dest_conn:
-    #         for sql_command in sql_commands:
-    #             columns, data = self.get_data(sql_command.cmd)
-    #             data.name = sql_command.name
-    #             dest_conn.copy_tables(columns, data)
-    #     else:
-    #         print('No connection to transfer to.')
+    def replicate_to(self, dest_conn=None, sql_commands=()):
+        if dest_conn:
+            for sql_command in sql_commands:
+                columns, data = self.get_data(sql_command.cmd)
+                data.name = sql_command.name
+                dest_conn.copy_tables(columns, data)
+        else:
+            print('No connection to transfer to.')
 
     def get_db_info(self):
         cursor1 = self._conn.cursor()
