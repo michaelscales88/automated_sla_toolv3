@@ -14,6 +14,7 @@ class SysLog(_loggerClass):
     def create_nested_str(self, f_path):
         with open(f_path, 'r', encoding='utf-8') as file:
             nested_strings = [line.rstrip() for line in file]
+        print(nested_strings)
         return nested_strings
 
     def get_kvl(self, line):

@@ -17,6 +17,7 @@ from queue import Queue
 import sqlite3
 import logging
 import logging.config
+from os import path
 from automated_sla_tool.src.SysLog import SysLog
 from time import sleep
 from collections import defaultdict, OrderedDict
@@ -92,16 +93,24 @@ class SqlCommand(object):
 
 
 def test():
-    test_sheet = pe.Sheet()
-    test_sheet.row += [['', 'A', 'B', 'C', 'D'],
-                       [1, 2, 3, 4, 5],
-                       [6, 7, 8, 9, 10]]
-    test_sheet.name_columns_by_row(0)
-    test_sheet.name_rows_by_column(0)
-    print(test_sheet)
-    for i, column in enumerate(test_sheet.columns()):
-        print(test_sheet.colnames[i])
-        print(column)
+    string1 = 'string'
+    string2 = '123'
+    print(string1.isdigit())
+    print(string2.isdigit())
+    _log_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
+    print(_log_path)
+    log = SysLog(__file__, file_path=_log_path)
+    print(log)
+    # test_sheet = pe.Sheet()
+    # test_sheet.row += [['', 'A', 'B', 'C', 'D'],
+    #                    [1, 2, 3, 4, 5],
+    #                    [6, 7, 8, 9, 10]]
+    # test_sheet.name_columns_by_row(0)
+    # test_sheet.name_rows_by_column(0)
+    # print(test_sheet)
+    # for i, column in enumerate(test_sheet.columns()):
+    #     print(test_sheet.colnames[i])
+    #     print(column)
     # im_a_dict = {
     #     'value': 0
     # }

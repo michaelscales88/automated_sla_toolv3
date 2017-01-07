@@ -176,14 +176,17 @@ class AReport(UtilityObject):
         except KeyError:
             pass
         chronicall_report_filter = pe.RowValueFilter(self.header_filter)
-        for sheet in workbook:
+        # for sheet in workbook:
+        for sheet_name in reversed(workbook.sheet_names()):
+            sheet = workbook[sheet_name]
             sheet.filter(chronicall_report_filter)
             sheet.name_columns_by_row(0)
             sheet.name_rows_by_column(0)
             try:
                 self.chck_rpt_dates(sheet)
             except ValueError:
-                workbook.remove_sheet(sheet.name)
+                print('removing {sheet_name}'.format(sheet_name=sheet_name))
+                workbook.remove_sheet(sheet_name)
         return workbook
 
     def ts_to_int(self, column):
@@ -202,8 +205,8 @@ class AReport(UtilityObject):
         try:
             last = self.chck_w_in_days(sheet.column['End Time'][-1])
         except ValueError:
-            last = True
-        if first and last:
+            last = False
+        if first or last:
             pass
         else:
             raise ValueError

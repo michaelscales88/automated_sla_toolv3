@@ -17,16 +17,19 @@ class SlaReport(AReport):
         super().__init__(report_dates=report_date,
                          report_type='sla_report')
         self.file_fmt = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
-        if self.check_finished(report_string=self.file_fmt):
+        override = False
+        if self.check_finished(report_string=self.file_fmt) and override:
             print('Report Complete for {}'.format(self.dates))
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
             self.req_src_files = [r'Call Details (Basic)', r'Group Abandoned Calls', r'Cradle to Grave']
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
-            self.load_documents()
             self.orphaned_voicemails = None
+            self.load_documents()
             self.sla_report = {}
+            self.src_files[r'Voice Mail'] = defaultdict(list)
+            self.get_voicemails()
 
     '''
     UI Section
@@ -67,8 +70,8 @@ class SlaReport(AReport):
                                        one_filter=self.answered_filter)
         self.src_files[r'Call Details (Basic)'].name = 'call_details'
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
-        self.src_files[r'Voice Mail'] = defaultdict(list)
-        self.get_voicemails()
+        print('\n'.join([sheetname for sheetname in self.src_files[r'Cradle to Grave'].sheet_names()]))
+        # print(self.src_files[r'Cradle to Grave'].sheet_names())
 
     def compile_call_details(self):
         if self.fr.finished:
@@ -163,8 +166,6 @@ class SlaReport(AReport):
                         (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
                     this_row['Average Incoming Duration'] = self.sla_report[client].get_avg_call_duration()
                     this_row['Average Wait Answered'] = self.sla_report[client].get_avg_wait_answered()
-                    if client == 7591:
-                        print(self.sla_report[client].get_avg_wait_answered())
                     this_row['Average Wait Lost'] = self.sla_report[client].get_avg_lost_duration()
                     this_row['Calls Ans Within 15'] = ticker_stats[15]
                     this_row['Calls Ans Within 30'] = ticker_stats[30]
@@ -430,6 +431,7 @@ class SlaReport(AReport):
             self.make_voicemail_data()
             self.write_voicemail_data(voicemail_file_path)
 
+
     def read_voicemail_data(self, voicemail_file_path):
         with open(voicemail_file_path) as f:
             content = f.readlines()
@@ -469,10 +471,10 @@ class SlaReport(AReport):
                         voicemail['number'] = telephone_number
                         voicemail['call_time'] = call_time
                         voice_mail_dict[receiving_party].append(voicemail)
-            print('read {} successfully.'.format(call_id_page.name))
         return voice_mail_dict
 
     def make_voicemail_data(self):
+        print('im making vm data')
         e_vm = self.retrieve_voicemail_emails()
         c_vm = self.retrieve_voicemail_cradle()
         for client, e_list in e_vm.items():
@@ -493,6 +495,7 @@ class SlaReport(AReport):
                             self.src_files[r'Voice Mail'][client].append(matched_call['call_id'])
 
     def write_voicemail_data(self, voicemail_file_path):
+        print('im writing vm data')
         text_file = open(voicemail_file_path, 'w')
         for voicemail_group in self.src_files[r'Voice Mail'].items():
             text_string = '{0},{1}\n'.format(voicemail_group[0], ",".join(voicemail_group[1]))
@@ -524,11 +527,6 @@ class Client:
     latest_call = time(hour=20)
 
     def __init__(self, **kwargs):
-        # def __init__(self, name=None,
-        #              answered_calls=None,
-        #              lost_calls=None,
-        #              voicemail=None,
-        #              full_service=False):
         self.name = kwargs.get('name', None)
         self.full_service = kwargs.get('full_service', False)
         self.answered_calls = kwargs.get('answered_calls', [])
@@ -593,15 +591,11 @@ class Client:
                     duration_counter += timedelta(seconds=converted_seconds)
                     if call_ticker is not None:
                         hold_duration = parse(report[call_id, 'Wait Time'])
-                        if self.name == 7591:
-                            print(hold_duration)
                         hold_duration_seconds = self.convert_datetime_seconds(hold_duration)
                         wait_answered.append(hold_duration_seconds)
                         call_ticker.add_range_item(hold_duration_seconds)
                         if hold_duration_seconds > self.longest_answered:
                             self.longest_answered = hold_duration_seconds
-                        # if self.name == 7591:
-                        #     print('here')
                 else:
                     call_group.remove(call_id)
             else:
@@ -625,8 +619,6 @@ class Client:
                                      call_group=self.lost_calls)
 
     def get_avg_wait_answered(self):
-        if self.name == 7591:
-            print(self.wait_answered)
         return self.get_avg_duration(current_duration=sum(self.wait_answered),
                                      call_group=self.wait_answered)
 
