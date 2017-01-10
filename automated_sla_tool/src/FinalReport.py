@@ -17,7 +17,7 @@ class FinalReport(pe.Sheet):
             'colnames': kwargs.get('colnames', ()),
             'verbose_rows': kwargs.get('verbose_rows', False),
         }
-        super().__init__(name=self._data['date'].strftime("%m-%d-%Y"))
+        super().__init__(name=self._data['date'])
         self._finished = False
         self._table_set = False
 
@@ -176,12 +176,12 @@ class FinalReport(pe.Sheet):
     def query_format(self):
         return copy(self).to_records()
 
-    def format_columns_with(self, f, *columns):
+    def format_columns_with(self, f, *columns): # w/ named rows and columns
         for column in columns:
-            col_indices = [i for i, x in enumerate(self.colnames) if column in x]
-            for col_index in col_indices:
-                for row_index, row_val in enumerate(self.column_at(col_index)):
-                    self[row_index, col_index] = f(row_val)
+            for col_name in self.colnames:
+                if column in col_name:
+                    for row_name in self.rownames:
+                        self[row_name, col_name] = f(self[row_name, col_name])
 
     def make_programatic_column_with(self, f, column):
         # TODO could add colname and add values directly to final report **mind not handle issues well**

@@ -24,7 +24,6 @@ class DailyMarsReport(AReport):
             self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
             self.notes = Notes()
             self.run2()
-            print('Ran through DailyMarsReport')
 
     '''
     UI Section
@@ -67,15 +66,27 @@ class DailyMarsReport(AReport):
             return
         else:
             agents = self.tracker.get_tracker()
-            self.fr.set_header(self.tracker.get_header())
             for (ext, agent) in agents.items():
                 if agent[self.day_of_wk]:
-                    sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
                     try:
                         rtn_data = self.read_time_card2(agent)
+                        if agent.l_name == 'Rice':
+                            print('inside corner case')
+                            print(rtn_data)
                     except IndexError:
-                        agent.data.add_note(self.notes.add_note(r'Data Error: No Valid Time Data'))
-                        rtn_data = {}
+                        # agent.data.add_note(self.notes.add_note(r'Data Error: No Valid Time Data'))
+                        rtn_data = {
+                            'Late': 0,
+                            'Logged In': 0,
+                            'Logged Out': 0,
+                            'Duration': 0,
+                            'Absent': 1
+                        }
+                    if not self.fr.colnames:
+                        self.fr.row += ([''] + sorted(rtn_data.keys()))
+                        self.fr.name_columns_by_row(0)
+                    # sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
+
                     # try:
                     #     time_card = self.src_files['Agent Time Card'][sheet_name]
                     # except KeyError:
@@ -86,12 +97,12 @@ class DailyMarsReport(AReport):
                     #         self.read_time_card(time_card, agent)
                     #     except IndexError:
                     #         agent.data.add_note(self.notes.add_note(r'Data Error: No Valid Time Data'))
-                    print(rtn_data)
-                    try:
-                        rtn_data2 = self.read_feature_card2(agent)
-                    except Exception as e:
-                        print(e)
-                        rtn_data2 = {}
+                    # print(rtn_data)
+                    # try:
+                    #     rtn_data2 = self.read_feature_card2(agent)
+                    # except Exception as e:
+                    #     print(e)
+                    #     rtn_data2 = {}
 
                     # try:
                     #     feature_card = self.src_files['Agent Realtime Feature Trace'][sheet_name]
@@ -99,35 +110,34 @@ class DailyMarsReport(AReport):
                     #     feature_card = None
                     # else:
                     #     self.read_feature_card(feature_card, agent)
-                    print(rtn_data2)
-                    try:
-                        rtn_data3 = self.read_call_card2(agent)
-                    except Exception as e:
-                        print(e)
-                        rtn_data3 = {}
-                    print(rtn_data3)
-                    test = {**rtn_data, **rtn_data2, **rtn_data3}
-                    print(test)
+                    # print(rtn_data2)
+                    # try:
+                    #     rtn_data3 = self.read_call_card2(agent)
+                    # except Exception as e:
+                    #     print(e)
+                    #     rtn_data3 = {}
+                    # print(rtn_data3)
+                    # test = {**rtn_data, **rtn_data2, **rtn_data3}
+                    # print(test)
                     # try:
                     #     agent_call_card = self.src_files['Agent Calls'][sheet_name]
                     # except KeyError:
                     #     agent_call_card = None
                     # else:
                     #     self.read_call_card(agent_call_card, agent)
-                    try:
-                        test['Avail'] = self.get_percent_avail(test['Duration'],
-                                                               self.convert_time_stamp(rtn_data['DND Duration']))
-                        if test['DND Duration'] > test['Duration']:
-                            test['DND Duration'] = test['Duration']
-                        # self.final_report.row += self.tracker[ext]
-                    except KeyError:
-                        pass
+                    # try:
+                    #     test['Avail'] = self.get_percent_avail(test['Duration'],
+                    #                                            self.convert_time_stamp(rtn_data['DND Duration']))
+                    #     if test['DND Duration'] > test['Duration']:
+                    #         test['DND Duration'] = test['Duration']
+                    #     # self.final_report.row += self.tracker[ext]
+                    # except KeyError:
+                    #     pass
                     row_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
-                    row_portion = [test[k] for k in sorted(test.keys())]
+                    row_portion = [rtn_data[k] for k in sorted(rtn_data.keys())]
                     self.fr.row += [row_name] + row_portion
 
             self.finalize_report()
-            # self.save()
 
     def test(self):
         print(self.fr)
@@ -352,7 +362,7 @@ class DailyMarsReport(AReport):
         # print(self.final_report)
 
     def get_data_measurements(self):
-        print('{0} {1}'.format(self.dates, self.src_files.keys()))
+        # print('{0} {1}'.format(self.dates, self.src_files.keys()))
         # TODO refactor this to collate src_files + take program provided names
         if self.is_empty_wb(self.src_files['Agent Time Card']):
             raise OSError('No agents for report')
@@ -462,10 +472,18 @@ class DailyMarsReport(AReport):
 
     def read_time_card2(self, emp_data):
         # TODO get into this in a serious way...
-        rtn_data = {}
+        rtn_data = {
+            'Late': 0,
+            'Logged In': 0,
+            'Logged Out': 0,
+            'Duration': 0,
+            'Absent': 0
+        }
         time_card = self.open_rpt_pg('Agent Time Card',
                                      r'{0} {1}({2})'.format(emp_data.f_name, emp_data.l_name, emp_data.ext))
         if time_card:
+            if emp_data.l_name == 'Rice':
+                print(time_card)
             shift_start = emp_data[self.day_of_wk].start
             shift_end = emp_data[self.day_of_wk].end
             is_normal_shift = time(hour=0) <= shift_start <= time(hour=18, minute=59)
@@ -476,14 +494,22 @@ class DailyMarsReport(AReport):
                  clocked_in,
                  clocked_out) = self.check_day_card(time_card, shift_start, shift_end)
             else:
+                if emp_data.l_name == 'Rice':
+                    print('about to read')
                 (rtn_data['Logged In'],
                  rtn_data['Logged Out'],
                  clocked_in,
                  clocked_out) = self.check_night_card(time_card, shift_start, shift_end)
+                if emp_data.l_name == 'Rice':
+                    print('done read')
                 if clocked_in:
                     emp_data.data.add_note(self.notes.add_note(r'Logged in {}'.format(
                         self.dates - timedelta(days=1)))
                     )
+                if emp_data.l_name == 'Rice':
+                    print('cleared clocked in')
+            if emp_data.l_name == 'Rice':
+                print(rtn_data)
             if clocked_in is False:
                 emp_data.data.add_note(self.notes.add_note(r'No Login'))
             if clocked_out is False:
@@ -501,8 +527,12 @@ class DailyMarsReport(AReport):
                                                                                minutes=timedelta(minutes=5))
             if clocked_in and late:
                 rtn_data['Late'] = 1
+            if emp_data.l_name == 'Rice':
+                print(rtn_data)
         else:
             rtn_data['Absent'] = 1
+        if emp_data.l_name == 'Rice':
+            print(rtn_data)
         return rtn_data
 
     def open_rpt_pg(self, rpt, rpt_pg):
@@ -553,8 +583,8 @@ class DailyMarsReport(AReport):
     def check_grace_pd(self, dt_t, minutes):
         return self.add_time(dt_t, add_time=minutes)
 
-    def __repr__(self):
-        return '\n'.join(['{}'.format(item) for item in self.fr.to_array()])
+    def __str__(self):
+        return str(self.fr)
 
 
 class EmployeeTracker(UtilityObject):

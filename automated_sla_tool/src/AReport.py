@@ -60,14 +60,14 @@ class AReport(UtilityObject):
         if self.fr.finished:
             return
         else:
-            for (f, p) in self.r_loader(self.req_src_files).items():
-                try:
-                    file = pe.get_book(file_name=p)
-                except FileNotFoundError:
-                    print("Could not open src documents"
-                          "-> {0}.load_documents: {1}".format(self.fr.type, f))
-                else:
-                    self.src_files[f] = self.filter_chronicall_reports(file)
+            for (f, p) in self.loader(self.req_src_files).items():
+                file = pe.get_book(file_name=p)
+                self.src_files[f] = self.filter_chronicall_reports(file)
+            if self.req_src_files:
+                print('Could not find files:\n{files}'.format(
+                    files='\n'.join([f for f in self.req_src_files])
+                ), flush=True)
+                # raise SystemExit()
 
     def save(self, user_string=None):
         self.set_save_path(self.fr.type)
@@ -102,7 +102,8 @@ class AReport(UtilityObject):
             f_name = f_name.strip()
             os.rename(f, r'{0}{1}'.format(f_name, ext))
 
-    def r_loader(self, unloaded_files, run2=False):
+    # this doesn't need to go deep twice if files found on first pass
+    def loader(self, unloaded_files, run2=False):
         if run2 is True:
             return {}
         loaded_files = {}
@@ -116,7 +117,7 @@ class AReport(UtilityObject):
                 # TODO additional error handling for file names that have not been excluded?
                 pass
         self.download_documents(files=unloaded_files)
-        return {**loaded_files, **self.r_loader(unloaded_files, True)}
+        return {**loaded_files, **self.loader(unloaded_files, True)}
 
     def download_documents(self, files):
         if self.fr.finished:
@@ -176,17 +177,16 @@ class AReport(UtilityObject):
         except KeyError:
             pass
         chronicall_report_filter = pe.RowValueFilter(self.header_filter)
-        # for sheet in workbook:
         for sheet_name in reversed(workbook.sheet_names()):
             sheet = workbook[sheet_name]
             sheet.filter(chronicall_report_filter)
             sheet.name_columns_by_row(0)
             sheet.name_rows_by_column(0)
-            try:
-                self.chck_rpt_dates(sheet)
-            except ValueError:
-                print('removing {sheet_name}'.format(sheet_name=sheet_name))
-                workbook.remove_sheet(sheet_name)
+            # try:
+            #     self.chck_rpt_dates(sheet)
+            # except ValueError:
+            #     print('removing {sheet_name}'.format(sheet_name=sheet_name))
+            #     workbook.remove_sheet(sheet_name)
         return workbook
 
     def ts_to_int(self, column):

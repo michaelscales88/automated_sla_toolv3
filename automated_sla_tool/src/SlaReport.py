@@ -70,7 +70,7 @@ class SlaReport(AReport):
                                        one_filter=self.answered_filter)
         self.src_files[r'Call Details (Basic)'].name = 'call_details'
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
-        print('\n'.join([sheetname for sheetname in self.src_files[r'Cradle to Grave'].sheet_names()]))
+        # print('\n'.join([sheetname for sheetname in self.src_files[r'Cradle to Grave'].sheet_names()]))
         # print(self.src_files[r'Cradle to Grave'].sheet_names())
 
     def compile_call_details(self):
@@ -152,7 +152,6 @@ class SlaReport(AReport):
             total_row['Label'] = 'Summary'
             for client in sorted(self.clients.keys()):
                 num_calls = self.sla_report[client].get_number_of_calls()
-                # answered, lost, voicemails = self.sla_report[client].get_number_of_calls()
                 this_row = dict((value, 0) for value in headers[1:])
                 this_row['I/C Presented'] = sum(num_calls.values())
                 this_row['Label'] = '{0} {1}'.format(client, self.clients[client].name)
@@ -430,7 +429,6 @@ class SlaReport(AReport):
         except FileNotFoundError:
             self.make_voicemail_data()
             self.write_voicemail_data(voicemail_file_path)
-
 
     def read_voicemail_data(self, voicemail_file_path):
         with open(voicemail_file_path) as f:

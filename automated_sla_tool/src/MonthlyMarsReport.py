@@ -17,8 +17,11 @@ class MonthlyMarsReport(AReport):
         super().__init__(report_dates=month,
                          report_type='monthly_mars_report')
         self.report_model = pe.Book()
-        self.final_report_fields = ['Absent', 'Late', 'DND Duration', 'Duration', 'numDND', 'Inbound Ans',
-                                    'Inbound Lost', 'Outbound', 'Inbound Duration', 'Outbound Duration']
+        # self.final_report_fields = ['Absent', 'Late', 'DND Duration', 'Duration', 'numDND', 'Inbound Ans',
+        #                             'Inbound Lost', 'Outbound', 'Inbound Duration', 'Outbound Duration']
+        self.final_report_fields = {
+            'Absent', 'Late', 'Duration'
+        }
 
     '''
     UI Section
@@ -32,7 +35,7 @@ class MonthlyMarsReport(AReport):
             try:
                 try:
                     file = DailyMarsReport(day=run_date)
-                    file.save()
+                    # file.save()
                 except (OSError, FileNotFoundError) as e:
                     print('Could not open report for date {}'.format(run_date))
                     print(e)
@@ -50,13 +53,19 @@ class MonthlyMarsReport(AReport):
             except SystemExit:
                 pass
             finally:
-                run_date += timedelta(days=1)
+                if run_date == datetime.today().date().replace(year=2016, day=8, month=12):
+                    run_date = end_date
+                else:
+                    run_date += timedelta(days=1)
+                # run_date = end_date
         try:
             self.prep_sheets()
         except IndexError:
             pass
         else:
+            print('im gonna summarize')
             self.summarize_queue()
+            print('ho boy i sure did')
 
     def print_queue(self):
         print(self.report_model)
@@ -66,11 +75,15 @@ class MonthlyMarsReport(AReport):
             return
         agent_summary = AgentSummary(fields=self.final_report_fields)
         for report in self.report_model:
+            # print('inside summarize data')
+            # print(report)
             for agent in report.rownames:
                 if agent == 'Notes':
                     break
                 agent_summary.collect_data(agent, report)
+            print('completed report {report}'.format(report=report.name))
         self.set_final_report(agent_summary)
+        # print(self.fr)
 
     '''
     Utilities Section
@@ -82,13 +95,14 @@ class MonthlyMarsReport(AReport):
             sheet.name_columns_by_row(0)
 
     def set_final_report(self, report_summary):
-        self.fr.set_header(report_summary.get_header())
+        self.fr.row += report_summary.get_header()
+        self.fr.name_columns_by_row(0)
         for (agent, data) in report_summary.items():
             row = [agent] + [data[k] for k in sorted(data.keys())]
             self.fr.row += row
-        self.fr.make_programatic_column_with(self.calculate_avail, "Avail")
+        self.fr.name_rows_by_column(0)
+        # self.fr.make_programatic_column_with(self.calculate_avail, "Avail")
         self.fr.format_columns_with(self.convert_time_stamp, "Duration")
-        print(self.fr)
 
     def create_sheet(self, headers):
         sheet = pe.Sheet()
@@ -97,11 +111,12 @@ class MonthlyMarsReport(AReport):
         return sheet
 
     def save_report(self):
-        self.set_save_path('monthly_mars_report')
-        the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))
-        self.fr.day = self.dates.strftime('%B %Y')
-        file_string = r'.\{0}.xlsx'.format(the_file)
-        self.fr.save_as(filename=file_string)
+        super().save()
+        # self.set_save_path('monthly_mars_report')
+        # the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))
+        # self.fr.day = self.dates.strftime('%B %Y')
+        # file_string = r'.\{0}.xlsx'.format(the_file)
+        # self.fr.save_as(filename=file_string)
 
     def calculate_avail(self, row):
         rtn_val = [r'{0:.1%}'.format(0)]
@@ -141,6 +156,9 @@ class AgentSummary(TupleKeyDict):
                     self[key] += add_val
                 except KeyError:
                     super().__setitem__(key, add_val)
+                except TypeError:
+                    print('type error {key} {col} {val}'.format(key=key, col=column, val=add_val))
+                    self[key] += int(add_val)
             except ValueError:
                 print('Could not retrieve field: <{0}> '
                       'from file: {1}'.format(column, report.day))
