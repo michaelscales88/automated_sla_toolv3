@@ -1,6 +1,7 @@
 import pyexcel as pe
 import os
 import re
+from os.path import dirname, join, abspath
 from datetime import timedelta, datetime, time, date
 from glob import glob
 from dateutil.parser import parse
@@ -22,17 +23,16 @@ class AReport(UtilityObject):
         if report_dates is None:
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
-        self.fr = FinalReport(report_type=report_type, report_date=self.dates)
+        self.fr = FinalReport(report_type=report_type, report_date=self.dates, my_report=self)
         self.src_files = {}
         self.req_src_files = []
-        self.path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        self.path = dirname(dirname(abspath(__file__)))
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
         self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
-        self._manifest = None
         if isinstance(self.dates, date):
             self.util_datetime = datetime.combine(self.dates, time())
             self.day_of_wk = self.dates.weekday()
@@ -40,20 +40,6 @@ class AReport(UtilityObject):
         else:
             self.util_datetime = None
             self.day_of_wk = None
-
-    @property
-    def manifest(self):
-        return self._manifest
-
-    @manifest.setter
-    def manifest(self, rpt_manifest):
-        try:
-            self.fr.set_header(rpt_manifest.tgt_header)
-            self.fr.set_rows(rpt_manifest.tgt_rows)
-        except Exception as e:
-            print(e)
-        else:
-            self._manifest = rpt_manifest
 
     def load_documents(self):
         # TODO abstract this -> *args
@@ -67,19 +53,14 @@ class AReport(UtilityObject):
                 print('Could not find files:\n{files}'.format(
                     files='\n'.join([f for f in self.req_src_files])
                 ), flush=True)
-                # raise SystemExit()
+                raise SystemExit()
 
-    def save(self, user_string=None):
-        self.set_save_path(self.fr.type)
-        self.fr.save_report(user_string)
+    def save(self, user_string=None, sub_dir=None, alt_dir=None):
+        self.fr.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
 
     '''
     OS Operations
     '''
-
-    def set_save_path(self, report_type):
-        save_path = r'{0}\Output\{1}'.format(os.path.dirname(self.path), report_type)
-        self.change_dir(save_path)
 
     def open_src_dir(self):
         file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=os.path.dirname(self.path),
@@ -89,16 +70,13 @@ class AReport(UtilityObject):
         self.change_dir(file_dir)
         return os.getcwd()
 
-    def clean_src_loc(self):
+    def clean_src_loc(self, spc_ch, del_ch):
         # TODO today test this more... doesn't merge/delete original file
-        import os
-        filelist = [f for f in os.listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
-        spc_ch = ['-', '_']
-        del_ch = ['%', r'\d+']
-        for f in filelist:
+        file_list = [f for f in os.listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
+        for f in file_list:
             f_name, ext = os.path.splitext(f)
-            f_name = re.sub('[{0}]'.format(''.join(spc_ch)), ' ', f_name)
-            f_name = re.sub('[{0}]'.format(''.join(del_ch)), '', f_name)
+            f_name = re.sub('[{spc_chrs}]'.format(spc_chrs=''.join(spc_ch)), ' ', f_name)
+            f_name = re.sub('[{del_chs}]'.format(del_chs=''.join(del_ch)), '', f_name)
             f_name = f_name.strip()
             os.rename(f, r'{0}{1}'.format(f_name, ext))
 
@@ -107,7 +85,8 @@ class AReport(UtilityObject):
         if run2 is True:
             return {}
         loaded_files = {}
-        self.clean_src_loc()
+        self.clean_src_loc(spc_ch=['-', '_'],
+                           del_ch=['%', r'\d+'])
         for f_name in reversed(unloaded_files):
             src_f = glob(r'{0}\{1}*.xlsx'.format(self.src_doc_path, f_name))
             if len(src_f) is 1:
@@ -116,8 +95,11 @@ class AReport(UtilityObject):
             else:
                 # TODO additional error handling for file names that have not been excluded?
                 pass
-        self.download_documents(files=unloaded_files)
-        return {**loaded_files, **self.loader(unloaded_files, True)}
+        if unloaded_files:
+            self.download_documents(files=unloaded_files)
+            return {**loaded_files, **self.loader(unloaded_files, True)}
+        else:
+            return loaded_files
 
     def download_documents(self, files):
         if self.fr.finished:
@@ -166,11 +148,6 @@ class AReport(UtilityObject):
             des = os.path.join(file_location, src_file)
             move(src, des)
 
-    def prepare_sheet_header(self, lst, first_index):
-        return_list = [i for i in lst]
-        return_list.insert(0, first_index)
-        return [return_list]
-
     def filter_chronicall_reports(self, workbook):
         try:
             del workbook['Summary']
@@ -182,18 +159,12 @@ class AReport(UtilityObject):
             sheet.filter(chronicall_report_filter)
             sheet.name_columns_by_row(0)
             sheet.name_rows_by_column(0)
-            # try:
-            #     self.chck_rpt_dates(sheet)
-            # except ValueError:
-            #     print('removing {sheet_name}'.format(sheet_name=sheet_name))
-            #     workbook.remove_sheet(sheet_name)
+            try:
+                self.chck_rpt_dates(sheet)
+            except ValueError:
+                print('removing {sheet_name}'.format(sheet_name=sheet_name))
+                workbook.remove_sheet(sheet_name)
         return workbook
-
-    def ts_to_int(self, column):
-        rtn_col = []
-        for item in column:
-            rtn_col.append(self.get_sec(item))
-        return rtn_col
 
     def header_filter(self, row):
         corner_case = re.split('\(| - ', row[0])
@@ -301,6 +272,7 @@ class AReport(UtilityObject):
         else:
             print("Files already downloaded.")
 
+    # TODO these can be removed once MarsReport is refactored to crawl reports SlaReport E.g. for row and col in rpt
     def correlate_list_time_data(self, src_list, list_to_correlate, key):
         return_list = []
         for event in self.find(src_list, key):
@@ -333,13 +305,15 @@ class AReport(UtilityObject):
     def add_time(self, dt_t, add_time=None):
         return (datetime.combine(datetime.today(), dt_t) + add_time).time()
 
-    def check_finished(self, report_string=None):
-        file_name = r'{0}.xlsx'.format(self.fr.name if report_string is None else report_string)
-        the_path = os.path.dirname(self.path)
-        the_file = r'{0}\Output\{1}\{2}'.format(the_path, self.fr.type, file_name)
-        if os.path.isfile(the_file):
-            self.fr.open_report(the_file)
-        return self.fr.finished
+    def check_finished(self, report_string=None, sub_dir=None, fmt='xlsx'):
+        if report_string and sub_dir:
+            the_file = join(self.fr.save_path, sub_dir, '{file}.{ext}'.format(file=report_string, ext=fmt))
+            if os.path.isfile(the_file):
+                self.fr.open_report(the_file)
+            return self.fr.finished
+        else:
+            print('No report_string in check_finished'
+                  '-> Cannot check if file is completed.')
 
     def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
         try:

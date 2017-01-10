@@ -6,7 +6,9 @@ from automated_sla_tool.src.MonthlyMarsReport import MonthlyMarsReport
 def main(selection=None):
     file = MonthlyMarsReport(month=selection)
     file.run()
-    if input('Save? {}'.format({'Yes': 1, 'No': 'Any other key.'})) is 1:
+    inpt_opt = int(input('Save? {}'.format({'Yes': 1, 'No': 'Any other key.'})))
+    if inpt_opt is 1:
+        print('you selected print')
         file.save_report()
 
 

@@ -53,10 +53,10 @@ class MonthlyMarsReport(AReport):
             except SystemExit:
                 pass
             finally:
-                if run_date == datetime.today().date().replace(year=2016, day=8, month=12):
-                    run_date = end_date
-                else:
-                    run_date += timedelta(days=1)
+                # if run_date == datetime.today().date().replace(year=2016, day=4, month=12):
+                #     run_date = end_date
+                # else:
+                run_date += timedelta(days=1)
                 # run_date = end_date
         try:
             self.prep_sheets()
@@ -83,7 +83,7 @@ class MonthlyMarsReport(AReport):
                 agent_summary.collect_data(agent, report)
             print('completed report {report}'.format(report=report.name))
         self.set_final_report(agent_summary)
-        # print(self.fr)
+        print(self.fr)
 
     '''
     Utilities Section
@@ -111,7 +111,9 @@ class MonthlyMarsReport(AReport):
         return sheet
 
     def save_report(self):
-        super().save()
+        mars_string = '{mo}_{f_type}'.format(mo=self.dates, f_type=self.fr.type)
+        mars_save_dir = '{yr}\{mo}'.format(yr=None, mo=self.dates)
+        super().save(user_string=mars_string, sub_dir=mars_save_dir)
         # self.set_save_path('monthly_mars_report')
         # the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))
         # self.fr.day = self.dates.strftime('%B %Y')
@@ -162,13 +164,3 @@ class AgentSummary(TupleKeyDict):
             except ValueError:
                 print('Could not retrieve field: <{0}> '
                       'from file: {1}'.format(column, report.day))
-            #
-            #
-            #
-            #
-            #
-            # try:
-            #     self.__setitem__((agent, column), report[agent, column])
-            # except ValueError:
-            #     print('Could not retrieve field: <{0}> '
-            #           'from file: {1}'.format(column, report.name))

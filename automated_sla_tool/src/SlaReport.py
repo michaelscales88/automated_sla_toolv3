@@ -16,13 +16,15 @@ class SlaReport(AReport):
         report_date = report_date if report_date else self.manual_input()
         super().__init__(report_dates=report_date,
                          report_type='sla_report')
-        self.file_fmt = r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
+        self.sla_file = r'{date}_Incoming DID Summary'.format(date=self.dates.strftime("%m%d%Y"))
+        self.sla_sub_dir = '{yr}\{mo}'.format(yr=self.dates.strftime('%Y'), mo=self.dates.strftime('%B'))
         override = False
-        if self.check_finished(report_string=self.file_fmt) and override:
+        if self.check_finished(sub_dir=self.sla_sub_dir, report_string=self.sla_file):
             print('Report Complete for {}'.format(self.dates))
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
             self.req_src_files = [r'Call Details (Basic)', r'Group Abandoned Calls', r'Cradle to Grave']
+            self.network_tgt_dir = r'M:\Help Desk\Daily SLA Report'
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
             self.orphaned_voicemails = None
@@ -42,7 +44,7 @@ class SlaReport(AReport):
             self.scrutinize_abandon_group()
             self.extract_report_information()
             self.process_report()
-            self.save()
+            self.save_report()
 
     def manual_input(self):
         input_opt = OrderedDict(
@@ -70,8 +72,6 @@ class SlaReport(AReport):
                                        one_filter=self.answered_filter)
         self.src_files[r'Call Details (Basic)'].name = 'call_details'
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
-        # print('\n'.join([sheetname for sheetname in self.src_files[r'Cradle to Grave'].sheet_names()]))
-        # print(self.src_files[r'Cradle to Grave'].sheet_names())
 
     def compile_call_details(self):
         if self.fr.finished:
@@ -96,10 +96,10 @@ class SlaReport(AReport):
                     event_type = cradle_sheet[event_row, 'Event Type']
                     if event_type in hold_events:
                         unhandled_call_data[event_type] += self.get_sec(cradle_sheet[event_row, 'Event Duration'])
-                raw_time_waited = sum(val for val in unhandled_call_data.values())
-                raw_hold_time = tot_call_duration - talk_duration - raw_time_waited
-                additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
+                raw_hold_time = sum(val for val in unhandled_call_data.values())
+                raw_time_waited = tot_call_duration - talk_duration - raw_hold_time
                 additional_columns['Hold Time'].append(self.convert_time_stamp(raw_hold_time))
+                additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
             self.src_files[r'Call Details (Basic)'].extend_columns(additional_columns)
 
     def scrutinize_abandon_group(self):
@@ -186,18 +186,15 @@ class SlaReport(AReport):
             self.add_row(total_row)
             self.fr.name_rows_by_column(0)
 
-    def save(self, user_string=None):
+    def save_report(self):
         if self.fr.finished:
             return
         else:
             # TODO build this into manifest E.g. tgt delivery
             self.validate_final_report()
-            the_file = user_string if user_string else r'{0}_Incoming DID Summary'.format(self.dates.strftime("%m%d%Y"))
-            super().save(user_string=the_file)
-            network_dir = r'M:\Help Desk\Daily SLA Report\{yr}'.format(yr=self.dates.strftime('%Y'))
-            self.change_dir(network_dir)
+            super().save(user_string=self.sla_file, sub_dir=self.sla_sub_dir)
             try:
-                self.fr.save_report(user_string=the_file)
+                super().save(user_string=self.sla_file, sub_dir=self.sla_sub_dir, alt_dir=self.network_tgt_dir)
             except OSError:
                 print('passing os_error')
 

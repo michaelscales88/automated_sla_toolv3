@@ -143,6 +143,9 @@ class DailyMarsReport(AReport):
         print(self.fr)
         print(self.fr.query_format())
 
+    def save_report(self):
+        pass
+
     '''
     Utilities Section
     '''
