@@ -18,7 +18,6 @@ class SlaReport(AReport):
                          report_type='sla_report')
         self.sla_file = r'{date}_Incoming DID Summary'.format(date=self.dates.strftime("%m%d%Y"))
         self.sla_sub_dir = '{yr}\{mo}'.format(yr=self.dates.strftime('%Y'), mo=self.dates.strftime('%B'))
-        override = False
         if self.check_finished(sub_dir=self.sla_sub_dir, report_string=self.sla_file):
             print('Report Complete for {}'.format(self.dates))
         else:
@@ -110,8 +109,9 @@ class SlaReport(AReport):
         if self.fr.finished:
             return
         else:
+            self.remove_non_distinct_callers()
             self.remove_calls_less_than_twenty_seconds()
-            self.remove_duplicate_calls()
+            self.src_files[r'Group Abandoned Calls'].save_as(filename='C:/Users/Mscales/Desktop/test1.xlsx')
 
     def extract_report_information(self):
         if self.fr.finished:
@@ -255,7 +255,12 @@ class SlaReport(AReport):
     Utilities Section
     '''
 
-    def remove_duplicate_calls(self):
+    def remove_non_distinct_callers(self):
+        # for row_name in reversed(self.src_files[r'Group Abandoned Calls'].rownames):
+        #     pass
+
+
+
         internal_parties = self.src_files[r'Group Abandoned Calls'].column['Internal Party']
         external_parties = self.src_files[r'Group Abandoned Calls'].column['External Party']
         start_times = self.src_files[r'Group Abandoned Calls'].column['Start Time']
@@ -275,11 +280,10 @@ class SlaReport(AReport):
                     del self.src_files[r'Group Abandoned Calls'].row[next_call]
 
     def remove_calls_less_than_twenty_seconds(self):
-        call_durations = self.src_files[r'Group Abandoned Calls'].column['Call Duration']
-        for call in call_durations:
-            if self.get_sec(call) < 20:
-                row_index = call_durations.index(call)
-                del self.src_files[r'Group Abandoned Calls'].row[row_index]
+        for row_name in reversed(self.src_files[r'Group Abandoned Calls'].rownames):
+            call_duration = self.get_sec(self.src_files[r'Group Abandoned Calls'][row_name, 'Call Duration'])
+            if call_duration < 20:
+                self.src_files[r'Group Abandoned Calls'].delete_named_row_at(row_name)
 
     def safe_div(self, num, denom):
         rtn_val = 0

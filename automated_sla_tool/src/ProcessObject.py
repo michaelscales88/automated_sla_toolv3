@@ -3,7 +3,6 @@ from collections import namedtuple
 from PyQt5.QtCore import QObject
 from PyQt5.QtWidgets import QProgressBar
 from automated_sla_tool.bin import sla_report
-from automated_sla_tool.bin import sla_slicer
 from .ExcelTabContainer import ExcelTabContainer as TabContainer
 from .MyCalendarWidget import MyCalendarWidget as CalWidget
 from .ProcessButtonsWidget import ProcessButtonsWidget as PbWidget
@@ -18,8 +17,8 @@ class ProcessObject(QObject):
             'sla_report.py': [sla_report, 'download_documents()', 'load_documents()', 'compile_call_details()',
                               'scrutinize_abandon_group()', 'extract_report_information()', 'process_report()',
                               'save_report()'],
-            'sla_slicer.py': [sla_slicer, 'get_final_report()', 'prepare_final_report()', 'compile_report_details()',
-                              'open_reports()']
+            # 'sla_slicer.py': [sla_slicer, 'get_final_report()', 'prepare_final_report()', 'compile_report_details()',
+            #                   'open_reports()']
         }
         try:
             proc_args = self.__process_info[process]

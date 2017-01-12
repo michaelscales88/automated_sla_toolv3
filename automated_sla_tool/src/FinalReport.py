@@ -1,11 +1,12 @@
-import pyexcel as pe
+from os import startfile
 from os.path import dirname, join
 from datetime import date
+from pyexcel import Sheet, get_sheet
 
 
 # TODO this might be better as an object with a sheet ->
 # TODO to handle name conflict with nominable Sheet and prop sheet
-class FinalReport(pe.Sheet):
+class FinalReport(Sheet):
 
     def __init__(self, **kwargs):
         self._data = {
@@ -16,7 +17,7 @@ class FinalReport(pe.Sheet):
         report_name = (
             self._data['date'].strftime("%m-%d-%Y") if isinstance(self._data['date'], date) else self._data['date']
         )
-        super().__init__(name=report_name, **kwargs)
+        super().__init__(name=report_name)
         self._finished = False
         self._table_set = False
 
@@ -60,7 +61,7 @@ class FinalReport(pe.Sheet):
 
     def open_report(self, the_file):
         if not self.finished:
-            sheet = pe.get_sheet(file_name=the_file)
+            sheet = get_sheet(file_name=the_file)
             for row in sheet.rows():
                 self.row += row
             self.name_columns_by_row(0)
@@ -87,7 +88,14 @@ class FinalReport(pe.Sheet):
                       'to save file: {name} {type}'.format(name=self.date,
                                                            type=self.type))
             else:
-                self.save_as(filename=join(path, file_name))
+                file_path = join(path, file_name)
+                self.save_as(filename=file_path)
+                # This is repeating at least once it seems?
+                try:
+                    if int(input('1 to open file: ')) is 1:
+                        startfile(file_path)
+                except ValueError:
+                    pass
 
     '''
     Report Section
@@ -102,7 +110,7 @@ class FinalReport(pe.Sheet):
 
     def make_programatic_column_with(self, f, column):
         # TODO could add colname and add values directly to final report **mind not handle issues well**
-        new_rows = pe.Sheet()
+        new_rows = Sheet()
         new_rows.row += [column]
         # self.colnames += column
         for row in self.rows():
@@ -114,4 +122,4 @@ class FinalReport(pe.Sheet):
         try:
             super().__setitem__((self.rownames.index(key[0]), self.colnames.index(key[1])), value)
         except AttributeError:
-            print('attriberror setkey')
+            print('attriberror set_key')

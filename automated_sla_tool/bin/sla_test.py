@@ -4,7 +4,8 @@ from datetime import datetime
 
 
 def main():
-    my_obj = SlaReport(report_date=datetime.today().date().replace(year=2017, month=1, day=5))  #
+    # my_obj = SlaReport(report_date=datetime.today().date().replace(year=2017, month=1, day=5))
+    my_obj = SlaReport()
     my_ui = ui()
     my_ui.object = my_obj
     my_ui.run()

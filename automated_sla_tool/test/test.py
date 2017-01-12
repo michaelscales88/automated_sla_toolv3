@@ -93,14 +93,35 @@ class SqlCommand(object):
 
 
 def test():
-    string1 = 'string'
-    string2 = '123'
-    print(string1.isdigit())
-    print(string2.isdigit())
-    _log_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
-    print(_log_path)
-    log = SysLog(__file__, file_path=_log_path)
-    print(log)
+    # import re
+    # s = "alpha.Customer[cus_Y4o9qMEZAugtnW] ..."
+    # m = re.search(r"\[([A-Za-z0-9_]+)\]", s)
+    # print(m.group(1))
+    # s = 'stuff stuff (1235) stuff'
+    # matches = re.search(r"([0-9]+)", s)
+    # print(matches.group(0))
+    sheet = pe.Sheet(colnames=['', 'stuff'])
+    rows = [
+        ['row_name1', 'stuff_value'],
+        ['row_name2', 'stuff_value1'],
+        ['row_name3', 'stuff_value']
+    ]
+    for row in rows:
+        sheet.row += row
+    sheet.name_rows_by_column(0)
+    for row_name in sheet.rownames:
+        if sheet[row_name, 'stuff'] == 'stuff_value1':
+            sheet.delete_named_row_at(row_name)
+    print(sheet)
+
+    # string1 = 'string'
+    # string2 = '123'
+    # print(string1.isdigit())
+    # print(string2.isdigit())
+    # _log_path = path.join(path.dirname(path.dirname(path.abspath(__file__))), r'settings\logging2.conf')
+    # print(_log_path)
+    # log = SysLog(__file__, file_path=_log_path)
+    # print(log)
     # test_sheet = pe.Sheet()
     # test_sheet.row += [['', 'A', 'B', 'C', 'D'],
     #                    [1, 2, 3, 4, 5],
@@ -249,9 +270,9 @@ def test():
     # rpt.name = 'something else'
     # print(rpt.name)
     # rpt.save_as('C:/Users/mscales/desktop/test.xlsx')
-    print(
-        [0 for x in range(10)]
-    )
+    # print(
+    #     [0 for x in range(10)]
+    # )
     print('Complete')
 
 

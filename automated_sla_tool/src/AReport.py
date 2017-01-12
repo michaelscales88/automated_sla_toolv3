@@ -50,6 +50,8 @@ class AReport(UtilityObject):
                 file = pe.get_book(file_name=p)
                 self.src_files[f] = self.filter_chronicall_reports(file)
             if self.req_src_files:
+                print(self.src_files)
+                print(self.req_src_files)
                 print('Could not find files:\n{files}'.format(
                     files='\n'.join([f for f in self.req_src_files])
                 ), flush=True)
