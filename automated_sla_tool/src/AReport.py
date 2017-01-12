@@ -1,10 +1,12 @@
-import pyexcel as pe
-import os
-import re
-from os.path import dirname, join, abspath
+import subprocess as proc
+from os import getcwd, listdir, rename, remove
+from os.path import dirname, join, abspath, splitext, isfile
+from re import sub, split
 from datetime import timedelta, datetime, time, date
 from glob import glob
 from dateutil.parser import parse
+from pyexcel import get_book, RowValueFilter, Sheet, Book
+
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.FinalReport import FinalReport
 
@@ -12,7 +14,7 @@ from automated_sla_tool.src.FinalReport import FinalReport
 class UniqueDict(dict):
     def __setitem__(self, key, value):
         if key not in self:
-            dict.__setitem__(self, key, value)
+            super().__setitem__(key, value)
 
 
 class AReport(UtilityObject):
@@ -47,15 +49,16 @@ class AReport(UtilityObject):
             return
         else:
             for (f, p) in self.loader(self.req_src_files).items():
-                file = pe.get_book(file_name=p)
+                file = get_book(file_name=p)
                 self.src_files[f] = self.filter_chronicall_reports(file)
             if self.req_src_files:
-                print(self.src_files)
-                print(self.req_src_files)
                 print('Could not find files:\n{files}'.format(
                     files='\n'.join([f for f in self.req_src_files])
                 ), flush=True)
                 raise SystemExit()
+
+    def open(self, user_string=None, sub_dir=None, alt_dir=None):
+        self.fr.open(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
 
     def save(self, user_string=None, sub_dir=None, alt_dir=None):
         self.fr.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
@@ -65,50 +68,46 @@ class AReport(UtilityObject):
     '''
 
     def open_src_dir(self):
-        file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=os.path.dirname(self.path),
+        file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=dirname(self.path),
                                                     sub='Attachment Archive',
                                                     yr=self.dates.strftime('%Y'),
                                                     tgt=self.dates.strftime('%m%d'))
         self.change_dir(file_dir)
-        return os.getcwd()
+        return getcwd()
 
     def clean_src_loc(self, spc_ch, del_ch):
         # TODO today test this more... doesn't merge/delete original file
-        file_list = [f for f in os.listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
+        file_list = [f for f in listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
         for f in file_list:
-            f_name, ext = os.path.splitext(f)
-            f_name = re.sub('[{spc_chrs}]'.format(spc_chrs=''.join(spc_ch)), ' ', f_name)
-            f_name = re.sub('[{del_chs}]'.format(del_chs=''.join(del_ch)), '', f_name)
+            f_name, ext = splitext(f)
+            f_name = sub('[{spc_chrs}]'.format(spc_chrs=''.join(spc_ch)), ' ', f_name)
+            f_name = sub('[{del_chs}]'.format(del_chs=''.join(del_ch)), '', f_name)
             f_name = f_name.strip()
-            os.rename(f, r'{0}{1}'.format(f_name, ext))
+            rename(f, r'{0}{1}'.format(f_name, ext))
 
     # this doesn't need to go deep twice if files found on first pass
-    def loader(self, unloaded_files, run2=False):
-        if run2 is True:
-            return {}
+    def loader(self, unloaded_files, need_to_dl=False, f_ext='xlsx'):
+        if need_to_dl is True:
+            self.dl_src_files(files=unloaded_files)
         loaded_files = {}
         self.clean_src_loc(spc_ch=['-', '_'],
                            del_ch=['%', r'\d+'])
         for f_name in reversed(unloaded_files):
-            src_f = glob(r'{0}\{1}*.xlsx'.format(self.src_doc_path, f_name))
+            src_f = glob(r'{f_path}*.{ext}'.format(f_path=join(self.src_doc_path, f_name),
+                                                   ext=f_ext))
             if len(src_f) is 1:
                 loaded_files[f_name] = src_f[0]
                 unloaded_files.remove(f_name)
-            else:
-                # TODO additional error handling for file names that have not been excluded?
-                pass
-        if unloaded_files:
-            self.download_documents(files=unloaded_files)
-            return {**loaded_files, **self.loader(unloaded_files, True)}
-        else:
-            return loaded_files
+        return (loaded_files
+                if (len(unloaded_files) is 0 or need_to_dl) else
+                {**loaded_files, **self.loader(unloaded_files, need_to_dl=True)})
 
-    def download_documents(self, files):
+    def dl_src_files(self, files):
         if self.fr.finished:
             return
         else:
             self.download_chronicall_files(file_list=files)
-            src_file_directory = os.listdir(self.src_doc_path)
+            src_file_directory = listdir(self.src_doc_path)
             for file in src_file_directory:
                 if file.endswith(".xls"):
                     self.copy_and_convert(self.src_doc_path, src_file_directory)
@@ -118,36 +117,46 @@ class AReport(UtilityObject):
     Report Utilities
     '''
 
+    def find_non_distinct(self, sheet=None, event_col=None):
+        i_count = {}
+        for row_name in reversed(sheet.rownames):
+            dup_event = sheet[row_name, event_col]
+            dup_info = i_count.get(dup_event, {'count': 0,
+                                               'rows': []})
+            dup_info['count'] += 1
+            dup_info['rows'].append(row_name)
+            i_count[dup_event] = dup_info
+        return i_count
+
     def apply_formatters_to_wb(self, wb, filters=(), one_filter=None):
         for sheet in wb:
             self.apply_formatters_to_sheet(sheet, filters, one_filter)
 
     def apply_formatters_to_sheet(self, sheet, filters=(), one_filter=None):
         for a_filter in filters:
-            this_filter = pe.RowValueFilter(a_filter)
+            this_filter = RowValueFilter(a_filter)
             sheet.filter(this_filter)
         if one_filter:
-            this_filter = pe.RowValueFilter(one_filter)
+            this_filter = RowValueFilter(one_filter)
             sheet.filter(this_filter)
 
     def copy_and_convert(self, file_location, directory):
         from shutil import move
         for src_file in directory:
             if src_file.endswith(".xls"):
-                src = os.path.join(file_location, src_file)
-                des = os.path.join(self.active_directory, src_file)
+                src = join(file_location, src_file)
+                des = join(self.active_directory, src_file)
                 move(src, des)
 
-        import subprocess as proc
         proc.run([self.converter_exc, self.converter_arg])
-        filelist = [f for f in os.listdir(self.active_directory) if f.endswith(".xls")]
+        filelist = [f for f in listdir(self.active_directory) if f.endswith(".xls")]
         for f in filelist:
-            f = os.path.join(self.active_directory, f)
-            os.remove(f)
+            f = join(self.active_directory, f)
+            remove(f)
 
-        for src_file in os.listdir(self.active_directory):
-            src = os.path.join(self.active_directory, src_file)
-            des = os.path.join(file_location, src_file)
+        for src_file in listdir(self.active_directory):
+            src = join(self.active_directory, src_file)
+            des = join(file_location, src_file)
             move(src, des)
 
     def filter_chronicall_reports(self, workbook):
@@ -155,7 +164,7 @@ class AReport(UtilityObject):
             del workbook['Summary']
         except KeyError:
             pass
-        chronicall_report_filter = pe.RowValueFilter(self.header_filter)
+        chronicall_report_filter = RowValueFilter(self.header_filter)
         for sheet_name in reversed(workbook.sheet_names()):
             sheet = workbook[sheet_name]
             sheet.filter(chronicall_report_filter)
@@ -169,7 +178,7 @@ class AReport(UtilityObject):
         return workbook
 
     def header_filter(self, row):
-        corner_case = re.split('\(| - ', row[0])
+        corner_case = split('\(| - ', row[0])
         bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
         return True if len(corner_case) > 1 else bad_word
 
@@ -186,7 +195,7 @@ class AReport(UtilityObject):
 
     def collate_wb_to_sheet(self, wb=()):
         headers = ['row_names'] + wb[0].colnames
-        sheet_to_replace_wb = pe.Sheet(colnames=headers)
+        sheet_to_replace_wb = Sheet(colnames=headers)
         unique_records = UniqueDict()
         for sheet in wb:
             for i, name in enumerate(sheet.rownames):
@@ -232,7 +241,7 @@ class AReport(UtilityObject):
         '''
         import email
         import imaplib
-        if file_list not in os.listdir(self.src_doc_path):
+        if file_list not in listdir(self.src_doc_path):
             try:
                 imap_session = imaplib.IMAP4_SSL(self.login_type)
                 status, account_details = imap_session.login(self.user_name, self.password)
@@ -260,8 +269,8 @@ class AReport(UtilityObject):
                         file_name = part.get_filename()
 
                         if bool(file_name):
-                            file_path = os.path.join(file_name)
-                            if not os.path.isfile(file_path):
+                            file_path = join(file_name)
+                            if not isfile(file_path):
                                 fp = open(file_path, 'wb')
                                 fp.write(part.get_payload(decode=True))
                                 fp.close()
@@ -291,15 +300,14 @@ class AReport(UtilityObject):
         return [i for i, x in enumerate(lst) if x == a]
 
     def is_empty_wb(self, book):
-        if type(book) is not pe.Book:
-            return
-        return book.number_of_sheets() is 0
+        if isinstance(book, Book):
+            return book.number_of_sheets() is 0
 
     def transmit_report(self):
         return self.fr
 
     def make_summary(self, headers):
-        todays_summary = pe.Sheet()
+        todays_summary = Sheet()
         todays_summary.row += headers
         todays_summary.name_columns_by_row(0)
         return todays_summary
@@ -310,18 +318,28 @@ class AReport(UtilityObject):
     def check_finished(self, report_string=None, sub_dir=None, fmt='xlsx'):
         if report_string and sub_dir:
             the_file = join(self.fr.save_path, sub_dir, '{file}.{ext}'.format(file=report_string, ext=fmt))
-            if os.path.isfile(the_file):
-                self.fr.open_report(the_file)
+            if isfile(the_file):
+                self.fr.open_existing(the_file)
             return self.fr.finished
         else:
             print('No report_string in check_finished'
                   '-> Cannot check if file is completed.')
 
-    def safe_parse(self, dt_time=None, default_date=None, default_rtn=None):
+    def safe_parse_dt(self, dt_time=None, default_date=None, default_rtn=None):
         try:
             return parse(dt_time, default=(default_date if default_date is not None else self.util_datetime))
         except ValueError:
             return default_rtn if default_rtn is not None else self.util_datetime
+
+    def safe_parse(self, dt=None):
+        try:
+            return parse(dt)
+        except ValueError:
+            print('Could not parse date_time: {dt}'.format(dt=dt))
+
+    def parse_to_sec(self, dt=None):
+        dt_t = self.safe_parse(dt).time()
+        return self.convert_sec(h=dt_t.hour, m=dt_t.minute, s=dt_t.second)
 
     def read_time(self, time_object, spc_chr='*'):
         try:
@@ -332,5 +350,5 @@ class AReport(UtilityObject):
             except AttributeError:
                 return_time = time_object
         else:
-            return_time = self.safe_parse(return_time).time()
+            return_time = self.safe_parse_dt(return_time).time()
         return return_time

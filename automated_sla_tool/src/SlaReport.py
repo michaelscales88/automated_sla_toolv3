@@ -18,16 +18,16 @@ class SlaReport(AReport):
                          report_type='sla_report')
         self.sla_file = r'{date}_Incoming DID Summary'.format(date=self.dates.strftime("%m%d%Y"))
         self.sla_sub_dir = '{yr}\{mo}'.format(yr=self.dates.strftime('%Y'), mo=self.dates.strftime('%B'))
+        self.network_tgt_dir = r'M:\Help Desk\Daily SLA Report'
         if self.check_finished(sub_dir=self.sla_sub_dir, report_string=self.sla_file):
             print('Report Complete for {}'.format(self.dates))
         else:
             print('Building a report for {}'.format(self.dates.strftime('%A %m/%d/%Y')))
             self.req_src_files = [r'Call Details (Basic)', r'Group Abandoned Calls', r'Cradle to Grave']
-            self.network_tgt_dir = r'M:\Help Desk\Daily SLA Report'
             self.clients = self.get_client_settings()
             self.clients_verbose = self.make_verbose_dict()
             self.orphaned_voicemails = None
-            self.load_documents()
+            self.load_and_prepare()
             self.sla_report = {}
             self.src_files[r'Voice Mail'] = defaultdict(list)
             self.get_voicemails()
@@ -39,8 +39,6 @@ class SlaReport(AReport):
         if self.fr.finished:
             return
         else:
-            self.compile_call_details()
-            self.scrutinize_abandon_group()
             self.extract_report_information()
             self.process_report()
             self.save_report()
@@ -56,7 +54,7 @@ class SlaReport(AReport):
         )
         return date.today() + timedelta(days=self.return_selection(input_opt))
 
-    def load_documents(self):
+    def load_and_prepare(self):
         super().load_documents()
         call_details_filters = [
             self.inbound_call_filter,
@@ -71,47 +69,9 @@ class SlaReport(AReport):
                                        one_filter=self.answered_filter)
         self.src_files[r'Call Details (Basic)'].name = 'call_details'
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
-
-    def compile_call_details(self):
-        if self.fr.finished:
-            return
-        else:
-            hold_events = ('Hold', 'Transfer Hold', 'Park')
-            additional_columns = OrderedDict(
-                [
-                    ('Wait Time', []),
-                    ('Hold Time', [])
-                ]
-            )
-            for row_name in self.src_files[r'Call Details (Basic)'].rownames:
-                unhandled_call_data = {
-                    k: 0 for k in hold_events
-                }
-                tot_call_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration'])
-                talk_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration'])
-                call_id = row_name.replace(':', ' ')
-                cradle_sheet = self.src_files[r'Cradle to Grave'][call_id]
-                for event_row in cradle_sheet.rownames:
-                    event_type = cradle_sheet[event_row, 'Event Type']
-                    if event_type in hold_events:
-                        unhandled_call_data[event_type] += self.get_sec(cradle_sheet[event_row, 'Event Duration'])
-                raw_hold_time = sum(val for val in unhandled_call_data.values())
-                raw_time_waited = tot_call_duration - talk_duration - raw_hold_time
-                additional_columns['Hold Time'].append(self.convert_time_stamp(raw_hold_time))
-                additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
-            self.src_files[r'Call Details (Basic)'].extend_columns(additional_columns)
-
-    def scrutinize_abandon_group(self):
-        '''
-
-                :return:
-                '''
-        if self.fr.finished:
-            return
-        else:
-            self.remove_non_distinct_callers()
-            self.remove_calls_less_than_twenty_seconds()
-            self.src_files[r'Group Abandoned Calls'].save_as(filename='C:/Users/Mscales/Desktop/test1.xlsx')
+        self.compile_call_details()
+        self.scrutinize_abandon_group()
+        self.src_files[r'Group Abandoned Calls'].save_as(filename='C:/Users/Mscales/Desktop/test0110.xlsx')
 
     def extract_report_information(self):
         if self.fr.finished:
@@ -133,10 +93,6 @@ class SlaReport(AReport):
                         self.sla_report[client].extract_abandon_group_details(self.src_files[r'Group Abandoned Calls'])
 
     def process_report(self):
-        '''
-
-            :return:
-        '''
         if self.fr.finished:
             return
         else:
@@ -224,78 +180,67 @@ class SlaReport(AReport):
         return row[-2] == row[-3]
 
     '''
-    Final Report Fnc by column
+    SlaReport Functions
     '''
 
-    def sum(self, col):
-        return sum(col)
+    def compile_call_details(self):
+        if self.fr.finished:
+            return
+        else:
+            hold_events = ('Hold', 'Transfer Hold', 'Park')
+            additional_columns = OrderedDict(
+                [
+                    ('Wait Time', []),
+                    ('Hold Time', [])
+                ]
+            )
+            for row_name in self.src_files[r'Call Details (Basic)'].rownames:
+                unhandled_call_data = {
+                    k: 0 for k in hold_events
+                }
+                tot_call_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration'])
+                talk_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration'])
+                call_id = row_name.replace(':', ' ')
+                cradle_sheet = self.src_files[r'Cradle to Grave'][call_id]
+                for event_row in cradle_sheet.rownames:
+                    event_type = cradle_sheet[event_row, 'Event Type']
+                    if event_type in hold_events:
+                        unhandled_call_data[event_type] += self.get_sec(cradle_sheet[event_row, 'Event Duration'])
+                raw_hold_time = sum(val for val in unhandled_call_data.values())
+                raw_time_waited = tot_call_duration - talk_duration - raw_hold_time
+                additional_columns['Hold Time'].append(self.convert_time_stamp(raw_hold_time))
+                additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
+            self.src_files[r'Call Details (Basic)'].extend_columns(additional_columns)
 
-    def floor_div_weighted(self, col1=(), col2=(), col3=()):
-        return self.floor_div(col1=[a * b for a, b in zip(col1, col2)], col2=col3)
-
-    def floor_div(self, col1=(), col2=()):
-        try:
-            return operator.floordiv(sum(col1), sum(col2))
-        except ZeroDivisionError:
-            return 0
-
-    def true_div_comb(self, col1=(), col2=(), col3=()):
-        return self.true_div(col1=col1 + col2, col2=col3)
-
-    def true_div(self, col1=(), col2=()):
-        try:
-            return operator.truediv(sum(col1), sum(col2))
-        except ZeroDivisionError:
-            return 0
-
-    def max_val(self, col):
-        return max(col)
-
-    '''
-    Utilities Section
-    '''
+    def scrutinize_abandon_group(self):
+        if self.fr.finished:
+            return
+        else:
+            self.remove_calls_less_than_twenty_seconds()
+            self.remove_non_distinct_callers()
 
     def remove_non_distinct_callers(self):
-        # for row_name in reversed(self.src_files[r'Group Abandoned Calls'].rownames):
-        #     pass
-
-
-
-        internal_parties = self.src_files[r'Group Abandoned Calls'].column['Internal Party']
-        external_parties = self.src_files[r'Group Abandoned Calls'].column['External Party']
-        start_times = self.src_files[r'Group Abandoned Calls'].column['Start Time']
-        end_times = self.src_files[r'Group Abandoned Calls'].column['End Time']
-        potential_duplicates = self.find_non_distinct(external_parties)
-        for duplicate in potential_duplicates:
-            call_index = self.find(external_parties, duplicate)
-            first_call = call_index[0]
-            first_call_client = internal_parties[first_call]
-            first_call_end_time = parse(end_times[first_call])
-            for call in range(1, len(call_index)):
-                next_call = call_index[call]
-                next_call_client = internal_parties[next_call]
-                next_call_start_time = parse(start_times[next_call])
-                time_delta = next_call_start_time - first_call_end_time
-                if time_delta < timedelta(minutes=1) and first_call_client == next_call_client:
-                    del self.src_files[r'Group Abandoned Calls'].row[next_call]
+        i_count = self.find_non_distinct(sheet=self.src_files[r'Group Abandoned Calls'], event_col='External Party')
+        for dup_val, dup_call_ids in {k: reversed(sorted(v['rows']))
+                                      for k, v in i_count.items() if v['count'] > 1}.items():
+            for call_id in dup_call_ids:
+                try:
+                    prev_call = self.parse_to_sec(
+                        self.src_files[r'Group Abandoned Calls'][next(dup_call_ids), 'End Time']
+                    )
+                except StopIteration:
+                    # catches attempt to iterate through last element of non even iterators
+                    pass
+                else:
+                    last_call = self.parse_to_sec(self.src_files[r'Group Abandoned Calls'][call_id, 'Start Time'])
+                    if abs(last_call - prev_call) <= 60:
+                        self.src_files[r'Group Abandoned Calls'].delete_named_row_at(call_id)
 
     def remove_calls_less_than_twenty_seconds(self):
         for row_name in reversed(self.src_files[r'Group Abandoned Calls'].rownames):
             call_duration = self.get_sec(self.src_files[r'Group Abandoned Calls'][row_name, 'Call Duration'])
             if call_duration < 20:
                 self.src_files[r'Group Abandoned Calls'].delete_named_row_at(row_name)
-
-    def safe_div(self, num, denom):
-        rtn_val = 0
-        try:
-            rtn_val = num / denom
-        except ZeroDivisionError:
-            pass
-        return rtn_val
-
-    def correlate_event_data(self, src_list, list_to_correlate, key):
-        event_list = super().correlate_list_time_data(src_list, list_to_correlate, key)
-        return sum(v for v in event_list)
 
     def validate_final_report(self):
         for row in self.fr.rownames:
@@ -312,100 +257,6 @@ class SlaReport(AReport):
                                  'ticker total != answered for: '
                                  '{0}'.format(row[0]))
 
-    def add_row(self, a_row):
-        self.format_row(a_row)
-        self.fr.row += self.return_row_as_list(a_row)
-
-    def format_row(self, row):
-        row['Average Incoming Duration'] = self.convert_time_stamp(row['Average Incoming Duration'])
-        row['Average Wait Answered'] = self.convert_time_stamp(row['Average Wait Answered'])
-        row['Average Wait Lost'] = self.convert_time_stamp(row['Average Wait Lost'])
-        row['Longest Waiting Answered'] = self.convert_time_stamp(row['Longest Waiting Answered'])
-        row['Incoming Answered (%)'] = '{0:.1%}'.format(row['Incoming Answered (%)'])
-        row['Incoming Lost (%)'] = '{0:.1%}'.format(row['Incoming Lost (%)'])
-        row['PCA'] = '{0:.1%}'.format(row['PCA'])
-
-    def return_row_as_list(self, row):
-        return [row['Label'],
-                row['I/C Presented'],
-                row['I/C Answered'],
-                row['I/C Lost'],
-                row['Voice Mails'],
-                row['Incoming Answered (%)'],
-                row['Incoming Lost (%)'],
-                row['Average Incoming Duration'],
-                row['Average Wait Answered'],
-                row['Average Wait Lost'],
-                row['Calls Ans Within 15'],
-                row['Calls Ans Within 30'],
-                row['Calls Ans Within 45'],
-                row['Calls Ans Within 60'],
-                row['Calls Ans Within 999'],
-                row['Call Ans + 999'],
-                row['Longest Waiting Answered'],
-                row['PCA']]
-
-    def accumulate_total_row(self, row, tr):
-        tr['I/C Presented'] += row['I/C Presented']
-        tr['I/C Answered'] += row['I/C Answered']
-        tr['I/C Lost'] += row['I/C Lost']
-        tr['Voice Mails'] += row['Voice Mails']
-        tr['Average Incoming Duration'] += row['Average Incoming Duration'] * row['I/C Answered']
-        tr['Average Wait Answered'] += row['Average Wait Answered'] * row['I/C Answered']
-        tr['Average Wait Lost'] += row['Average Wait Lost'] * row['I/C Lost']
-        tr['Calls Ans Within 15'] += row['Calls Ans Within 15']
-        tr['Calls Ans Within 30'] += row['Calls Ans Within 30']
-        tr['Calls Ans Within 45'] += row['Calls Ans Within 45']
-        tr['Calls Ans Within 60'] += row['Calls Ans Within 60']
-        tr['Calls Ans Within 999'] += row['Calls Ans Within 999']
-        tr['Call Ans + 999'] += row['Call Ans + 999']
-        if tr['Longest Waiting Answered'] < row['Longest Waiting Answered']:
-            tr['Longest Waiting Answered'] = row['Longest Waiting Answered']
-
-    def finalize_total_row(self, tr):
-        if tr['I/C Presented'] > 0:
-            tr['Incoming Answered (%)'] = operator.truediv(tr['I/C Answered'],
-                                                           tr['I/C Presented'])
-            tr['Incoming Lost (%)'] = operator.truediv(tr['I/C Lost'] + tr['Voice Mails'],
-                                                       tr['I/C Presented'])
-            tr['PCA'] = operator.truediv(tr['Calls Ans Within 15'] + tr['Calls Ans Within 30'],
-                                         tr['I/C Presented'])
-            if tr['I/C Answered'] > 0:
-                tr['Average Incoming Duration'] = operator.floordiv(tr['Average Incoming Duration'],
-                                                                    tr['I/C Answered'])
-                tr['Average Wait Answered'] = operator.floordiv(tr['Average Wait Answered'],
-                                                                tr['I/C Answered'])
-            if tr['I/C Lost'] > 0:
-                tr['Average Wait Lost'] = operator.floordiv(tr['Average Wait Lost'],
-                                                            tr['I/C Lost'])
-
-    def make_verbose_dict(self):
-        return dict((value.name, key) for key, value in self.clients.items())
-
-    def merge_sheets(self, workbook):
-        merged_sheet = pe.Sheet()
-        abandon_filter = pe.RowValueFilter(self.abandon_group_row_filter)
-        first_sheet = True
-        for sheet in workbook:
-            sheet.filter(abandon_filter)
-            if first_sheet:
-                merged_sheet.row += sheet
-                first_sheet = False
-            else:
-                sheet.name_columns_by_row(0)
-                merged_sheet.row += sheet
-        return merged_sheet
-
-    def abandon_group_row_filter(self, row):
-        unique_cell = row[0].split(' ')
-        return unique_cell[0] != 'Call'
-
-    def find_non_distinct(self, lst):
-        icount = {}
-        for i in lst:
-            icount[i] = icount.get(i, 0) + 1
-        return {k: v for k, v in icount.items() if v > 1}
-
     def group_cid_by_client(self, report):
         report_details = defaultdict(list)
         for row_name in report.rownames:
@@ -416,11 +267,6 @@ class SlaReport(AReport):
             finally:
                 report_details[client].append(row_name)
         return report_details
-
-    def handle_read_value_error(self, call_id):
-        sheet = self.src_files[r'Cradle to Grave'][call_id.replace(':', ' ')]
-        hunt_index = sheet.column['Event Type'].index('Ringing')
-        return sheet.column['Receiving Party'][hunt_index]
 
     def get_voicemails(self):
         voicemail_file_path = r'{0}\{1}'.format(self.src_doc_path,
@@ -494,12 +340,98 @@ class SlaReport(AReport):
                             self.src_files[r'Voice Mail'][client].append(matched_call['call_id'])
 
     def write_voicemail_data(self, voicemail_file_path):
-        print('im writing vm data')
         text_file = open(voicemail_file_path, 'w')
         for voicemail_group in self.src_files[r'Voice Mail'].items():
             text_string = '{0},{1}\n'.format(voicemail_group[0], ",".join(voicemail_group[1]))
             text_file.write(text_string)
         text_file.close()
+
+    '''
+    Utilities Section
+    '''
+
+    def safe_div(self, num, denom):
+        rtn_val = 0
+        try:
+            rtn_val = num / denom
+        except ZeroDivisionError:
+            pass
+        return rtn_val
+
+    def add_row(self, a_row):
+        self.format_row(a_row)
+        self.fr.row += self.return_row_as_list(a_row)
+
+    def format_row(self, row):
+        row['Average Incoming Duration'] = self.convert_time_stamp(row['Average Incoming Duration'])
+        row['Average Wait Answered'] = self.convert_time_stamp(row['Average Wait Answered'])
+        row['Average Wait Lost'] = self.convert_time_stamp(row['Average Wait Lost'])
+        row['Longest Waiting Answered'] = self.convert_time_stamp(row['Longest Waiting Answered'])
+        row['Incoming Answered (%)'] = '{0:.1%}'.format(row['Incoming Answered (%)'])
+        row['Incoming Lost (%)'] = '{0:.1%}'.format(row['Incoming Lost (%)'])
+        row['PCA'] = '{0:.1%}'.format(row['PCA'])
+
+    def return_row_as_list(self, row):
+        return [row['Label'],
+                row['I/C Presented'],
+                row['I/C Answered'],
+                row['I/C Lost'],
+                row['Voice Mails'],
+                row['Incoming Answered (%)'],
+                row['Incoming Lost (%)'],
+                row['Average Incoming Duration'],
+                row['Average Wait Answered'],
+                row['Average Wait Lost'],
+                row['Calls Ans Within 15'],
+                row['Calls Ans Within 30'],
+                row['Calls Ans Within 45'],
+                row['Calls Ans Within 60'],
+                row['Calls Ans Within 999'],
+                row['Call Ans + 999'],
+                row['Longest Waiting Answered'],
+                row['PCA']]
+
+    def accumulate_total_row(self, row, tr):
+        tr['I/C Presented'] += row['I/C Presented']
+        tr['I/C Answered'] += row['I/C Answered']
+        tr['I/C Lost'] += row['I/C Lost']
+        tr['Voice Mails'] += row['Voice Mails']
+        tr['Average Incoming Duration'] += row['Average Incoming Duration'] * row['I/C Answered']
+        tr['Average Wait Answered'] += row['Average Wait Answered'] * row['I/C Answered']
+        tr['Average Wait Lost'] += row['Average Wait Lost'] * row['I/C Lost']
+        tr['Calls Ans Within 15'] += row['Calls Ans Within 15']
+        tr['Calls Ans Within 30'] += row['Calls Ans Within 30']
+        tr['Calls Ans Within 45'] += row['Calls Ans Within 45']
+        tr['Calls Ans Within 60'] += row['Calls Ans Within 60']
+        tr['Calls Ans Within 999'] += row['Calls Ans Within 999']
+        tr['Call Ans + 999'] += row['Call Ans + 999']
+        if tr['Longest Waiting Answered'] < row['Longest Waiting Answered']:
+            tr['Longest Waiting Answered'] = row['Longest Waiting Answered']
+
+    def finalize_total_row(self, tr):
+        if tr['I/C Presented'] > 0:
+            tr['Incoming Answered (%)'] = operator.truediv(tr['I/C Answered'],
+                                                           tr['I/C Presented'])
+            tr['Incoming Lost (%)'] = operator.truediv(tr['I/C Lost'] + tr['Voice Mails'],
+                                                       tr['I/C Presented'])
+            tr['PCA'] = operator.truediv(tr['Calls Ans Within 15'] + tr['Calls Ans Within 30'],
+                                         tr['I/C Presented'])
+            if tr['I/C Answered'] > 0:
+                tr['Average Incoming Duration'] = operator.floordiv(tr['Average Incoming Duration'],
+                                                                    tr['I/C Answered'])
+                tr['Average Wait Answered'] = operator.floordiv(tr['Average Wait Answered'],
+                                                                tr['I/C Answered'])
+            if tr['I/C Lost'] > 0:
+                tr['Average Wait Lost'] = operator.floordiv(tr['Average Wait Lost'],
+                                                            tr['I/C Lost'])
+
+    def make_verbose_dict(self):
+        return dict((value.name, key) for key, value in self.clients.items())
+
+    def handle_read_value_error(self, call_id):
+        sheet = self.src_files[r'Cradle to Grave'][call_id.replace(':', ' ')]
+        hunt_index = sheet.column['Event Type'].index('Ringing')
+        return sheet.column['Receiving Party'][hunt_index]
 
     def get_client_settings(self):
         client = namedtuple('client_settings', 'name full_service')
@@ -519,6 +451,13 @@ class SlaReport(AReport):
                                      full_service=is_fullservice)
                 return_dict[settings[row, 'Client Number']] = this_client
         return return_dict
+
+    def __del__(self):
+        try:
+            if int(input('1 to open file: ')) is 1:
+                super().open(user_string=self.sla_file, sub_dir=self.sla_sub_dir)
+        except ValueError:
+            pass
 
 
 class Client:

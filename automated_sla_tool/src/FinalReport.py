@@ -4,8 +4,6 @@ from datetime import date
 from pyexcel import Sheet, get_sheet
 
 
-# TODO this might be better as an object with a sheet ->
-# TODO to handle name conflict with nominable Sheet and prop sheet
 class FinalReport(Sheet):
 
     def __init__(self, **kwargs):
@@ -59,7 +57,7 @@ class FinalReport(Sheet):
     OS Operations
     '''
 
-    def open_report(self, the_file):
+    def open_existing(self, the_file):
         if not self.finished:
             sheet = get_sheet(file_name=the_file)
             for row in sheet.rows():
@@ -68,34 +66,68 @@ class FinalReport(Sheet):
             self.name_rows_by_column(0)
             self._finished = True
 
+    def resolve_path(self, str_fmt=None, f_ext='xlsx', tgt_path=None, sub_dir=None):
+        try:
+            file_string = str_fmt if str_fmt else '{date}_{type}'.format(date=self.date,
+                                                                         type=self.type)
+            file_name = '{f_string}.{fmt}'.format(f_string=file_string,
+                                                  fmt=f_ext)
+            if tgt_path and sub_dir:
+                path = join(tgt_path, sub_dir)
+            elif sub_dir:
+                path = join(self.save_path, sub_dir)
+            else:
+                raise ValueError()
+        except ValueError:
+            print('No location provided'
+                  'to save file: {name} {type}'.format(name=self.date,
+                                                       type=self.type))
+        else:
+            return join(path, file_name)
+
     def save(self, str_fmt=None, save_format='xlsx', tgt_path=None, sub_dir=None, full_path=None):
         if full_path:
             self.save_as(filename=full_path)
         else:
-            try:
-                file_string = str_fmt if str_fmt else '{date}_{type}'.format(date=self.date,
-                                                                             type=self.type)
-                file_name = '{f_string}.{fmt}'.format(f_string=file_string,
-                                                      fmt=save_format)
-                if tgt_path and sub_dir:
-                    path = join(tgt_path, sub_dir)
-                elif sub_dir:
-                    path = join(self.save_path, sub_dir)
-                else:
-                    raise ValueError()
-            except ValueError:
-                print('No location provided'
-                      'to save file: {name} {type}'.format(name=self.date,
-                                                           type=self.type))
-            else:
-                file_path = join(path, file_name)
-                self.save_as(filename=file_path)
-                # This is repeating at least once it seems?
-                try:
-                    if int(input('1 to open file: ')) is 1:
-                        startfile(file_path)
-                except ValueError:
-                    pass
+            file_path = self.resolve_path(str_fmt=str_fmt,
+                                          f_ext=save_format,
+                                          tgt_path=tgt_path,
+                                          sub_dir=sub_dir)
+            self.save_as(filename=file_path)
+            # try:
+            #     file_string = str_fmt if str_fmt else '{date}_{type}'.format(date=self.date,
+            #                                                                  type=self.type)
+            #     file_name = '{f_string}.{fmt}'.format(f_string=file_string,
+            #                                           fmt=save_format)
+            #     if tgt_path and sub_dir:
+            #         path = join(tgt_path, sub_dir)
+            #     elif sub_dir:
+            #         path = join(self.save_path, sub_dir)
+            #     else:
+            #         raise ValueError()
+            # except ValueError:
+            #     print('No location provided'
+            #           'to save file: {name} {type}'.format(name=self.date,
+            #                                                type=self.type))
+            # else:
+            #     file_path = join(path, file_name)
+            #     self.save_as(filename=file_path)
+            #     # This is repeating at least once it seems?
+            #     try:
+            #         if int(input('1 to open file: ')) is 1:
+            #             startfile(file_path)
+            #     except ValueError:
+            #         pass
+
+    def open(self, str_fmt=None, f_ext='xlsx', tgt_path=None, sub_dir=None, full_path=None):
+        if full_path:
+            startfile(full_path)
+        else:
+            file_path = self.resolve_path(str_fmt=str_fmt,
+                                          f_ext=f_ext,
+                                          tgt_path=tgt_path,
+                                          sub_dir=sub_dir)
+            startfile(file_path)
 
     '''
     Report Section

@@ -93,6 +93,14 @@ class SqlCommand(object):
 
 
 def test():
+    # print(not True)
+    # print(not False)
+    # test_list= []
+    # print(test_list.__sizeof__())
+    # test_list.append(0)
+    # test_list.append(0)
+    # test_list.append(0)
+    # print(test_list.__sizeof__())
     # import re
     # s = "alpha.Customer[cus_Y4o9qMEZAugtnW] ..."
     # m = re.search(r"\[([A-Za-z0-9_]+)\]", s)
@@ -102,18 +110,35 @@ def test():
     # print(matches.group(0))
     sheet = pe.Sheet(colnames=['', 'stuff'])
     rows = [
-        ['row_name1', 'stuff_value'],
+        ['row_name1', 'stuff_value3'],
         ['row_name2', 'stuff_value1'],
-        ['row_name3', 'stuff_value']
+        ['row_name3', 'stuff_value3'],
+        ['row_name4', 'stuff_value'],
+        ['row_name5', 'stuff_value2'],
+        ['row_name6', 'stuff_value'],
+        ['row_name7', 'stuff_value2'],
+        ['row_name8', 'stuff_value']
     ]
     for row in rows:
         sheet.row += row
     sheet.name_rows_by_column(0)
-    for row_name in sheet.rownames:
-        if sheet[row_name, 'stuff'] == 'stuff_value1':
-            sheet.delete_named_row_at(row_name)
-    print(sheet)
-
+    # for row_name in sheet.rownames:
+    #     if sheet[row_name, 'stuff'] == 'stuff_value1':
+    #         sheet.delete_named_row_at(row_name)
+    # print(sheet)
+    i_count = {}
+    for row_name in reversed(sheet.rownames):
+        caller = sheet[row_name, 'stuff']
+        # i_count[caller] = {
+        #     'count': i_count.get(caller, 0).get('count', 0) + 1,
+        #     ''
+        # }
+        dup_info = i_count.get(caller, {'count': 0,
+                                        'call_ids': []})
+        dup_info['count'] += 1
+        dup_info['call_ids'].append(caller)
+        i_count[caller] = dup_info
+    print(i_count)
     # string1 = 'string'
     # string2 = '123'
     # print(string1.isdigit())

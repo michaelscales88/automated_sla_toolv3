@@ -196,7 +196,7 @@ class DailyMarsReport(AReport):
         try:
             for r_index, event in enumerate(time_card.rows()):
                 for index in event:
-                    if self.safe_parse(index).date() == remove_date:
+                    if self.safe_parse_dt(index).date() == remove_date:
                         del time_card.row[r_index]
         except TypeError:
             print('Bad type: remove_date object'
@@ -567,13 +567,13 @@ class DailyMarsReport(AReport):
 
     def get_start_time(self, column, overnight=False):
         if overnight:
-            return_time = max(self.safe_parse(item).time() for item in column)
+            return_time = max(self.safe_parse_dt(item).time() for item in column)
         else:
-            return_time = min(self.safe_parse(item).time() for item in column)
+            return_time = min(self.safe_parse_dt(item).time() for item in column)
         return return_time
 
     def get_end_time(self, column):
-        return max(self.safe_parse(item).time() for item in column)
+        return max(self.safe_parse_dt(item).time() for item in column)
 
     def get_page_as_num(self, sheet_name):  # TODO this needs to switch as the way to access agent sheet
         return_value = re.findall(r'\b\d+\b', sheet_name)
