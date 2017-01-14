@@ -72,8 +72,9 @@ class AReport(UtilityObject):
                                                     sub='Attachment Archive',
                                                     yr=self.dates.strftime('%Y'),
                                                     tgt=self.dates.strftime('%m%d'))
-        self.change_dir(file_dir)
-        return getcwd()
+        # self.change_dir(file_dir)
+        # return getcwd()
+        return file_dir
 
     def clean_src_loc(self, spc_ch, del_ch):
         # TODO today test this more... doesn't merge/delete original file
