@@ -1,5 +1,5 @@
 import subprocess as proc
-from os import getcwd, listdir, rename, remove
+from os import makedirs, listdir, rename, remove
 from os.path import dirname, join, abspath, splitext, isfile
 from re import sub, split
 from datetime import timedelta, datetime, time, date
@@ -72,8 +72,7 @@ class AReport(UtilityObject):
                                                     sub='Attachment Archive',
                                                     yr=self.dates.strftime('%Y'),
                                                     tgt=self.dates.strftime('%m%d'))
-        # self.change_dir(file_dir)
-        # return getcwd()
+        makedirs(file_dir, exist_ok=True)
         return file_dir
 
     def clean_src_loc(self, spc_ch, del_ch):
@@ -84,7 +83,10 @@ class AReport(UtilityObject):
             f_name = sub('[{spc_chrs}]'.format(spc_chrs=''.join(spc_ch)), ' ', f_name)
             f_name = sub('[{del_chs}]'.format(del_chs=''.join(del_ch)), '', f_name)
             f_name = f_name.strip()
-            rename(f, r'{0}{1}'.format(f_name, ext))
+            old_f = join(self.src_doc_path, f)
+            new_f = join(self.src_doc_path, r'{f_name}{ext}'.format(f_name=f_name,
+                                                                    ext=ext))
+            rename(old_f, new_f)
 
     # this doesn't need to go deep twice if files found on first pass
     def loader(self, unloaded_files, need_to_dl=False, f_ext='xlsx'):
@@ -210,6 +212,22 @@ class AReport(UtilityObject):
     General Utilities
     '''
 
+    def shortest_longest(self, *args):
+        return (args[0], args[1]) if args[0] is min(*args, key=len) else (args[1], args[0])
+
+    def common_keys(self, *dcts):
+        for i in set(dcts[0]).intersection(*dcts[1:]):
+            yield (i,) + tuple(d[i] for d in dcts)
+
+    def return_matches(self, *args, match_val=None):
+        shortest_list, longest_list = self.shortest_longest(*args)
+        longest_list_indexed = {}
+        for item in longest_list:
+            longest_list_indexed[item[match_val]] = item
+        for item in shortest_list:
+            if item[match_val] in longest_list_indexed:
+                yield item, longest_list_indexed[item[match_val]]
+
     # TODO make a typedef decorator
 
     def return_selection(self, input_opt):
@@ -270,7 +288,7 @@ class AReport(UtilityObject):
                         file_name = part.get_filename()
 
                         if bool(file_name):
-                            file_path = join(file_name)
+                            file_path = join(self.src_doc_path, file_name)
                             if not isfile(file_path):
                                 fp = open(file_path, 'wb')
                                 fp.write(part.get_payload(decode=True))

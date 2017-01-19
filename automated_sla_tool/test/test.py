@@ -17,10 +17,12 @@ from queue import Queue
 import sqlite3
 import logging
 import logging.config
+import iso8601
 from os import path
 from automated_sla_tool.src.SysLog import SysLog
 from time import sleep
 from collections import defaultdict, OrderedDict
+from automated_sla_tool.src.utilities import valid_dt
 
 
 def get_config(config_path, name):
@@ -93,6 +95,22 @@ class SqlCommand(object):
 
 
 def test():
+    string_test = 'Voicemail Message (8472243850 > Danaher) From:8472243850Fri, 13 Jan 2017 07:08:43 -0600'
+    # print(iso8601.parse_date(string_test))
+    dt = valid_dt(string_test.split(',')[1])
+    print(dt)
+    print(type(dt))
+    # str1 = ''
+    # str2 = 'stuff'
+    # print(str1.isalpha())
+    # print(str2.isalpha())
+    # from os import makedirs
+    # from os.path import isfile
+    # f_path1 = 'C:/Users/Mscales/Desktop/test_file'
+    # f_path = 'C:/Users/Mscales/Desktop/test_file.txt'
+    # print(isfile(f_path))
+    # makedirs(f_path1, exist_ok=True)
+    # print(isfile(f_path))
     # print(not True)
     # print(not False)
     # test_list= []

@@ -28,3 +28,4 @@ class AppSettings(ConfigObj):
         else:
             raise SystemError('No settings directory found '
                               'for AppSettings:\n{app}'.format(app=self._my_app.__class__.__name__))
+

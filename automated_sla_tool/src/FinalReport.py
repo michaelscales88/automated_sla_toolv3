@@ -68,10 +68,17 @@ class FinalReport(Sheet):
 
     def resolve_path(self, str_fmt=None, f_ext='xlsx', tgt_path=None, sub_dir=None):
         try:
-            file_string = str_fmt if str_fmt else '{date}_{type}'.format(date=self.date,
-                                                                         type=self.type)
+            if str_fmt:
+                file_string = str_fmt.format(date=self.date.strftime("%m%d%Y"))
+            else:
+                file_string = '{date}_{type}'.format(date=self.date, type=self.type)
             file_name = '{f_string}.{fmt}'.format(f_string=file_string,
                                                   fmt=f_ext)
+
+            if sub_dir:
+                sub_dir = sub_dir.format(mo=self.date.strftime('%B'),
+                                         yr=self.date.strftime('%Y'))
+
             if tgt_path and sub_dir:
                 path = join(tgt_path, sub_dir)
             elif sub_dir:
@@ -86,14 +93,19 @@ class FinalReport(Sheet):
             return join(path, file_name)
 
     def save(self, str_fmt=None, save_format='xlsx', tgt_path=None, sub_dir=None, full_path=None):
+        print('trying to save')
         if full_path:
+            print(full_path)
             self.save_as(filename=full_path)
+            print('i saved')
         else:
             file_path = self.resolve_path(str_fmt=str_fmt,
                                           f_ext=save_format,
                                           tgt_path=tgt_path,
                                           sub_dir=sub_dir)
+            print(file_path)
             self.save_as(filename=file_path)
+            print('i saved')
             # try:
             #     file_string = str_fmt if str_fmt else '{date}_{type}'.format(date=self.date,
             #                                                                  type=self.type)
