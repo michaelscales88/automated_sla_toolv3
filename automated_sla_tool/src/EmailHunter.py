@@ -7,7 +7,7 @@ from automated_sla_tool.src.utilities import valid_dt
 
 
 def get_email(report, get='Email Src Settings'):
-    email_data = report.settings(get)
+    email_data = report.settings.get(get, None)
     if not email_data:
         print('No settings for {report}'.format(report=report.__class__.__name__))
     else:
@@ -17,7 +17,7 @@ def get_email(report, get='Email Src Settings'):
 
 
 def get_vm(report, get='Voice Mail Data'):
-    vm_data = report.settings(get)
+    vm_data = report.settings.get(get, None)
     if not vm_data:
         print('No settings for {report}'.format(report=report.__class__.__name__))
     else:
@@ -39,9 +39,16 @@ def get_vm(report, get='Voice Mail Data'):
             try:
                 verified_data = _read_f_data(f_path)
             except FileNotFoundError:
-                raw_data = EmailHunter(report.dates, vm_data['Login Info']).return_vm_data()
-                verified_data, check_data = report.modify_vm(raw_data)
-                _write_f_data(verified_data, f_path)
+                try:
+                    raw_data = EmailHunter(report.dates, vm_data['Login Info']).return_vm_data()
+                except KeyError:
+                    from traceback import format_exc
+                    from time import sleep
+                    sleep(1)
+                    print(format_exc())
+                else:
+                    verified_data, check_data = report.modify_vm(raw_data)
+                    _write_f_data(verified_data, f_path)
         # print('verified dataa')
         # print(verified_data)
         # print(check_data)
@@ -113,6 +120,7 @@ def _write_f_data(data, f_path):
 
 class EmailHunter(EmailGetter):
     def __init__(self, date, login_info):
+        print('inside EmailHunter')
         super().__init__(use_date=date, login_type=login_info['login_type'])
         self.login(username=login_info['user_name'], password=login_info['pw'])
         self.go_to_box("Inbox")

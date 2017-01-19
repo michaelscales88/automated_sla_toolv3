@@ -32,16 +32,17 @@ class SlaReport(AReport):
             self.load_and_prepare()
             self.sla_report = {}
 
-            self.orphaned_voicemails = None
-            self.src_files[r'Voice Mail'] = defaultdict(list)
-            self.get_voicemails()
+            # self.orphaned_voicemails = None
+            # self.src_files[r'Voice Mail'] = defaultdict(list)
+            # self.get_voicemails()
 
     '''
     UI Section
     '''
 
-    def settings(self, settings):
-        return self._settings.get(settings, None)
+    @property
+    def settings(self):
+        return self._settings
 
     def run(self):
         if self.fr.finished:
@@ -81,7 +82,7 @@ class SlaReport(AReport):
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
         self.scrutinize_abandon_group()
 
-        # self.src_files[r'Voice Mail'] = get_email(self)
+        self.src_files[r'Voice Mail'] = get_vm(self)
         # print(self.src_files[r'Voice Mail'])
 
     def extract_report_information(self):
