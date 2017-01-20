@@ -19,87 +19,93 @@ import logging
 import logging.config
 import iso8601
 from os import path
+from automated_sla_tool.src.AppSettings import AppSettings
+from automated_sla_tool.src.factory import get_data
 from automated_sla_tool.src.SysLog import SysLog
 from time import sleep
 from collections import defaultdict, OrderedDict
 from automated_sla_tool.src.utilities import valid_dt
 
-
-def get_config(config_path, name):
-    logging.config.dictConfig(config_path)
-    return logging.getLogger(name)
+# Settings path
+_settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
 
 
-class Test:
-    def __init__(self):
-        self._finished = False
-
-    @property
-    def finished(self):
-        return self._finished
-
-    def set_finished(self):
-        self._finished = True
-
-    def run(self):
-        print('running..')
-
-
-def test_fn(stuff):
-    for thing in stuff:
-        print(thing)
-    print('something')
-
-class Point(object):
-    def __init__(self, x, y):
-        self.x, self.y = x, y
-
-    def __conform__(self, protocol):
-        if protocol is sqlite3.PrepareProtocol:
-            return "%f;%f" % (self.x, self.y)
-
-
-def worker():
-    p = multiprocessing.current_process()
-    print('worker {0} {1}'.format(p.name, datetime.now().time()))
-    sys.stdout.flush()
-    time.sleep(2)
-    print('worker {0} {1}'.format(p.name, datetime.now().time()))
-    sys.stdout.flush()
-
-
-class SqlCommand(object):
-    def __init__(self):
-        super().__init__()
-        self._name = None
-        self._cmd = None
-
-    def __repr__(self):
-        return self._cmd
-
-    @property
-    def cmd(self):
-        return self._cmd
-
-    @cmd.setter
-    def cmd(self, cmd):
-        self._cmd = cmd
-
-    @property
-    def name(self):
-        return self._name
-
-    @name.setter
-    def name(self, name):
-        self._name = name
+# def get_config(config_path, name):
+#     logging.config.dictConfig(config_path)
+#     return logging.getLogger(name)
+#
+#
+# class Test:
+#     def __init__(self):
+#         self._finished = False
+#
+#     @property
+#     def finished(self):
+#         return self._finished
+#
+#     def set_finished(self):
+#         self._finished = True
+#
+#     def run(self):
+#         print('running..')
+#
+#
+# def test_fn(stuff):
+#     for thing in stuff:
+#         print(thing)
+#     print('something')
+#
+# class Point(object):
+#     def __init__(self, x, y):
+#         self.x, self.y = x, y
+#
+#     def __conform__(self, protocol):
+#         if protocol is sqlite3.PrepareProtocol:
+#             return "%f;%f" % (self.x, self.y)
+#
+#
+# def worker():
+#     p = multiprocessing.current_process()
+#     print('worker {0} {1}'.format(p.name, datetime.now().time()))
+#     sys.stdout.flush()
+#     time.sleep(2)
+#     print('worker {0} {1}'.format(p.name, datetime.now().time()))
+#     sys.stdout.flush()
+#
+#
+# class SqlCommand(object):
+#     def __init__(self):
+#         super().__init__()
+#         self._name = None
+#         self._cmd = None
+#
+#     def __repr__(self):
+#         return self._cmd
+#
+#     @property
+#     def cmd(self):
+#         return self._cmd
+#
+#     @cmd.setter
+#     def cmd(self, cmd):
+#         self._cmd = cmd
+#
+#     @property
+#     def name(self):
+#         return self._name
+#
+#     @name.setter
+#     def name(self, name):
+#         self._name = name
 
 
 def test():
-    string_test = 'Voicemail Message (8472243850 > Danaher) From:8472243850Fri, 13 Jan 2017 07:08:43 -0600'
-    # print(iso8601.parse_date(string_test))
-    dt = valid_dt(string_test.split(',')[1])
-    print(dt)
-    print(type(dt))
+    email = get_data(settings=AppSettings(settings_file=_settings))
+    # string_test = 'Voicemail Message (8472243850 > Danaher) From:8472243850Fri, 13 Jan 2017 07:08:43 -0600'
+    # # print(iso8601.parse_date(string_test))
+    # dt = valid_dt(string_test.split(',')[1])
+    # print(dt)
+    # print(type(dt))
     # str1 = ''
     # str2 = 'stuff'
     # print(str1.isalpha())
@@ -126,37 +132,37 @@ def test():
     # s = 'stuff stuff (1235) stuff'
     # matches = re.search(r"([0-9]+)", s)
     # print(matches.group(0))
-    sheet = pe.Sheet(colnames=['', 'stuff'])
-    rows = [
-        ['row_name1', 'stuff_value3'],
-        ['row_name2', 'stuff_value1'],
-        ['row_name3', 'stuff_value3'],
-        ['row_name4', 'stuff_value'],
-        ['row_name5', 'stuff_value2'],
-        ['row_name6', 'stuff_value'],
-        ['row_name7', 'stuff_value2'],
-        ['row_name8', 'stuff_value']
-    ]
-    for row in rows:
-        sheet.row += row
-    sheet.name_rows_by_column(0)
-    # for row_name in sheet.rownames:
-    #     if sheet[row_name, 'stuff'] == 'stuff_value1':
-    #         sheet.delete_named_row_at(row_name)
-    # print(sheet)
-    i_count = {}
-    for row_name in reversed(sheet.rownames):
-        caller = sheet[row_name, 'stuff']
-        # i_count[caller] = {
-        #     'count': i_count.get(caller, 0).get('count', 0) + 1,
-        #     ''
-        # }
-        dup_info = i_count.get(caller, {'count': 0,
-                                        'call_ids': []})
-        dup_info['count'] += 1
-        dup_info['call_ids'].append(caller)
-        i_count[caller] = dup_info
-    print(i_count)
+    # sheet = pe.Sheet(colnames=['', 'stuff'])
+    # rows = [
+    #     ['row_name1', 'stuff_value3'],
+    #     ['row_name2', 'stuff_value1'],
+    #     ['row_name3', 'stuff_value3'],
+    #     ['row_name4', 'stuff_value'],
+    #     ['row_name5', 'stuff_value2'],
+    #     ['row_name6', 'stuff_value'],
+    #     ['row_name7', 'stuff_value2'],
+    #     ['row_name8', 'stuff_value']
+    # ]
+    # for row in rows:
+    #     sheet.row += row
+    # sheet.name_rows_by_column(0)
+    # # for row_name in sheet.rownames:
+    # #     if sheet[row_name, 'stuff'] == 'stuff_value1':
+    # #         sheet.delete_named_row_at(row_name)
+    # # print(sheet)
+    # i_count = {}
+    # for row_name in reversed(sheet.rownames):
+    #     caller = sheet[row_name, 'stuff']
+    #     # i_count[caller] = {
+    #     #     'count': i_count.get(caller, 0).get('count', 0) + 1,
+    #     #     ''
+    #     # }
+    #     dup_info = i_count.get(caller, {'count': 0,
+    #                                     'call_ids': []})
+    #     dup_info['count'] += 1
+    #     dup_info['call_ids'].append(caller)
+    #     i_count[caller] = dup_info
+    # print(i_count)
     # string1 = 'string'
     # string2 = '123'
     # print(string1.isdigit())

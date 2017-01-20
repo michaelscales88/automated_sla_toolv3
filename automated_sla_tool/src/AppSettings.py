@@ -1,16 +1,18 @@
 from configobj import ConfigObj
 from os import listdir, getcwd
 from os.path import join, isdir, dirname, abspath
+from functools import reduce
 
 
 class AppSettings(ConfigObj):
 
-    def __init__(self, app=None):
-        if not app:
-            raise SystemError('No application for AppSettings')
-        else:
+    def __init__(self, app=None, settings_file=None):
+        if app or settings_file:
             self._my_app = app
-            super().__init__(self.settings_file, create_empty=True)
+            super().__init__(settings_file if settings_file else self.settings_file,
+                             create_empty=True)
+        else:
+            raise SystemError('No application for AppSettings')
 
     @property
     def settings_file(self):
@@ -28,4 +30,11 @@ class AppSettings(ConfigObj):
         else:
             raise SystemError('No settings directory found '
                               'for AppSettings:\n{app}'.format(app=self._my_app.__class__.__name__))
+
+    def setting(self, *keys):
+        try:
+            return reduce(dict.__getitem__, keys, self)
+        except (KeyError, TypeError):
+            print('Could not find settings: {settings}'.format(settings=keys))
+
 

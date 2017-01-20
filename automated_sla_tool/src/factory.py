@@ -2,16 +2,32 @@ from os.path import join
 from re import search, M, I, DOTALL
 from collections import defaultdict
 
-from automated_sla_tool.src.EmailGetter import EmailGetter
+from automated_sla_tool.src.EmailGetter2 import EmailGetter
 from automated_sla_tool.src.utilities import valid_dt
 
 
+def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
+    try:
+        unverified_payload = _read_f_data(f_path=src_f)
+    except (FileNotFoundError, TypeError):
+        try:
+            conn = EmailHunter(settings, parent)
+            conn.go_to_box('Inbox')
+            print(conn.read_ids())
+            # conn2 = EmailHunter(settings, parent)
+            # print(conn2)
+        except TypeError:
+            print('No connection information provided.')
+    else:
+        pass
+
+
 def get_email(report, get='Email Src Settings'):
-    email_data = report.settings.get(get, None)
+    email_data = report.get(get, None)
     if not email_data:
         print('No settings for {report}'.format(report=report.__class__.__name__))
     else:
-        src_files = report.settings('req_src_files', None)
+        src_files = report.get('req_src_files', None)
         if src_files:
             EmailHunter(report.dates, email_data['Login Info']).dl_f_list(f_list=src_files, tgt_dir=report.src_doc_path)
 
@@ -119,10 +135,13 @@ def _write_f_data(data, f_path):
 
 
 class EmailHunter(EmailGetter):
-    def __init__(self, date, login_info):
-        super().__init__(use_date=date, login_type=login_info['login_type'])
-        self.login(username=login_info['user_name'], password=login_info['pw'])
-        self.go_to_box("Inbox")
+    def __init__(self, settings, parent):
+        print('inside extended class')
+        super().__init__(settings, parent)
+    # def __init__(self, date, login_info):
+    #     super().__init__(use_date=date, login_type=login_info['login_type'])
+        # self.login(username=login_info['user_name'], password=login_info['pw'])
+        # self.go_to_box("Inbox")
 
     def return_vm_data(self):
         return self.get_vm_dict(self.read_ids())
@@ -150,6 +169,3 @@ class EmailHunter(EmailGetter):
                 client_data.append(a_vm)
                 voice_mails[client_name] = client_data
         return voice_mails
-
-    def dl_f_list(self, f_list, tgt_dir=None, on_time=None):
-        super().dl_f_list(f_list, tgt_dir)
