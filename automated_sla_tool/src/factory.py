@@ -13,9 +13,8 @@ def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
         try:
             conn = EmailHunter(settings, parent)
             conn.go_to_box('Inbox')
+            # print(conn.check())
             print(conn.read_ids())
-            # conn2 = EmailHunter(settings, parent)
-            # print(conn2)
         except TypeError:
             print('No connection information provided.')
     else:
@@ -135,13 +134,44 @@ def _write_f_data(data, f_path):
 
 
 class EmailHunter(EmailGetter):
-    def __init__(self, settings, parent):
-        print('inside extended class')
-        super().__init__(settings, parent)
-    # def __init__(self, date, login_info):
-    #     super().__init__(use_date=date, login_type=login_info['login_type'])
-        # self.login(username=login_info['user_name'], password=login_info['pw'])
-        # self.go_to_box("Inbox")
+
+    def dl_f_list(self, f_list, tgt_dir, on_time=None):
+        if f_list not in listdir(tgt_dir):
+            on = "ON " + (self.my_date + timedelta(days=1)).strftime("%d-%b-%Y")  # change this to on_time
+            status, data = self.uid('search', on, 'FROM "Chronicall Reports"')
+            if status != 'OK':
+                raise ValueError('Error searching Inbox.')
+
+            # Iterating over all emails
+            for msg_id in data[0].split():
+                status, message_parts = self.uid('fetch', msg_id, '(RFC822)')
+                if status != 'OK':
+                    raise ValueError('Error fetching mail.')
+
+                mail = email.message_from_bytes(message_parts[0][1])
+                for part in mail.walk():
+                    if part.get_content_maintype() == 'multipart':
+                        continue
+                    if part.get('Content-Disposition') is None:
+                        continue
+                    file_name = part.get_filename()
+
+                    if bool(file_name):
+                        file_path = join(tgt_dir, file_name)
+                        if not isfile(file_path):
+                            fp = open(file_path, 'wb')
+                            fp.write(part.get_payload(decode=True))
+                            fp.close()
+        else:
+            print("Files already downloaded.")
+
+    def get_voice_mail_info(self, all_emails):
+        voice_mails = defaultdict(list)
+        for subject_line in all_emails:
+            client_number, phone_number, time_of_call = self.get_tokens(subject_line)
+            if client_number != 0:
+                voice_mails[client_number].append('{0} + {1} {2}'.format(phone_number, self.today, time_of_call))
+        return voice_mails
 
     def return_vm_data(self):
         return self.get_vm_dict(self.read_ids())

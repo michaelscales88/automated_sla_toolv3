@@ -25,6 +25,11 @@ class AppSettings(ConfigObj):
             if isdir(part) and 'settings' in listdir(part):
                 settings_dir = part
                 break
+        else:
+            print('in else')
+            print(dirname(abspath(__package__)))
+            print(abspath(__package__))
+
         if settings_dir:
             return join(getcwd(), settings_dir, 'settings')
         else:
