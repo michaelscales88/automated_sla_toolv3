@@ -1,15 +1,9 @@
-import email
-import email.mime.multipart
-import io
-from  tempfile import NamedTemporaryFile
-import base64
+from email import message_from_bytes
+from tempfile import NamedTemporaryFile
 from imaplib import IMAP4_SSL, IMAP4
-from pyexcel import Book, get_book, get_sheet, Sheet, to_dict, load_from_memory
-from collections import defaultdict
-from os import listdir, getcwd
-from os.path import isfile, join
-from datetime import timedelta, datetime
+from pyexcel import get_book
 from traceback import format_exc
+from datetime import date, datetime
 
 from automated_sla_tool.src.AppSettings import AppSettings
 
@@ -17,6 +11,7 @@ from automated_sla_tool.src.AppSettings import AppSettings
 class EmailGetter(IMAP4_SSL):
     def __init__(self, settings, parent):
         conn_info = self._get_conn_settings(settings, parent)
+        self._parent = parent
         self._settings = AppSettings(self)
         try:
             print(
@@ -26,7 +21,7 @@ class EmailGetter(IMAP4_SSL):
                 )
             )
             super().__init__(conn_info['login_type'])
-            self.attempt_login(conn_info['user_name'], conn_info['pw'])
+            self._attempt_login(conn_info['user_name'], conn_info['pw'])
         except AttributeError:
             print(
                 'No settings found for EmailGetter.'
@@ -65,10 +60,45 @@ class EmailGetter(IMAP4_SSL):
             EmailGetter._conn_set = False
 
     '''
+    Interface
+    '''
+
+    def go_to_box(self, tgt_box):
+        return self.select(tgt_box)
+
+    def all_ids(self, on):
+        all_ids = {}
+        for email_info in self._search(on, 'ALL'):
+            an_id = self._make_data(email_info)
+            all_ids[an_id['subject']] = an_id
+        return all_ids
+
+    def read_ids(self, on):
+        read_ids = {}
+        for email_info in self._search(on, 'SEEN'):
+            read_id = self._make_data(email_info)
+            read_ids[read_id['subject']] = read_id
+        return read_ids
+
+    def unread_ids(self, on):
+        unread_ids = {}
+        for email_info in self._search(on, 'UNSEEN'):
+            unread_id = self._make_data(email_info)
+            unread_ids[unread_id['subject']] = unread_id
+        return unread_ids
+
+    def get_ids(self, on, get):
+        rtn_ids = {}
+        for email_info in self._search(on, get):
+            rtn_id = self._make_data(email_info)
+            rtn_ids[rtn_id['subject']] = rtn_id
+        return rtn_ids
+
+    '''
     Connection Operations
     '''
 
-    def attempt_login(self, username, password):
+    def _attempt_login(self, username, password):
         attempts = 3
         while attempts:
             try:
@@ -113,8 +143,26 @@ class EmailGetter(IMAP4_SSL):
     Email Operations
     '''
 
-    @staticmethod
-    def get_payload(email_info):
+    def _make_data(self, email_info):
+        return {
+            'from': email_info.get('From', None),
+            'dt': email_info.get('Date', None),
+            'subject': email_info.get('Subject', None),
+            'message': self._get_message(email_info),
+            'payload': self._get_payload(email_info)
+        }
+
+    def _get_message(self, email_info):
+        message = ''
+        for part in email_info.walk():
+            if part.get_content_maintype() == 'multipart':
+                continue
+            if part.get_content_type() == 'text/plain':
+                message += str(part.get_payload(decode=True),
+                               encoding=str(part.get_content_charset())).replace('<br/>', '\n')
+        return message
+
+    def _get_payload(self, email_info):
         payload = {}
         for part in email_info.walk():
             if part.get_content_maintype() == 'multipart':
@@ -122,74 +170,30 @@ class EmailGetter(IMAP4_SSL):
             if part.get('Content-Disposition') is None:
                 continue
             f_name = part.get_filename()
-            # f_ext = '.{type}'.format(type=part.get_content_type())
-            f_ext = '{type}'.format(type='xlsx')
-            # print(f_ext)
-            print(part.get_content_type())
-
-            # if bool(f_name):
-            #     # values = io.BytesIO(part.get_payload(decode=True)).getvalue()
-            #     with NamedTemporaryFile(mode='w+b', suffix=f_ext) as f:
-            #         f.write(part.get_payload(decode=True))
-            #         f.seek(0)
-            #         payload[f_name] = get_book(file_type=f_ext,
-            #                                    file_content=f.read()
-            #                                    )
-        # else:
-        #     print(email_info.get_payload(decode=True))
+            f_ext = self._settings['Content Type'].get(part.get_content_type(), None)
+            # See if its possible to get f_ext from .get_content_charset()
+            if f_name and f_ext:
+                with NamedTemporaryFile(mode='w+b', suffix=f_ext) as f:
+                    f.write(part.get_payload(decode=True))
+                    f.seek(0)
+                    payload[f_name] = get_book(
+                        file_type=f_ext,
+                        file_content=f.read()
+                    )
         return payload
-
-    def go_to_box(self, tgt_box):
-        return self.select(tgt_box)
-
-    def all_ids(self):
-        result, data = self.uid('search', None, "ALL")
-        all_list = []
-        if result == 'OK':
-            for num in data[0].split():
-                result, data = self.uid('fetch', num, '(RFC822)')
-                if result == 'OK':
-                    email_message = email.message_from_bytes(data[0][1])
-                    all_list.append(email_message['Subject'])
-        return all_list
-
-    def read_ids(self):
-        read_ids = {}
-        date_sent_on = "ON {}".format(datetime.today().date().strftime("%d-%b-%Y"))
-        for email_info in self._search(date_sent_on):
-            read_id = {
-                'from': email_info.get('From', None),
-                'dt': email_info.get('Date', None),
-                'subject': email_info.get('Subject', None),
-                'payload': self.get_payload(email_info)
-            }
-            read_ids[read_id['subject']] = read_id
-            # break
-            # print(email_info)
-            # break
-        for k, v in read_ids.items():
-            print(k)
-            print(v['payload'])
-
-        result, data = self.uid('search', date_sent_on, 'all')
-
-        read_list = []
-        if result == 'OK':
-            for num in data[0].split():
-                result, data = self.uid('fetch', num, '(RFC822)')
-                if result == 'OK':
-                    email_message = email.message_from_bytes(data[0][1])
-                    read_list.append(email_message['Subject'] + email_message['Date'])
-        return read_list
 
     '''
     Iterator
     '''
 
-    def _search(self, look_for):
-        result, data = self.uid('search', look_for, 'all')
-        if result == 'OK':
-            for uid in data[0].split():
-                result, data = self.uid('fetch', uid, '(RFC822)')
-                if result == 'OK':
-                    yield (email.message_from_bytes(data[0][1]))
+    def _search(self, look_for, status):
+        if isinstance(look_for, (date, datetime)):
+            on = 'ON {date}'.format(date=look_for.strftime("%d-%b-%Y"))
+            result, data = self.uid('search', on, status)
+            if result == 'OK':
+                for uid in data[0].split():
+                    result, data = self.uid('fetch', uid, '(RFC822)')
+                    if result == 'OK':
+                        yield (message_from_bytes(data[0][1]))
+        else:
+            print('No datetime or date provided for EmailGetter._search')

@@ -101,6 +101,7 @@ _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_
 
 def test():
     email = get_data(settings=AppSettings(settings_file=_settings))
+
     # string_test = 'Voicemail Message (8472243850 > Danaher) From:8472243850Fri, 13 Jan 2017 07:08:43 -0600'
     # # print(iso8601.parse_date(string_test))
     # dt = valid_dt(string_test.split(',')[1])

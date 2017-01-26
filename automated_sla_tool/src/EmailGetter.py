@@ -110,7 +110,7 @@ class EmailGetter:
                         file_path = join(tgt_dir, file_name)
                         if not isfile(file_path):
                             fp = open(file_path, 'wb')
-                            fp.write(part.get_payload(decode=True))
+                            fp.write(part._get_payload(decode=True))
                             fp.close()
         else:
             print("Files already downloaded.")

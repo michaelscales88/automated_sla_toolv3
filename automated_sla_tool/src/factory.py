@@ -1,6 +1,7 @@
 from os.path import join
 from re import search, M, I, DOTALL
 from collections import defaultdict
+from datetime import datetime
 
 from automated_sla_tool.src.EmailGetter2 import EmailGetter
 from automated_sla_tool.src.utilities import valid_dt
@@ -10,13 +11,16 @@ def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
     try:
         unverified_payload = _read_f_data(f_path=src_f)
     except (FileNotFoundError, TypeError):
-        try:
-            conn = EmailHunter(settings, parent)
-            conn.go_to_box('Inbox')
-            # print(conn.check())
-            print(conn.read_ids())
-        except TypeError:
-            print('No connection information provided.')
+        conn = EmailHunter(settings, parent)
+        conn.go_to_box('Inbox')
+        rtn = conn.get_f_list(datetime.today().date(),
+                              'FROM "Chronicall Reports"',
+                              ['Realtime Feature Trace', 'All Group Abandoned', 'All Call Details'])
+        for subject in rtn.keys():
+            payload = rtn[subject]['payload']
+            for obj in payload.keys():
+
+        print(type(rtn['All Group Abandoned']['payload']['Group Abandoned Calls.xlsx']))
     else:
         pass
 
@@ -135,35 +139,12 @@ def _write_f_data(data, f_path):
 
 class EmailHunter(EmailGetter):
 
-    def dl_f_list(self, f_list, tgt_dir, on_time=None):
-        if f_list not in listdir(tgt_dir):
-            on = "ON " + (self.my_date + timedelta(days=1)).strftime("%d-%b-%Y")  # change this to on_time
-            status, data = self.uid('search', on, 'FROM "Chronicall Reports"')
-            if status != 'OK':
-                raise ValueError('Error searching Inbox.')
-
-            # Iterating over all emails
-            for msg_id in data[0].split():
-                status, message_parts = self.uid('fetch', msg_id, '(RFC822)')
-                if status != 'OK':
-                    raise ValueError('Error fetching mail.')
-
-                mail = email.message_from_bytes(message_parts[0][1])
-                for part in mail.walk():
-                    if part.get_content_maintype() == 'multipart':
-                        continue
-                    if part.get('Content-Disposition') is None:
-                        continue
-                    file_name = part.get_filename()
-
-                    if bool(file_name):
-                        file_path = join(tgt_dir, file_name)
-                        if not isfile(file_path):
-                            fp = open(file_path, 'wb')
-                            fp.write(part.get_payload(decode=True))
-                            fp.close()
-        else:
-            print("Files already downloaded.")
+    def get_f_list(self, on, recip, f_list):
+        payload = {}
+        ids = super().get_ids(on, recip)
+        for f in f_list:
+            payload[f] = ids.get(f, None)
+        return payload
 
     def get_voice_mail_info(self, all_emails):
         voice_mails = defaultdict(list)
