@@ -25,11 +25,14 @@ from automated_sla_tool.src.SysLog import SysLog
 from time import sleep
 from collections import defaultdict, OrderedDict
 from automated_sla_tool.src.utilities import valid_dt
+import speech_recognition as sr
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
-
-
+# GOOGLE_CLOUD_SPEECH_CREDENTIALS = r""""installed":{"client_id":"766872889458-u869th48ktiifumrk5ek2a7lp36tb04r.apps.googleusercontent.com","project_id":"encoded-vista-156916","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://accounts.google.com/o/oauth2/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"bTvPefgEbqvc5k11JcoeAhSJ","redirect_uris":["urn:ietf:wg:oauth:2.0:oob","http://localhost"]}"""
+# GOOGLE_CLOUD_SPEECH_CREDENTIALS = path.join(
+#     r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings',
+#     'client_secret_766872889458-u869th48ktiifumrk5ek2a7lp36tb04r.apps.googleusercontent.com.json')
 # def get_config(config_path, name):
 #     logging.config.dictConfig(config_path)
 #     return logging.getLogger(name)
@@ -97,10 +100,27 @@ _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_
 #     @name.setter
 #     def name(self, name):
 #         self._name = name
+# AUDIO_FILE = path.join(r'C:\Users\mscales\Downloads', "man1_nb.wav")
+AUDIO_FILE = path.join(r'C:\Users\mscales\Downloads', "MSG00053.wav")
 
 
 def test():
+    # from os import getcwd
+    # wav_f = path.join(getcwd(), 'MSG00053.wav')
+    # with open(wav_f) as f:
+    #     print(type(f))
     email = get_data(settings=AppSettings(settings_file=_settings))
+    # r = sr.Recognizer()
+    # with sr.AudioFile(AUDIO_FILE) as source:
+    #     audio = r.record(source)  # read the entire audio file
+    #
+    # # recognize speech using Google Cloud Speech
+    #     try:
+    #         print("Google Cloud Speech thinks you said {speech}".format(speech=r.recognize_google_cloud(audio)))
+    #     except sr.UnknownValueError:
+    #         print("Google Cloud Speech could not understand audio")
+    #     except sr.RequestError as e:
+    #         print("Could not request results from Google Cloud Speech service; {0}".format(e))
 
     # string_test = 'Voicemail Message (8472243850 > Danaher) From:8472243850Fri, 13 Jan 2017 07:08:43 -0600'
     # # print(iso8601.parse_date(string_test))

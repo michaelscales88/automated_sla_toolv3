@@ -1,9 +1,12 @@
+import wave as wav
+from pyaudio import PyAudio
 from email import message_from_bytes
 from tempfile import NamedTemporaryFile
 from imaplib import IMAP4_SSL, IMAP4
 from pyexcel import get_book
 from traceback import format_exc
 from datetime import date, datetime
+
 
 from automated_sla_tool.src.AppSettings import AppSettings
 
@@ -68,9 +71,13 @@ class EmailGetter(IMAP4_SSL):
 
     def all_ids(self, on):
         all_ids = {}
+        passes = 0
         for email_info in self._search(on, 'ALL'):
             an_id = self._make_data(email_info)
             all_ids[an_id['subject']] = an_id
+            if passes > 4:
+                break
+            passes += 1
         return all_ids
 
     def read_ids(self, on):
@@ -165,6 +172,7 @@ class EmailGetter(IMAP4_SSL):
     def _get_payload(self, email_info):
         payload = {}
         for part in email_info.walk():
+            # print(part)
             if part.get_content_maintype() == 'multipart':
                 continue
             if part.get('Content-Disposition') is None:
@@ -173,13 +181,41 @@ class EmailGetter(IMAP4_SSL):
             f_ext = self._settings['Content Type'].get(part.get_content_type(), None)
             # See if its possible to get f_ext from .get_content_charset()
             if f_name and f_ext:
+
+                    #     stream = PyAudio()
+                # if part.get_content_type() == 'audio/wav':
+                #     with wav.open(mode='rb') as f:
+                #         f.write(part.get_payload(decode=True))
+                #         f.seek(0)
+                #         payload[f_name] = get_book(
+                #             file_type=f_ext,
+                #             file_content=f.read()
+                #         )
+                #     payload[f_name] = part.get_payload(decode=True)
                 with NamedTemporaryFile(mode='w+b', suffix=f_ext) as f:
                     f.write(part.get_payload(decode=True))
                     f.seek(0)
-                    payload[f_name] = get_book(
-                        file_type=f_ext,
-                        file_content=f.read()
-                    )
+                    if f_ext == 'xlsx':
+                        payload[f_name] = get_book(
+                            file_type=f_ext,
+                            file_content=f.read()
+                        )
+                    if f_ext == 'wav':
+                        # print('trying to open wav file')
+                        # with wav.open(f, mode='rb') as wo:
+                        #     wf = wav.open('output.wav', mode='wb')
+                        #     wf.setparams((wo.getparams()))
+                        #     for i in range(0, wo.getnframes()):
+                        #         wf.writeframes(wo.readframes(i))
+                        #     wf.close()
+                        #     print('closed wav file')
+                        #     # (nchannels, sampwidth, framerate, nframes, comptype, compname) = wo.getparams()
+                        #     # wf = wav.open('output.wav', 'wb')
+
+                        #     print(type(wf))
+                        #     wf.close()
+                        print(f)
+                        payload[f_name] = f
         return payload
 
     '''

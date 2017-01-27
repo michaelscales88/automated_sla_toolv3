@@ -45,6 +45,8 @@ class AReport(UtilityObject):
 
     def load_documents(self):
         # TODO abstract this -> *args
+        # TODO 2: error handling for BadZipFile error from openpyxl. handles corrupted files
+        # Error handling should prompt the user to redownload the file
         if self.fr.finished:
             return
         else:
@@ -88,7 +90,6 @@ class AReport(UtilityObject):
                                                                     ext=ext))
             rename(old_f, new_f)
 
-    # this doesn't need to go deep twice if files found on first pass
     def loader(self, unloaded_files, need_to_dl=False, f_ext='xlsx'):
         if need_to_dl is True:
             self.dl_src_files(files=unloaded_files)
@@ -291,7 +292,7 @@ class AReport(UtilityObject):
                             file_path = join(self.src_doc_path, file_name)
                             if not isfile(file_path):
                                 fp = open(file_path, 'wb')
-                                fp.write(part._get_payload(decode=True))
+                                fp.write(part.get_payload(decode=True))
                                 fp.close()
 
                 imap_session.close()

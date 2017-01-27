@@ -1,10 +1,12 @@
+import wave
 from os.path import join
 from re import search, M, I, DOTALL
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from automated_sla_tool.src.EmailGetter2 import EmailGetter
 from automated_sla_tool.src.utilities import valid_dt
+from automated_sla_tool.src.AudioTranscription import AudioTranscription as scribe
 
 
 def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
@@ -13,14 +15,17 @@ def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
     except (FileNotFoundError, TypeError):
         conn = EmailHunter(settings, parent)
         conn.go_to_box('Inbox')
-        rtn = conn.get_f_list(datetime.today().date(),
-                              'FROM "Chronicall Reports"',
-                              ['Realtime Feature Trace', 'All Group Abandoned', 'All Call Details'])
+        rtn = conn.all_ids(datetime.today().date() - timedelta(days=1))
+        # rtn = conn.get_f_list(datetime.today().date() - timedelta(days=1),
+        #                       'FROM "Chronicall Reports"',
+        #                       ['Realtime Feature Trace', 'All Group Abandoned', 'All Call Details'])
         for subject in rtn.keys():
             payload = rtn[subject]['payload']
-            for obj in payload.keys():
-
-        print(type(rtn['All Group Abandoned']['payload']['Group Abandoned Calls.xlsx']))
+            a_scribe = scribe()
+            for text in a_scribe.transcribe([obj for obj in payload.values() if isinstance(obj, wave.Wave_write)]):
+                print(text)
+            # for obj in payload.keys():
+            #     print('My payload is: {obj} {o_type}'.format(obj=payload[obj], o_type=type(payload[obj])))
     else:
         pass
 
