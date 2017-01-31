@@ -3,7 +3,8 @@ from datetime import time, datetime
 from automated_sla_tool.src.QueryWriter import QueryWriter
 
 
-class SqliteWriter(QueryWriter):
+class InternalDb(QueryWriter):
+
     def __init__(self, **parameters):
         super().__init__()
         self.path = self.fnd_dir()
@@ -16,14 +17,12 @@ class SqliteWriter(QueryWriter):
             time: 'TEXT',
             datetime: 'DATETIME'
         }  # Command Interpreter Python/SQLite
-        self._conn = self.get_conn()
-        print('Successful connection to:\n{0}'.format(self))
+        self.connect()
 
     def init_params(self, **kwargs):
         conn_string = '{path}\{db}.db'.format(path=self.path,
                                               db=kwargs.get('local_db', 'test'))
         self._params['local_db'] = conn_string
-        print(self._params['local_db'])
 
     def copy_tables(self, columns, data):
         try:
@@ -94,10 +93,6 @@ class SqliteWriter(QueryWriter):
 
     def get_conn(self):
         return lite.connect(self._params['local_db'])
-
-    def refresh_connection(self):
-        self._conn.close()
-        self._conn = self.get_conn()
 
     def commit_changes(self):
         self._conn.commit()

@@ -13,10 +13,8 @@ class QueryWriter(object):
     def name(self):
         return self._params['local_db'] if self._params.get('local_db', None) else self._params.get('DATABASE', 'unknwn')
 
-    def copy_table(self):
-        print('No copy_table function provided.', flush=True)
-
-    def transform_pyexcel(self, ptr):
+    @staticmethod
+    def transform(ptr):
         headers = [column[0] for column in ptr.description]
         rtn_sheet = pe.Sheet()
         rtn_sheet.row += headers
@@ -25,9 +23,41 @@ class QueryWriter(object):
             rtn_sheet.row += list(rows)
         return rtn_sheet
 
+    def __repr__(self):
+        return '\n'.join([v for v in self._params.values()])
+
+    def __del__(self):
+        self.close_conn()
+
+    '''
+    dB Connection Methods
+    '''
+
+    def connect(self):
+        self._conn = self.get_conn()
+        print('Successful connection to:\n{0}'.format(self))
+
+    def get_conn(self):
+        pass
+
+    def refresh_connection(self):
+        self.close_conn()
+        self.connect()
+
+    def close_conn(self):
+        try:
+            self._conn.close()
+            print(r'Connection to {conn} successfully closed.'.format(conn=self.name))
+        except AttributeError:
+            print(r'No connection to close.')
+
+    '''
+    Query Methods
+    '''
+
     def get_data(self, sql_command):
         cur = self.exc_cmd(sql_command)
-        return OrderedDict([(column[0], column[1]) for column in cur.description]), self.transform_pyexcel(cur)
+        return OrderedDict([(column[0], column[1]) for column in cur.description]), QueryWriter.transform(cur)
 
     def exc_cmd(self, sql_command):
         print(sql_command, flush=True)
@@ -44,12 +74,7 @@ class QueryWriter(object):
         else:
             print('No connection to transfer to.')
 
-    def __repr__(self):
-        return '\n'.join([v for v in self._params.values()])
+    def copy_table(self):
+        print('No copy_table function provided.', flush=True)
 
-    def __del__(self):
-        try:
-            self._conn.close()
-            print(r'Connection to {conn} successfully closed.'.format(conn=self.name))
-        except AttributeError:
-            print(r'No connection to close.')
+

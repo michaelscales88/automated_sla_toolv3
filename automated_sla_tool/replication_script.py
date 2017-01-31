@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
-from automated_sla_tool.src.SqliteWriter import SqliteWriter as sq_lite
+from automated_sla_tool.src.InternalDb import InternalDb as sq_lite
 
 
 class SqlCommand(object):

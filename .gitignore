@@ -26,6 +26,7 @@ var/
 *.db
 *config.py
 *.ini
+*.json
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -96,3 +97,5 @@ ENV/
 
 Attachment Archive/
 Output/
+/magic.mgc
+

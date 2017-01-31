@@ -21,7 +21,7 @@ import iso8601
 from os import path
 from automated_sla_tool.src.AppSettings import AppSettings
 from automated_sla_tool.src.factory import get_data
-from automated_sla_tool.src.SysLog import SysLog
+from automated_sla_tool.src.InternalDb import InternalDb
 from time import sleep
 from collections import defaultdict, OrderedDict
 from automated_sla_tool.src.utilities import valid_dt
@@ -110,6 +110,11 @@ def test():
     # with open(wav_f) as f:
     #     print(type(f))
     email = get_data(settings=AppSettings(settings_file=_settings))
+    for k, v in email.items():
+        print(k)
+        print(v)
+    conn = InternalDb()
+    print(conn.get_tables())
     # r = sr.Recognizer()
     # with sr.AudioFile(AUDIO_FILE) as source:
     #     audio = r.record(source)  # read the entire audio file
@@ -343,6 +348,8 @@ def test():
     # print(
     #     [0 for x in range(10)]
     # )
+
+
     print('Complete')
 
 

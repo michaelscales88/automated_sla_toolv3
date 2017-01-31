@@ -2,7 +2,7 @@ from dateutil.parser import parse
 
 
 def valid_dt(date_string):
-    validated_dt = False
+    validated_dt = None
     try:
         validated_dt = parse(date_string, ignoretz=True)
     except ValueError:

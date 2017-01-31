@@ -3,123 +3,34 @@ from os.path import join
 from re import search, M, I, DOTALL
 from collections import defaultdict
 from datetime import datetime, timedelta
+from pyexcel import Book
 
-from automated_sla_tool.src.EmailGetter2 import EmailGetter
+from automated_sla_tool.src.ImapConnection import ImapConnection
+from automated_sla_tool.src.AudioTranscription import AudioTranscription as Scribe
 from automated_sla_tool.src.utilities import valid_dt
-from automated_sla_tool.src.AudioTranscription import AudioTranscription as scribe
 
 
 def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
     try:
         unverified_payload = _read_f_data(f_path=src_f)
     except (FileNotFoundError, TypeError):
-        conn = EmailHunter(settings, parent)
+        conn = SlaSrcHunter(settings, parent)
         conn.go_to_box('Inbox')
-        rtn = conn.all_ids(datetime.today().date() - timedelta(days=1))
+        return conn.get_vm()
+        # rtn = conn.all_ids(datetime.today().date() - timedelta(days=1))
+        # print(rtn)
         # rtn = conn.get_f_list(datetime.today().date() - timedelta(days=1),
         #                       'FROM "Chronicall Reports"',
         #                       ['Realtime Feature Trace', 'All Group Abandoned', 'All Call Details'])
-        for subject in rtn.keys():
-            payload = rtn[subject]['payload']
-            a_scribe = scribe()
-            for text in a_scribe.transcribe([obj for obj in payload.values() if isinstance(obj, wave.Wave_write)]):
-                print(text)
+        # a_scribe = Scribe()
+        # for subject in rtn.keys():
+        #     payload = rtn[subject]['payload']
+        #     for text in a_scribe.transcribe([obj.name for obj in payload.values() if not isinstance(obj, Book)]):
+        #         print(text)
             # for obj in payload.keys():
             #     print('My payload is: {obj} {o_type}'.format(obj=payload[obj], o_type=type(payload[obj])))
     else:
         pass
-
-
-def get_email(report, get='Email Src Settings'):
-    email_data = report.get(get, None)
-    if not email_data:
-        print('No settings for {report}'.format(report=report.__class__.__name__))
-    else:
-        src_files = report.get('req_src_files', None)
-        if src_files:
-            EmailHunter(report.dates, email_data['Login Info']).dl_f_list(f_list=src_files, tgt_dir=report.src_doc_path)
-
-
-def get_vm(report, get='Voice Mail Data'):
-    vm_data = report.settings.get(get, None)
-    if not vm_data:
-        print('No settings for {report}'.format(report=report.__class__.__name__))
-    else:
-        verified_data = {}
-        # check_data = {}
-        try:
-            f_fmt_info = vm_data.get('File Fmt Info', None)
-            f_path = join(
-                report.src_doc_path,
-                f_fmt_info['f_fmt'].format(file_fmt=report.dates.strftime(f_fmt_info['string_fmt']),
-                                           f_ext=f_fmt_info['f_ext'])
-            )
-        except TypeError:
-            print('Incorrect email settings for {report} {type}'
-                  'Modifications can be made in /settings'.format(report=report.__class__.__name__,
-                                                                  type=get))
-        else:
-
-            try:
-                verified_data = _read_f_data(f_path)
-            except FileNotFoundError:
-                try:
-                    raw_data = EmailHunter(report.dates, vm_data['Login Info']).return_vm_data()
-                except KeyError:
-                    from traceback import format_exc
-                    from time import sleep
-                    sleep(1)
-                    print(format_exc())
-                else:
-                    verified_data, check_data = report.modify_vm(raw_data)
-                    # _write_f_data(verified_data, f_path)
-        # print('verified dataa')
-        # print(verified_data)
-        # print(check_data)
-        # print(type(check_data))
-        # raw_list_indexed = {}
-        # for client, data in verified_data.items():
-        #     # print(client)
-        #     # print(data)
-        #     for item in data:
-        #         raw_list_indexed[item] = {'call_id': item,
-        #                                   'client': client}
-        #
-        # for client, data in check_data.items():
-        #     print(client)
-        #     for call in data:
-        #         if call['call_id'] in raw_list_indexed:
-        #             print('found call: {call}'.format(call=call['call_id']))
-        #         else:
-        #             print('not found call: {call}'.format(call=call['call_id']))
-        # for call in data:
-        #         raw_list_indexed[call['call_id']] = call
-        # for client in verified_data:
-        #     for call in client:
-        #         if call in raw_list_indexed:
-        #             print('found')
-        #             print(call)
-        #         else:
-        #             print('not found')
-        #             print(call)
-
-
-        # for item in check_data.keys():
-        #     data_list = verified_data.get(item, [])
-        #     raw_list = check_data[item]
-        #
-        #     for call in raw_list:
-        #         raw_list_indexed[call['call_id']] = call
-        #     if data:
-        #         for call in data:
-        #             if call in check_data[item]:
-        #                 print('call found')
-        #                 print(call)
-        #             else:
-        #                 print('not found')
-        #                 print(call)
-        # print('count: {count}'.format(count=len([value for client, value in verified_data.items()])))
-        return verified_data
 
 
 def _read_f_data(f_path):
@@ -142,46 +53,46 @@ def _write_f_data(data, f_path):
             )
 
 
-class EmailHunter(EmailGetter):
+class SlaSrcHunter(ImapConnection):
 
-    def get_f_list(self, on, recip, f_list):
+    @staticmethod
+    def tokenize(full_string, pivot):  # create settings option which creates an OD that executes instructions
+        if full_string:
+            search_object = search('\(([^()]+)\)', full_string, M | I | DOTALL)
+            try:
+                val1, val2 = search_object.groups()[0].split(pivot)
+            except AttributeError:
+                val1 = val2 = False
+            return val1, val2
+
+    def get_f_list(self, on, f_list):
         payload = {}
-        ids = super().get_ids(on, recip)
+        ids = super().get_ids(on, 'FROM "Chronicall Reports"')
         for f in f_list:
             payload[f] = ids.get(f, None)
         return payload
 
-    def get_voice_mail_info(self, all_emails):
-        voice_mails = defaultdict(list)
-        for subject_line in all_emails:
-            client_number, phone_number, time_of_call = self.get_tokens(subject_line)
-            if client_number != 0:
-                voice_mails[client_number].append('{0} + {1} {2}'.format(phone_number, self.today, time_of_call))
-        return voice_mails
-
-    def return_vm_data(self):
-        return self.get_vm_dict(self.read_ids())
-
-    def tokenize(self, full_string, pivot):  # create settings option which creates an OD that executes instructions
-        raw_subject_line, raw_date_string = full_string.split(pivot[0])
-        dt_token = valid_dt(raw_date_string)
-        search_object = search('\(([^()]+)\)', raw_subject_line, M | I | DOTALL)
-        try:
-            val1, val2 = search_object.groups()[0].split(pivot[1])
-        except AttributeError:
-            val1 = val2 = False
-        return dt_token, val1, val2
-
-    def get_vm_dict(self, all_emails):
-        voice_mails = defaultdict(list)
-        for subject_line in all_emails:
-            dt_token, phone_number, client_name = self.tokenize(subject_line, pivot=(', ', ' > '))
+    def get_vm(self):
+        payload = {}
+        ids = super().get_ids(datetime.today().date(), 'FROM "vmpro@mindwireless.com"')
+        for k, v in ids.items():
+            phone_number, client_name = self.tokenize(v.pop('subject', None), pivot=' > ')
             if client_name:
-                client_data = voice_mails.get(client_name, [])
+                client_data = payload.get(client_name, [])
                 a_vm = {
                     'phone_number': phone_number,
-                    'time': dt_token
+                    'time': valid_dt(v['dt'])
                 }
                 client_data.append(a_vm)
-                voice_mails[client_name] = client_data
-        return voice_mails
+                payload[client_name] = client_data
+            # print('\nemail: {eml}'.format(eml=k))
+            # print(v['subject'])
+            # print(v['dt'])
+            # print(v['payload'])
+            # print(v['message'])
+            # print(v['from'])
+            # for ik, iv in v.items():
+            #     print('inside')
+            #     print(ik)
+            #     print(iv)
+        return payload

@@ -125,8 +125,8 @@ class SlaReport(AReport):
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
             for client_name, client_num in [(client, int(values['client_num']))
-                                            for client, values in self._settings['Clients'].items()]:
-                                            # if self.str_to_bool(values['full_service']) is True]:
+                                            for client, values in self._settings['Clients'].items()
+                                            if self.str_to_bool(values['full_service']) is True]:
                 num_calls = self.sla_report[client_num].get_number_of_calls()
                 this_row = dict((value, 0) for value in headers[1:])
                 this_row['I/C Presented'] = sum(num_calls.values())
@@ -181,25 +181,30 @@ class SlaReport(AReport):
     Report Filters by row
     '''
 
-    def blank_row_filter(self, row):
+    @staticmethod
+    def blank_row_filter(row):
         result = [element for element in str(row[3]) if element != '']
         return len(result) == 0
 
-    def answered_filter(self, row):
+    @staticmethod
+    def answered_filter(row):
         try:
             answered = row[-5]
         except ValueError:
             answered = False
         return answered
 
-    def inbound_call_filter(self, row):
+    @staticmethod
+    def inbound_call_filter(row):
         return row[0] not in ('Inbound', 'Call Direction')
 
-    def zero_duration_filter(self, row):
+    @staticmethod
+    def zero_duration_filter(row):
         result = [element for element in row[-1] if element != '']
         return len(result) == 0
 
-    def remove_internal_inbound_filter(self, row):
+    @staticmethod
+    def remove_internal_inbound_filter(row):
         return row[-2] == row[-3]
 
     '''
