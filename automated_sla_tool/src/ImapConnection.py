@@ -28,7 +28,7 @@ class ImapConnection(IMAP4_SSL):
             print(
                 'No settings found for EmailGetter.'
             )
-        except KeyError:
+        except (KeyError, TypeError):
             print(
                 'No connection information provided for EmailGetter.'
             )
@@ -133,16 +133,18 @@ class ImapConnection(IMAP4_SSL):
     def _get_conn_settings(*args):
         conn_info = None
         for arg in args:
-            if hasattr(arg, 'setting'):
-                try:
+            try:
+                if hasattr(arg, 'setting'):
                     conn_info = arg['Connection Info']['Email']
-                except KeyError:
-                    print('No settings found:\n'
-                          '[Connection Info]\n'
-                          '[[Email]]\n'
-                          'for property: {arg}'.format(arg=arg))
-                else:
                     break
+                if hasattr(arg, 'settings'):
+                    conn_info = arg.settings['Connection Info']['Email']
+                    break
+            except (AttributeError, KeyError):
+                print('No settings found:\n'
+                      '[Connection Info]\n'
+                      '[[Email]]\n'
+                      'for property: {arg}'.format(arg=arg))
         return conn_info
 
     '''
@@ -158,7 +160,9 @@ class ImapConnection(IMAP4_SSL):
             'payload': self._get_payload(email_info)
         }
 
-    def _get_message(self, email_info):
+    @staticmethod
+    # TODO combine this into _get_payload
+    def _get_message(email_info):
         message = ''
         for part in email_info.walk():
             if part.get_content_maintype() == 'multipart':

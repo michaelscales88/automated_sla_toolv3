@@ -19,8 +19,9 @@ import logging
 import logging.config
 import iso8601
 from os import path
+from os.path import basename
 from automated_sla_tool.src.AppSettings import AppSettings
-from automated_sla_tool.src.factory import get_data
+from automated_sla_tool.src.factory import get_email_data
 from automated_sla_tool.src.InternalDb import InternalDb
 from time import sleep
 from collections import defaultdict, OrderedDict
@@ -109,12 +110,13 @@ def test():
     # wav_f = path.join(getcwd(), 'MSG00053.wav')
     # with open(wav_f) as f:
     #     print(type(f))
-    email = get_data(settings=AppSettings(settings_file=_settings))
+    email = get_email_data(settings=AppSettings(settings_file=_settings))
+    print(email)
     for k, v in email.items():
         print(k)
         print(v)
-    conn = InternalDb()
-    print(conn.get_tables())
+    # conn = InternalDb()
+    # print(conn.get_tables())
     # r = sr.Recognizer()
     # with sr.AudioFile(AUDIO_FILE) as source:
     #     audio = r.record(source)  # read the entire audio file

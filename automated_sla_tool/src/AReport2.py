@@ -7,7 +7,8 @@ from glob import glob
 from dateutil.parser import parse
 from pyexcel import get_book, RowValueFilter, Sheet, Book
 
-from automated_sla_tool.src.UtilityObject import UtilityObject
+from automated_sla_tool.src.AppSettings import AppSettings
+from automated_sla_tool.src.UtilityObject2 import UtilityObject
 from automated_sla_tool.src.FinalReport import FinalReport
 from automated_sla_tool.src.factory import get_email_data
 
@@ -18,24 +19,21 @@ class UniqueDict(dict):
             super().__setitem__(key, value)
 
 
-class AReport(UtilityObject):
-    def __init__(self,
-                 report_dates=None,
-                 report_type=None):
-        super().__init__()
-        if report_dates is None:
-            raise ValueError('No report date provided... Try again.')
-        self.dates = report_dates
-        self.fr = FinalReport(report_type=report_type, report_date=self.dates, my_report=self)
+class AReport(object):
+    def __init__(self, report_dates=None):
+        self._settings = AppSettings(app=self)
+        self._util = UtilityObject()
+        self._r_interval = report_dates if report_dates else self.__class__.manual_input(self)
+        self._product = FinalReport(report_type=self._settings['report_type'],
+                                    report_date=self._r_interval,
+                                    my_report=self)
         self.src_files = {}
-        self.req_src_files = []
+        self.req_src_files = [item.format(date=self.dates.strftime(self._settings['vm_fmt']))
+                              for item in self._settings['req_src_files']]
         self.path = dirname(dirname(abspath(__file__)))
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
         self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
-        self.login_type = r'imap.gmail.com'
-        self.user_name = r'mindwirelessreporting@gmail.com'
-        self.password = r'7b!2gX4bD3'
         if isinstance(self.dates, date):
             self.util_datetime = datetime.combine(self.dates, time())
             self.day_of_wk = self.dates.weekday()
@@ -43,6 +41,9 @@ class AReport(UtilityObject):
         else:
             self.util_datetime = None
             self.day_of_wk = None
+
+    def manual_input(self):
+        raise Exception('No extended method provided')
 
     def load_documents(self):
         # TODO abstract this -> *args
@@ -113,6 +114,7 @@ class AReport(UtilityObject):
         if self.fr.finished:
             return
         else:
+            # get_email_data(tgt_payload=files, parent=self)
             self.download_chronicall_files(file_list=files)
             src_file_directory = listdir(self.src_doc_path)
             for file in src_file_directory:

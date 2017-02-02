@@ -10,27 +10,30 @@ from automated_sla_tool.src.AudioTranscription import AudioTranscription as Scri
 from automated_sla_tool.src.utilities import valid_dt
 
 
-def get_data(tgt_payload=None, settings=None, src_f=None, parent=None):
-    try:
-        unverified_payload = _read_f_data(f_path=src_f)
-    except (FileNotFoundError, TypeError):
-        conn = SlaSrcHunter(settings, parent)
-        conn.go_to_box('Inbox')
-        return conn.get_vm()
-        # rtn = conn.all_ids(datetime.today().date() - timedelta(days=1))
-        # print(rtn)
-        # rtn = conn.get_f_list(datetime.today().date() - timedelta(days=1),
-        #                       'FROM "Chronicall Reports"',
-        #                       ['Realtime Feature Trace', 'All Group Abandoned', 'All Call Details'])
-        # a_scribe = Scribe()
-        # for subject in rtn.keys():
-        #     payload = rtn[subject]['payload']
-        #     for text in a_scribe.transcribe([obj.name for obj in payload.values() if not isinstance(obj, Book)]):
-        #         print(text)
-            # for obj in payload.keys():
-            #     print('My payload is: {obj} {o_type}'.format(obj=payload[obj], o_type=type(payload[obj])))
-    else:
-        pass
+def get_email_data(tgt_payload=None, settings=None, src_f=None, parent=None):
+    conn = SlaSrcHunter(settings, parent)
+    conn.go_to_box('Inbox')
+    return conn.get_vm()
+    # try:
+    #     unverified_payload = _read_f_data(f_path=src_f)
+    # except (FileNotFoundError, TypeError):
+    #     conn = SlaSrcHunter(settings, parent)
+    #     conn.go_to_box('Inbox')
+    #     return conn.get_vm()
+    #     # rtn = conn.all_ids(datetime.today().date() - timedelta(days=1))
+    #     # print(rtn)
+    #     # rtn = conn.get_f_list(datetime.today().date() - timedelta(days=1),
+    #     #                       'FROM "Chronicall Reports"',
+    #     #                       ['Realtime Feature Trace', 'All Group Abandoned', 'All Call Details'])
+    #     # a_scribe = Scribe()
+    #     # for subject in rtn.keys():
+    #     #     payload = rtn[subject]['payload']
+    #     #     for text in a_scribe.transcribe([obj.name for obj in payload.values() if not isinstance(obj, Book)]):
+    #     #         print(text)
+    #         # for obj in payload.keys():
+    #         #     print('My payload is: {obj} {o_type}'.format(obj=payload[obj], o_type=type(payload[obj])))
+    # else:
+    #     pass
 
 
 def _read_f_data(f_path):
@@ -74,7 +77,7 @@ class SlaSrcHunter(ImapConnection):
 
     def get_vm(self):
         payload = {}
-        ids = super().get_ids(datetime.today().date(), 'FROM "vmpro@mindwireless.com"')
+        ids = super().get_ids(datetime.today().date() - timedelta(days=1), 'FROM "vmpro@mindwireless.com"')
         for k, v in ids.items():
             phone_number, client_name = self.tokenize(v.pop('subject', None), pivot=' > ')
             if client_name:
@@ -85,14 +88,4 @@ class SlaSrcHunter(ImapConnection):
                 }
                 client_data.append(a_vm)
                 payload[client_name] = client_data
-            # print('\nemail: {eml}'.format(eml=k))
-            # print(v['subject'])
-            # print(v['dt'])
-            # print(v['payload'])
-            # print(v['message'])
-            # print(v['from'])
-            # for ik, iv in v.items():
-            #     print('inside')
-            #     print(ik)
-            #     print(iv)
         return payload

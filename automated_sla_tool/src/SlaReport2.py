@@ -6,8 +6,8 @@ from os.path import join, isfile
 from pyexcel import get_sheet
 
 from automated_sla_tool.src.BucketDict import BucketDict
-from automated_sla_tool.src.AReport import AReport
-from automated_sla_tool.src.AppSettings import AppSettings
+from automated_sla_tool.src.AReport2 import AReport
+from automated_sla_tool.src.EmailHunter import get_vm
 from automated_sla_tool.src.utilities import valid_dt
 
 
@@ -16,21 +16,19 @@ from automated_sla_tool.src.utilities import valid_dt
 
 class SlaReport(AReport):
     def __init__(self, report_date=None):
-        report_date = report_date if report_date else self.manual_input()
-        self._settings = AppSettings(app=self)
-        super().__init__(report_dates=report_date,
-                         report_type=self._settings['report_type'])  # provide month/day to put manual_input -1 layer
-        self.clients = self.get_client_settings()
-        self.clients_verbose = self.make_verbose_dict()
+        super().__init__(report_dates=report_date)
         if self.check_finished(sub_dir=self._settings['sub_dir_fmt'],
                                report_string=self._settings['file_fmt']):
             print('Report Complete for {date}'.format(date=self.dates))
         else:
             print('Building a report for {date}'.format(date=self.dates))
-            self.req_src_files = self._settings['req_src_files']
+            self.req_src_files = [item.format(date=self.dates.strftime(self._settings['vm_fmt']))
+                                  for item in self._settings['req_src_files']]
             self.load_and_prepare()
             self.sla_report = {}
+
             self.norm_day = self.day_of_wk not in (5, 6)
+
             self.orphaned_voicemails = None
             self.src_files[r'Voice Mail'] = defaultdict(list)
             self.get_voicemails()
@@ -80,6 +78,9 @@ class SlaReport(AReport):
                                        one_filter=self.answered_filter)
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
         self.scrutinize_abandon_group()
+
+        # self.src_files[r'Voice Mail'] = get_vm(self)
+        # print(self.src_files[r'Voice Mail'])
 
     def extract_report_information(self):
         if self.fr.finished:

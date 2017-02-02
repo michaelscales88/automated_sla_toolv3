@@ -21,32 +21,15 @@ class AppSettings(ConfigObj):
     def settings_directory(self):
         return join(dirname(dirname(__file__)), 'settings')
 
-    # @property
-    # def settings_directory(self):
-    #     settings_dir = None
-    #     for part in listdir(dirname(abspath(__package__)) if __package__ else getcwd()):
-    #         if isdir(part) and 'settings' in listdir(part):
-    #             settings_dir = part
-    #             break
-    #     else:
-    #         print('in else')
-    #         print(__file__)
-    #         print(dirname(__file__))
-    #         print(__package__)
-    #         print(dirname(abspath(__package__)))
-    #         print(abspath(__package__))
-    #         print(listdir(dirname(abspath(__package__))))
-    #
-    #     if settings_dir:
-    #         return join(getcwd(), settings_dir, 'settings')
-    #     else:
-    #         raise SystemError('No settings directory found '
-    #                           'for AppSettings:\n{app}'.format(app=self._my_app.__class__.__name__))
-
     def setting(self, *keys):
         try:
             return reduce(dict.__getitem__, keys, self)
         except (KeyError, TypeError):
             print('Could not find settings: {settings}'.format(settings=keys))
+
+    def settings_w_formatting(self):
+        # this should return a list of settings with formatting if applicable
+        # E.g. req_src_files with {} filled
+        pass
 
 
