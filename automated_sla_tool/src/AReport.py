@@ -5,7 +5,7 @@ from re import sub, split
 from datetime import timedelta, datetime, time, date
 from glob import glob
 from dateutil.parser import parse
-from pyexcel import get_book, RowValueFilter, Sheet, Book
+from pyexcel import get_book, Sheet, Book
 
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.FinalReport import FinalReport
@@ -143,11 +143,13 @@ class AReport(UtilityObject):
     @staticmethod
     def apply_formatters_to_sheet(sheet, filters=(), one_filter=None):
         for a_filter in filters:
-            this_filter = RowValueFilter(a_filter)
-            sheet.filter(this_filter)
+            del sheet.row[a_filter]
+            # this_filter = RowValueFilter(a_filter)
+            # sheet.filter(this_filter)
         if one_filter:
-            this_filter = RowValueFilter(one_filter)
-            sheet.filter(this_filter)
+            # this_filter = RowValueFilter(one_filter)
+            # sheet.filter(this_filter)
+            del sheet.row[one_filter]
 
     def copy_and_convert(self, file_location, directory):
         from shutil import move
@@ -173,21 +175,34 @@ class AReport(UtilityObject):
             del workbook['Summary']
         except KeyError:
             pass
-        chronicall_report_filter = RowValueFilter(self.header_filter)
+        # chronicall_report_filter = RowValueFilter(AReport.header_filter)
         for sheet_name in reversed(workbook.sheet_names()):
+            del workbook[sheet_name].row[AReport.header_filter]
+            # workbook[sheet_name].name_rows_by_column(0)
+            # workbook[sheet_name].name_columns_by_row(0)
             sheet = workbook[sheet_name]
-            sheet.filter(chronicall_report_filter)
-            sheet.name_columns_by_row(0)
-            sheet.name_rows_by_column(0)
-            try:
-                self.chck_rpt_dates(sheet)
-            except ValueError:
-                print('removing {sheet_name}'.format(sheet_name=sheet_name))
-                workbook.remove_sheet(sheet_name)
+
+            # sheet.name_rows_by_column(0)
+            # sheet.name_columns_by_row(0)
+            print(sheet)
+            # sheet.filter(chronicall_report_filter)
+            # print(sheet)
+            # del sheet.row[AReport.header_filter]
+            # print(sheet)
+            # break
+
+            # print(sheet)
+
+
+            # try:
+            #     self.chck_rpt_dates(sheet)
+            # except ValueError:
+            #     print('removing {sheet_name}'.format(sheet_name=sheet_name))
+            #     workbook.remove_sheet(sheet_name)
         return workbook
 
     @staticmethod
-    def header_filter(row):
+    def header_filter(row_index, row):
         corner_case = split('\(| - ', row[0])
         bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
         return True if len(corner_case) > 1 else bad_word

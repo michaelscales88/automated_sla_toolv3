@@ -1,6 +1,6 @@
 from automated_sla_tool.src.GenericUi import GenericUi as Ui
-# from automated_sla_tool.src.SlaReport import SlaReport
-from automated_sla_tool.src.SlaReport2 import SlaReport  # test version
+from automated_sla_tool.src.SlaReport import SlaReport
+# from automated_sla_tool.src.SlaReport2 import SlaReport  # test version
 from datetime import datetime
 
 

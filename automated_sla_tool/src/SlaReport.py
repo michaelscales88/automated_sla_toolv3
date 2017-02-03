@@ -178,12 +178,12 @@ class SlaReport(AReport):
     '''
 
     @staticmethod
-    def blank_row_filter(row):
+    def blank_row_filter(row_index, row):
         result = [element for element in str(row[3]) if element != '']
         return len(result) == 0
 
     @staticmethod
-    def answered_filter(row):
+    def answered_filter(row_index, row):
         try:
             answered = row[-5]
         except ValueError:
@@ -191,16 +191,16 @@ class SlaReport(AReport):
         return answered
 
     @staticmethod
-    def inbound_call_filter(row):
+    def inbound_call_filter(row_index, row):
         return row[0] not in ('Inbound', 'Call Direction')
 
     @staticmethod
-    def zero_duration_filter(row):
+    def zero_duration_filter(row_index, row):
         result = [element for element in row[-1] if element != '']
         return len(result) == 0
 
     @staticmethod
-    def remove_internal_inbound_filter(row):
+    def remove_internal_inbound_filter(row_index, row):
         return row[-2] == row[-3]
 
     '''

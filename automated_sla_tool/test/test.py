@@ -27,6 +27,7 @@ from time import sleep
 from collections import defaultdict, OrderedDict
 from automated_sla_tool.src.utilities import valid_dt
 import speech_recognition as sr
+from pyexcel import Sheet
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
@@ -105,16 +106,21 @@ _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_
 AUDIO_FILE = path.join(r'C:\Users\mscales\Downloads', "MSG00053.wav")
 
 
+def filter_row(row_index, row):
+    result = [element for element in row if element != '']
+    return len(result) == 0
+
+
 def test():
     # from os import getcwd
     # wav_f = path.join(getcwd(), 'MSG00053.wav')
     # with open(wav_f) as f:
     #     print(type(f))
-    email = get_email_data(settings=AppSettings(settings_file=_settings))
-    print(email)
-    for k, v in email.items():
-        print(k)
-        print(v)
+    # email = get_email_data(settings=AppSettings(settings_file=_settings))
+    # print(email)
+    # for k, v in email.items():
+    #     print(k)
+    #     print(v)
     # conn = InternalDb()
     # print(conn.get_tables())
     # r = sr.Recognizer()
@@ -160,20 +166,26 @@ def test():
     # s = 'stuff stuff (1235) stuff'
     # matches = re.search(r"([0-9]+)", s)
     # print(matches.group(0))
-    # sheet = pe.Sheet(colnames=['', 'stuff'])
-    # rows = [
-    #     ['row_name1', 'stuff_value3'],
-    #     ['row_name2', 'stuff_value1'],
-    #     ['row_name3', 'stuff_value3'],
-    #     ['row_name4', 'stuff_value'],
-    #     ['row_name5', 'stuff_value2'],
-    #     ['row_name6', 'stuff_value'],
-    #     ['row_name7', 'stuff_value2'],
-    #     ['row_name8', 'stuff_value']
-    # ]
-    # for row in rows:
-    #     sheet.row += row
-    # sheet.name_rows_by_column(0)
+    sheet = pe.Sheet(colnames=['', 'stuff'])
+    rows = [
+        ['row_name1', 'stuff_value3'],
+        ['', ''],
+        ['row_name2', 'stuff_value1'],
+        ['row_name3', 'stuff_value3'],
+        ['', ''],
+        ['row_name4', 'stuff_value'],
+        ['row_name5', 'stuff_value2'],
+        ['row_name6', 'stuff_value'],
+        ['row_name7', 'stuff_value2'],
+        ['', ''],
+        ['row_name8', 'stuff_value']
+    ]
+    for row in rows:
+        sheet.row += row
+    sheet.name_rows_by_column(0)
+    print(sheet)
+    del sheet.row[filter_row]
+    print(sheet)
     # # for row_name in sheet.rownames:
     # #     if sheet[row_name, 'stuff'] == 'stuff_value1':
     # #         sheet.delete_named_row_at(row_name)
