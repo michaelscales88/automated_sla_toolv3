@@ -7,8 +7,8 @@ from pyexcel import get_sheet
 
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
-from automated_sla_tool.src.AppSettings import AppSettings
 from automated_sla_tool.src.utilities import valid_dt
+from automated_sla_tool.src.AppSettings import AppSettings
 
 
 # TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
@@ -18,6 +18,8 @@ class SlaReport(AReport):
     def __init__(self, report_date=None):
         report_date = report_date if report_date else self.manual_input()
         self._settings = AppSettings(app=self)
+        # self._settings.format_settings(date=report_date)
+        # print(self._settings)
         super().__init__(report_dates=report_date,
                          report_type=self._settings['report_type'])  # provide month/day to put manual_input -1 layer
         self.clients = self.get_client_settings()
@@ -69,10 +71,10 @@ class SlaReport(AReport):
             self.zero_duration_filter,
             self.remove_internal_inbound_filter
         ]
-        self.src_files[r'Call Details (Basic)'] = self.collate_wb_to_sheet(wb=self.src_files[r'Call Details (Basic)'])
-        self.apply_formatters_to_sheet(sheet=self.src_files[r'Call Details (Basic)'],
+        self.src_files[r'Call Details'] = self.collate_wb_to_sheet(wb=self.src_files[r'Call Details'])
+        self.apply_formatters_to_sheet(sheet=self.src_files[r'Call Details'],
                                        filters=call_details_filters)
-        self.src_files[r'Call Details (Basic)'].name = 'call_details'
+        self.src_files[r'Call Details'].name = 'call_details'
         self.compile_call_details()
 
         self.src_files[r'Group Abandoned Calls'] = self.collate_wb_to_sheet(wb=self.src_files[r'Group Abandoned Calls'])
@@ -85,7 +87,7 @@ class SlaReport(AReport):
         if self.fr.finished:
             return
         else:
-            ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details (Basic)'])
+            ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
             lost_cid_by_client = self.group_cid_by_client(self.src_files[r'Group Abandoned Calls'])
             for client_name, client_num, full_service in [(client,
                                                            int(values['client_num']),
@@ -101,7 +103,7 @@ class SlaReport(AReport):
                 if not self.sla_report[client_num].is_empty():
                     # TODO this could perhaps be a try: ... KeyError...
                     if self.sla_report[client_num].no_answered() is False:
-                        self.sla_report[client_num].extract_call_details(self.src_files[r'Call Details (Basic)'])
+                        self.sla_report[client_num].extract_call_details(self.src_files[r'Call Details'])
                     if self.sla_report[client_num].no_lost() is False:
                         self.sla_report[client_num].extract_abandon_group_details(
                             self.src_files[r'Group Abandoned Calls'])
@@ -218,12 +220,12 @@ class SlaReport(AReport):
                     ('Hold Time', [])
                 ]
             )
-            for row_name in self.src_files[r'Call Details (Basic)'].rownames:
+            for row_name in self.src_files[r'Call Details'].rownames:
                 unhandled_call_data = {
                     k: 0 for k in hold_events
                 }
-                tot_call_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Call Duration'])
-                talk_duration = self.get_sec(self.src_files[r'Call Details (Basic)'][row_name, 'Talking Duration'])
+                tot_call_duration = self.get_sec(self.src_files[r'Call Details'][row_name, 'Call Duration'])
+                talk_duration = self.get_sec(self.src_files[r'Call Details'][row_name, 'Talking Duration'])
                 call_id = row_name.replace(':', ' ')
                 cradle_sheet = self.src_files[r'Cradle to Grave'][call_id]
                 for event_row in cradle_sheet.rownames:
@@ -234,7 +236,7 @@ class SlaReport(AReport):
                 raw_time_waited = tot_call_duration - talk_duration - raw_hold_time
                 additional_columns['Hold Time'].append(self.convert_time_stamp(raw_hold_time))
                 additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
-            self.src_files[r'Call Details (Basic)'].extend_columns(additional_columns)
+            self.src_files[r'Call Details'].extend_columns(additional_columns)
 
     def scrutinize_abandon_group(self):
         if self.fr.finished:
@@ -529,7 +531,7 @@ class SlaReport(AReport):
             if int(input('1 to open file: ')) is 1:
                 super().open(user_string=self._settings['file_fmt'],
                              sub_dir=self._settings['sub_dir_fmt'])
-        except ValueError:
+        except (ValueError, FileNotFoundError):
             pass
 
 

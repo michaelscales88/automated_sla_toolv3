@@ -9,6 +9,7 @@ from pyexcel import get_book, Sheet, Book
 
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.FinalReport import FinalReport
+from automated_sla_tool.src.AppSettings import AppSettings
 from automated_sla_tool.src.factory import get_email_data
 
 
@@ -23,6 +24,7 @@ class AReport(UtilityObject):
                  report_dates=None,
                  report_type=None):
         super().__init__()
+        # self._settings = AppSettings(app=self)
         if report_dates is None:
             raise ValueError('No report date provided... Try again.')
         self.dates = report_dates
@@ -136,19 +138,16 @@ class AReport(UtilityObject):
             i_count[dup_event] = dup_info
         return i_count
 
-    def apply_formatters_to_wb(self, wb, filters=(), one_filter=None):
+    @staticmethod
+    def apply_formatters_to_wb(wb, filters=(), one_filter=None):
         for sheet in wb:
-            self.apply_formatters_to_sheet(sheet, filters, one_filter)
+            AReport.apply_formatters_to_sheet(sheet, filters, one_filter)
 
     @staticmethod
     def apply_formatters_to_sheet(sheet, filters=(), one_filter=None):
         for a_filter in filters:
             del sheet.row[a_filter]
-            # this_filter = RowValueFilter(a_filter)
-            # sheet.filter(this_filter)
         if one_filter:
-            # this_filter = RowValueFilter(one_filter)
-            # sheet.filter(this_filter)
             del sheet.row[one_filter]
 
     def copy_and_convert(self, file_location, directory):
@@ -175,30 +174,15 @@ class AReport(UtilityObject):
             del workbook['Summary']
         except KeyError:
             pass
-        # chronicall_report_filter = RowValueFilter(AReport.header_filter)
         for sheet_name in reversed(workbook.sheet_names()):
-            del workbook[sheet_name].row[AReport.header_filter]
-            # workbook[sheet_name].name_rows_by_column(0)
-            # workbook[sheet_name].name_columns_by_row(0)
-            sheet = workbook[sheet_name]
-
-            # sheet.name_rows_by_column(0)
-            # sheet.name_columns_by_row(0)
-            print(sheet)
-            # sheet.filter(chronicall_report_filter)
-            # print(sheet)
-            # del sheet.row[AReport.header_filter]
-            # print(sheet)
-            # break
-
-            # print(sheet)
-
-
-            # try:
-            #     self.chck_rpt_dates(sheet)
-            # except ValueError:
-            #     print('removing {sheet_name}'.format(sheet_name=sheet_name))
-            #     workbook.remove_sheet(sheet_name)
+            sheet = workbook.sheet_by_name(sheet_name)
+            del sheet.row[AReport.header_filter]
+            sheet.name_rows_by_column(0)
+            sheet.name_columns_by_row(0)
+            try:
+                self.chck_rpt_dates(sheet)
+            except ValueError:
+                workbook.remove_sheet(sheet_name)
         return workbook
 
     @staticmethod
@@ -368,6 +352,7 @@ class AReport(UtilityObject):
         if report_string and sub_dir:
             the_file = join(self.fr.save_path, sub_dir, '{file}.{ext}'.format(file=report_string, ext=fmt))
             if isfile(the_file):
+                print('I know this file is completed.')
                 self.fr.open_existing(the_file)
             return self.fr.finished
         else:
