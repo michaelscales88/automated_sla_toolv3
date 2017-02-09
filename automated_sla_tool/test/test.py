@@ -29,6 +29,7 @@ from automated_sla_tool.src.utilities import valid_dt
 import speech_recognition as sr
 from pyexcel import Sheet
 from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
+import types
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
@@ -112,7 +113,15 @@ def filter_row(row_index, row):
     return len(result) == 0
 
 
+def test_method(self, something_else):
+    print(self, something_else)
+
+
 def test():
+    thing = 'string1'
+    meth = types.MethodType(test_method, thing)
+    meth('other thing')
+    # bound_handler = test_method.__get__(self, thing)
     # book = pe.get_book(file_name=FILEPATH)
     # for sheet in book:
     #     print(sheet)

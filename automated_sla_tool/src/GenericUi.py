@@ -20,7 +20,6 @@ class GenericUi(object):
 
     def run(self):
         while not self.finished:
-            # self.display_ui()
             try:
                 self.display_ui()
             except AttributeError:
