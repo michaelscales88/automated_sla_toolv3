@@ -10,8 +10,10 @@ class SqlWriter(QueryWriter):
         print('Successful connection to:\n{0}'.format(self))
 
     def get_conn(self):
-        conn_string = ''.join([v for v in self._params.values()])
-        return ps.connect(conn_string, timeout=2, unicode_results=True, readonly=True)
+        conn_string = ''.join([v for v in self._params.values() if v is not None])
+        print(conn_string)
+        # return ps.connect(conn_string, timeout=2, unicode_results=True, readonly=True)
+        return ps.connect('Driver={SQL Server};Server=10.1.3.43;Database=IssueTracker;uid=IssueTrackerWeblogin;pwd=mw!2006')
 
     def init_params(self, **kwargs):
         self._params['DRIVER'] = '{0}={1};'.format('DRIVER', kwargs.get('DRIVER', '{PostgreSQL Unicode}'))
@@ -19,7 +21,7 @@ class SqlWriter(QueryWriter):
         self._params['PWD'] = '{0}={1};'.format('PWD', kwargs.get('PWD', None))
         self._params['SERVER'] = '{0}={1};'.format('SERVER', kwargs.get('SERVER', None))
         self._params['PORT'] = '{0}={1};'.format('PORT', kwargs.get('PORT', None))
-        self._params['DATABASE'] = '{0}={1};'.format('DATABASE', kwargs.get('DATABASE', None))
+        self._params['data'] = '{0}={1};'.format('database', kwargs.get('DATABASE', None))
         self._params['Trusted_Connection'] = '{0}={1};'.format('Trusted_Connection',
                                                                kwargs.get('Trusted_Connection', 'yes'))
 

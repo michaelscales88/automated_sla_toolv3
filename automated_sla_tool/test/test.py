@@ -29,7 +29,11 @@ from automated_sla_tool.src.utilities import valid_dt
 import speech_recognition as sr
 from pyexcel import Sheet
 from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
+import pypyodbc as py
 import types
+from urllib.request import urlopen
+import requests
+
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
@@ -118,9 +122,54 @@ def test_method(self, something_else):
 
 
 def test():
-    thing = 'string1'
-    meth = types.MethodType(test_method, thing)
-    meth('other thing')
+    # jar = requests.RequestsCookieJar()
+    login_info = {'user': 'ops_mscales', 'pw': 'wireless!'}
+    with requests.Session() as s:
+        s.post('http://insidemw.com:21120/default.aspx', data=login_info)
+        html = s.get(r'http://insidemw.com:21120/edit_bug.aspx?id=5855316')
+        print(html.text)
+    # r = requests.get('http://insidemw.com:21120/', params=login_info)
+    # r = requests.post('http://insidemw.com:21120/', data=login_info)
+    # print(r.headers['content-type'])
+    # print(r.encoding)
+    # print(r.text)
+    # print(r.json())
+    # html = urlopen(r'http://insidemw.com:21120/edit_bug.aspx?id=5855316')
+    # print(html.read().decode('utf-8'))
+    # testfile = request.URLopener()
+    # testfile.retrieve("http://randomsite.com/file.gz", "file.gz")
+    # conn_string = {
+    #     'DRIVER': '{SQL Server}',
+    #     'DATABASE': 'IssueTracker',
+    #     'UID': 'IssueTrackerWeblogin',
+    #     'PWD': 'mw!2006',
+    #     'SERVER': '10.1.3.43'
+    # }
+    # creating connection Object which will contain SQL Server Connection
+    # connection = py.connect('Driver={SQL Server};Server=10.1.3.43;Database=IssueTracker;uid=IssueTrackerWeblogin;pwd=mw!2006')
+    # print(connection)
+    # conn_string = {
+    #     'DATABASE': 'chronicall',
+    #     'UID': 'Chronicall',
+    #     'PWD': 'ChR0n1c@ll1337',
+    #     'SERVER': '10.1.3.17',
+    #     'PORT': '9086'
+    # }
+    # query = '''
+    # select bp_file, isnull(bp_content_type,'') [bp_content_type]
+    # from bug_posts
+    # where bp_id = 24115415
+    # and bp_bug = 5855316;
+    # '''
+    # conn = ps_write(**conn_string)
+    # wav_file = conn.exc_cmd(query)
+    # f_path = r'C:/Users/Mscales/Desktop/test.wav'
+    # with open(f_path, mode='w+b') as f:
+    #     f.write(wav_file.fetchone()[0])
+    #     f.seek(0)
+    # thing = 'string1'
+    # meth = types.MethodType(test_method, thing)
+    # meth('other thing')
     # bound_handler = test_method.__get__(self, thing)
     # book = pe.get_book(file_name=FILEPATH)
     # for sheet in book:
