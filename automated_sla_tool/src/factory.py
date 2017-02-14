@@ -10,10 +10,12 @@ from automated_sla_tool.src.AudioTranscription import AudioTranscription as Scri
 from automated_sla_tool.src.utilities import valid_dt
 
 
-def get_email_data(tgt_payload=None, settings=None, src_f=None, parent=None):
-    conn = SlaSrcHunter(settings, parent)
-    conn.go_to_box('Inbox')
-    return conn.get_vm()
+def get_email_data(parent=None):
+    if parent and parent.__class__.__name__ == 'SlaReport':
+        conn = SlaSrcHunter(None, parent)
+        conn.go_to_box('Inbox')
+        print(conn.get_f_list(parent.dates, parent.req_src_files))
+        print(conn.get_vm(parent.dates))
     # try:
     #     unverified_payload = _read_f_data(f_path=src_f)
     # except (FileNotFoundError, TypeError):
@@ -59,7 +61,7 @@ def _write_f_data(data, f_path):
 class SlaSrcHunter(ImapConnection):
 
     @staticmethod
-    def tokenize(full_string, pivot):  # create settings option which creates an OD that executes instructions
+    def tokenize(full_string, pivot):  # create settings option which creates an OrdDict that executes instructions
         if full_string:
             search_object = search('\(([^()]+)\)', full_string, M | I | DOTALL)
             try:
@@ -75,9 +77,9 @@ class SlaSrcHunter(ImapConnection):
             payload[f] = ids.get(f, None)
         return payload
 
-    def get_vm(self):
+    def get_vm(self, on):
         payload = {}
-        ids = super().get_ids(datetime.today().date() - timedelta(days=1), 'FROM "vmpro@mindwireless.com"')
+        ids = super().get_ids(on, 'FROM "vmpro@mindwireless.com"')
         for k, v in ids.items():
             phone_number, client_name = self.tokenize(v.pop('subject', None), pivot=' > ')
             if client_name:

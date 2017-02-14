@@ -10,7 +10,7 @@ class AppSettings(ConfigObj):
             self._my_app = app
             super().__init__(settings_file if settings_file else self.settings_file,
                              create_empty=True)
-            # self.format_settings()
+            self.format_settings()
         else:
             raise SystemError('No application for AppSettings')
 
@@ -28,12 +28,11 @@ class AppSettings(ConfigObj):
         except (KeyError, TypeError):
             print('Could not find settings: {settings}'.format(settings=keys))
 
-    def format_settings(self, next_lvl=None, date=None):
+    def format_settings(self, v=None, date=None):
         format_list = self.setting('Date Formats')
-        this_dict = next_lvl if next_lvl else self
-        for k, v in this_dict.items():
-            if isinstance(v, dict):
-                self.format_settings(next_lvl=v, date=date)
+        for k, v in (v if v else self).items():
+            if hasattr(v, 'items'):
+                self.format_settings(v=v, date=date)
             else:
                 try:
                     for fmt in format_list:

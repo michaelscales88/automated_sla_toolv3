@@ -27,7 +27,7 @@ from time import sleep
 from collections import defaultdict, OrderedDict
 from automated_sla_tool.src.utilities import valid_dt
 import speech_recognition as sr
-from pyexcel import Sheet
+from pyexcel import Sheet, get_book
 from automated_sla_tool.src.SqlWriter import SqlWriter as ps_write
 import pypyodbc as py
 import types
@@ -122,12 +122,14 @@ def test_method(self, something_else):
 
 
 def test():
+    sheet = get_book(file_name=FILEPATH)
+    print(sheet.__class__.__name__ == 'Book')
     # jar = requests.RequestsCookieJar()
-    login_info = {'user': 'ops_mscales', 'pw': 'wireless!'}
-    with requests.Session() as s:
-        s.post('http://insidemw.com:21120/default.aspx', data=login_info)
-        html = s.get(r'http://insidemw.com:21120/edit_bug.aspx?id=5855316')
-        print(html.text)
+    # login_info = {'user': 'ops_mscales', 'pw': 'wireless!'}
+    # with requests.Session() as s:
+    #     s.post('http://insidemw.com:21120/default.aspx', data=login_info)
+    #     html = s.get(r'http://insidemw.com:21120/edit_bug.aspx?id=5855316')
+    #     print(html.text)
     # r = requests.get('http://insidemw.com:21120/', params=login_info)
     # r = requests.post('http://insidemw.com:21120/', data=login_info)
     # print(r.headers['content-type'])
