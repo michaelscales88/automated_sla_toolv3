@@ -122,8 +122,9 @@ def test_method(self, something_else):
 
 
 def test():
-    sheet = get_book(file_name=FILEPATH)
-    print(sheet.__class__.__name__ == 'Book')
+    AppSettings(settings_file=_settings)
+    # sheet = get_book(file_name=FILEPATH)
+    # print(sheet.__class__.__name__ == 'Book')
     # jar = requests.RequestsCookieJar()
     # login_info = {'user': 'ops_mscales', 'pw': 'wireless!'}
     # with requests.Session() as s:

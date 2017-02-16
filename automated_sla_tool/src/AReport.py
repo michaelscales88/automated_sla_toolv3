@@ -55,7 +55,13 @@ class AReport(UtilityObject):
         else:
             for (f, p) in self.loader(self.req_src_files).items():
                 file = get_book(file_name=p)
-                self.src_files[f] = self.filter_chronicall_reports(file)
+                try:
+                    self.src_files[f] = self.filter_chronicall_reports(file)
+                except IndexError:
+                    print(f)
+                    # add something that opens, saves and closes then reopens the file
+                    raise
+
             if self.req_src_files:
                 print('Could not find files:\n{files}'.format(
                     files='\n'.join([f for f in self.req_src_files])

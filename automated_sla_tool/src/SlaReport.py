@@ -18,14 +18,7 @@ from automated_sla_tool.src.AppSettings import AppSettings
 class SlaReport(AReport):
     def __init__(self, report_date=None):
         report_date = report_date if report_date else self.manual_input()
-        try:
-            self._settings = AppSettings(app=self)
-        except AttributeError:
-            sleep(.5)
-            raise
-        # self._settings.format_settings(date=report_date)
-        print(self._settings)
-        return
+        self._settings = AppSettings(app=self)
         super().__init__(report_dates=report_date,
                          report_type=self._settings['report_type'])  # provide month/day to put manual_input -1 layer
         self.clients = self.get_client_settings()

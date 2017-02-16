@@ -1,6 +1,7 @@
 from configobj import ConfigObj
 from os.path import join, dirname
 from functools import reduce
+from datetime import datetime
 
 
 class AppSettings(ConfigObj):
@@ -28,25 +29,43 @@ class AppSettings(ConfigObj):
         except (KeyError, TypeError):
             print('Could not find settings: {settings}'.format(settings=keys))
 
-    def format_settings(self, v=None, date=None):
-        format_list = self.setting('Date Formats')
+    # TODO this is not working as intended. should go to nth depth, but is missing depth - 1
+    def __iter__(self, v=None):
         for k, v in (v if v else self).items():
             if hasattr(v, 'items'):
-                self.format_settings(v=v, date=date)
+                # print('diving deeper')
+                # print(v)
+                self.__iter__(v=v)
             else:
+                # print('k {}'.format(k))
+                # print('v {}'.format(v))
+                yield k, v
+
+    def format_settings(self, date=None):
+        format_list = self.setting('Date Formats')
+        date = datetime.today()
+        for label, value in self:
+            if label == 'file_fmt':
+                print('label {}'.format(label))
+                print('value {}'.format(value))
+                # print('checking formats')
+            for fmt in format_list:
+                if label == 'file_fmt':
+                    print(fmt)
+                    print(format_list[fmt])
+                    # print(date.strftime(format_list[fmt]))
                 try:
-                    for fmt in format_list:
-                        print(fmt)
-                        print(format_list[fmt])
-                        curr_setting = self.setting(k)
-                        print(curr_setting)
-                        try:
-                            curr_setting.format(fmt=date.strftime(format_list[fmt]))
-                        except KeyError:
-                            pass
+                    print(value.format(fmt=date.strftime(format_list[fmt])))
                 except KeyError:
-                    from time import sleep
-                    sleep(1)
-                    raise
-                # print('trying to format: ')
-                # print(k)
+                    print('keyerror')
+                    print(fmt)
+                    print(format_list[fmt])
+                    print(date.strftime(format_list[fmt]))
+                except AttributeError:
+                    pass
+                else:
+                    print(value)
+                    # for item in value:
+                    #     print(item)
+                # self[label] = value.format(fmt=date.strftime(format_list[fmt]))
+            # print(self[label])
