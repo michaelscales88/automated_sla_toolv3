@@ -7,7 +7,8 @@ from glob import glob
 from dateutil.parser import parse
 from pyexcel import get_book, Sheet, Book
 
-from automated_sla_tool.src.UtilityObject import UtilityObject
+from automated_sla_tool.src.ReportTemplate import ReportTemplate
+from automated_sla_tool.src.ReportUtilities import ReportUtilities
 from automated_sla_tool.src.FinalReport import FinalReport
 from automated_sla_tool.src.AppSettings import AppSettings
 from automated_sla_tool.src.factory import get_email_data
@@ -19,34 +20,33 @@ class UniqueDict(dict):
             super().__setitem__(key, value)
 
 
-class AReport(UtilityObject):
-    def __init__(self,
-                 report_dates=None,
-                 report_type=None):
+class AReport(ReportTemplate):
+    def __init__(self, rpt_inr=None):
         super().__init__()
-        # self._settings = AppSettings(app=self)
-        if report_dates is None:
-            raise ValueError('No report date provided... Try again.')
-        self.dates = report_dates
-        self.fr = FinalReport(report_type=report_type, report_date=self.dates, my_report=self)
-        self.src_files = {}
-        self.req_src_files = []
-        self.path = dirname(dirname(abspath(__file__)))
+        self._settings = AppSettings(app=self)
+        self._util = ReportUtilities()
+        self._inr = rpt_inr if rpt_inr else self.manual_input()
+        self.fr = FinalReport(report_type=self._settings['report_type'],
+                              report_date=self._inr,
+                              my_report=self)
+        self.req_src_files = self._settings.setting('req_src_files', rtn_val=[])
+
         self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
         self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
-        if isinstance(self.dates, date):
-            self.util_datetime = datetime.combine(self.dates, time())
-            self.day_of_wk = self.dates.weekday()
+
+        if isinstance(self._inr, date):
+            self.util_datetime = datetime.combine(self._inr, time())
+            self.day_of_wk = self._inr.weekday()
             self.src_doc_path = self.open_src_dir()
         else:
             self.util_datetime = None
             self.day_of_wk = None
 
-    def load_documents(self):
+    def load(self):
         # TODO abstract this -> *args
         # TODO 2: error handling for BadZipFile error from openpyxl. handles corrupted files
         # Error handling should prompt the user to redownload the file
@@ -78,14 +78,19 @@ class AReport(UtilityObject):
     OS Operations
     '''
 
+    @property
+    def util(self):
+        return self._util
+
     def open_src_dir(self):
         file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=dirname(self.path),
                                                     sub='Attachment Archive',
-                                                    yr=self.dates.strftime('%Y'),
-                                                    tgt=self.dates.strftime('%m%d'))
-        makedirs(file_dir, exist_ok=True)
+                                                    yr=self._inr.strftime('%Y'),
+                                                    tgt=self._inr.strftime('%m%d'))
+        self._util.make_dir(file_dir)
         return file_dir
 
+    # TODO push this into ReportUtilities
     def clean_src_loc(self, spc_ch, del_ch):
         # TODO today test this more... doesn't merge/delete original file
         file_list = [f for f in listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
@@ -131,30 +136,32 @@ class AReport(UtilityObject):
     '''
     Report Utilities
     '''
+    def manual_input(self):
+        pass
 
-    @staticmethod
-    def find_non_distinct(sheet=None, event_col=None):
-        i_count = {}
-        for row_name in reversed(sheet.rownames):
-            dup_event = sheet[row_name, event_col]
-            dup_info = i_count.get(dup_event, {'count': 0,
-                                               'rows': []})
-            dup_info['count'] += 1
-            dup_info['rows'].append(row_name)
-            i_count[dup_event] = dup_info
-        return i_count
-
-    @staticmethod
-    def apply_formatters_to_wb(wb, filters=(), one_filter=None):
-        for sheet in wb:
-            AReport.apply_formatters_to_sheet(sheet, filters, one_filter)
-
-    @staticmethod
-    def apply_formatters_to_sheet(sheet, filters=(), one_filter=None):
-        for a_filter in filters:
-            del sheet.row[a_filter]
-        if one_filter:
-            del sheet.row[one_filter]
+    # @staticmethod
+    # def find_non_distinct(sheet=None, event_col=None):
+    #     i_count = {}
+    #     for row_name in reversed(sheet.rownames):
+    #         dup_event = sheet[row_name, event_col]
+    #         dup_info = i_count.get(dup_event, {'count': 0,
+    #                                            'rows': []})
+    #         dup_info['count'] += 1
+    #         dup_info['rows'].append(row_name)
+    #         i_count[dup_event] = dup_info
+    #     return i_count
+    #
+    # @staticmethod
+    # def apply_formatters_to_wb(wb, filters=(), one_filter=None):
+    #     for sheet in wb:
+    #         AReport.apply_formatters_to_sheet(sheet, filters, one_filter)
+    #
+    # @staticmethod
+    # def apply_formatters_to_sheet(sheet, filters=(), one_filter=None):
+    #     for a_filter in filters:
+    #         del sheet.row[a_filter]
+    #     if one_filter:
+    #         del sheet.row[one_filter]
 
     def copy_and_convert(self, file_location, directory):
         from shutil import move
@@ -182,7 +189,7 @@ class AReport(UtilityObject):
             pass
         for sheet_name in reversed(workbook.sheet_names()):
             sheet = workbook.sheet_by_name(sheet_name)
-            del sheet.row[AReport.header_filter]
+            del sheet.row[self.util.header_filter]
             sheet.name_rows_by_column(0)
             sheet.name_columns_by_row(0)
             try:
@@ -191,11 +198,11 @@ class AReport(UtilityObject):
                 workbook.remove_sheet(sheet_name)
         return workbook
 
-    @staticmethod
-    def header_filter(row_index, row):
-        corner_case = split('\(| - ', row[0])
-        bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
-        return True if len(corner_case) > 1 else bad_word
+    # @staticmethod
+    # def header_filter(row_index, row):
+    #     corner_case = split('\(| - ', row[0])
+    #     bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
+    #     return True if len(corner_case) > 1 else bad_word
 
     def chck_rpt_dates(self, sheet):
         first = self.chck_w_in_days(sheet.column['Start Time'][0])
@@ -208,34 +215,34 @@ class AReport(UtilityObject):
         else:
             raise ValueError
 
-    @staticmethod
-    def collate_wb_to_sheet(wb=()):
-        headers = ['row_names'] + wb[0].colnames
-        sheet_to_replace_wb = Sheet(colnames=headers)
-        unique_records = UniqueDict()
-        for sheet in wb:
-            for i, name in enumerate(sheet.rownames):
-                unique_records[name] = sheet.row_at(i)
-        for rec in sorted(unique_records.keys()):
-            sheet_to_replace_wb.row += [rec] + unique_records[rec]
-        sheet_to_replace_wb.name_rows_by_column(0)
-        return sheet_to_replace_wb
+    # @staticmethod
+    # def collate_wb_to_sheet(wb=()):
+    #     headers = ['row_names'] + wb[0].colnames
+    #     sheet_to_replace_wb = Sheet(colnames=headers)
+    #     unique_records = UniqueDict()
+    #     for sheet in wb:
+    #         for i, name in enumerate(sheet.rownames):
+    #             unique_records[name] = sheet.row_at(i)
+    #     for rec in sorted(unique_records.keys()):
+    #         sheet_to_replace_wb.row += [rec] + unique_records[rec]
+    #     sheet_to_replace_wb.name_rows_by_column(0)
+    #     return sheet_to_replace_wb
 
     '''
     General Utilities
     '''
 
-    @staticmethod
-    def shortest_longest(*args):
-        return (args[0], args[1]) if args[0] is min(*args, key=len) else (args[1], args[0])
-
-    @staticmethod
-    def common_keys(*dcts):
-        for i in set(dcts[0]).intersection(*dcts[1:]):
-            yield (i,) + tuple(d[i] for d in dcts)
+    # @staticmethod
+    # def shortest_longest(*args):
+    #     return (args[0], args[1]) if args[0] is min(*args, key=len) else (args[1], args[0])
+    #
+    # @staticmethod
+    # def common_keys(*dcts):
+    #     for i in set(dcts[0]).intersection(*dcts[1:]):
+    #         yield (i,) + tuple(d[i] for d in dcts)
 
     def return_matches(self, *args, match_val=None):
-        shortest_list, longest_list = self.shortest_longest(*args)
+        shortest_list, longest_list = self.util.shortest_longest(*args)
         longest_list_indexed = {}
         for item in longest_list:
             longest_list_indexed[item[match_val]] = item
@@ -245,16 +252,16 @@ class AReport(UtilityObject):
 
     # TODO make a typedef decorator
 
-    @staticmethod
-    def return_selection(input_opt):
-        selection = list(input_opt.values())
-        return selection[
-            int(
-                input(
-                    ''.join(['{k}: {i}\n'.format(k=k, i=i) for i, k in enumerate(input_opt)])
-                )
-            )
-        ]
+    # @staticmethod
+    # def return_selection(input_opt):
+    #     selection = list(input_opt.values())
+    #     return selection[
+    #         int(
+    #             input(
+    #                 ''.join(['{k}: {i}\n'.format(k=k, i=i) for i, k in enumerate(input_opt)])
+    #             )
+    #         )
+    #     ]
 
     def chck_w_in_days(self, doc_dt, num_days=1):
         try:
@@ -284,7 +291,7 @@ class AReport(UtilityObject):
                     raise ValueError('Not able to sign in!')
 
                 imap_session.select("Inbox")
-                on = "ON " + (self.dates + timedelta(days=1)).strftime("%d-%b-%Y")
+                on = "ON " + (self._inr + timedelta(days=1)).strftime("%d-%b-%Y")
                 status, data = imap_session.uid('search', on, 'FROM "Chronicall Reports"')
                 if status != 'OK':
                     raise ValueError('Error searching Inbox.')
@@ -321,38 +328,38 @@ class AReport(UtilityObject):
     # TODO these can be removed once MarsReport is refactored to crawl reports SlaReport E.g. for row and col in rpt
     def correlate_list_time_data(self, src_list, list_to_correlate, key):
         return_list = []
-        for event in self.find(src_list, key):
-            return_list.append(self.get_sec(list_to_correlate[event]))
+        for event in self.util.find(src_list, key):
+            return_list.append(self.util.get_sec(list_to_correlate[event]))
         return return_list
 
     def correlate_list_val_data(self, src_list, list_to_correlate, key):
         return_list = []
-        for event in self.find(src_list, key):
+        for event in self.util.find(src_list, key):
             return_list.append(list_to_correlate[event])
         return return_list
 
-    @staticmethod
-    def find(lst, a):
-        return [i for i, x in enumerate(lst) if x == a]
-
-    @staticmethod
-    def is_empty_wb(book):
-        if isinstance(book, Book):
-            return book.number_of_sheets() is 0
+    # @staticmethod
+    # def find(lst, a):
+    #     return [i for i, x in enumerate(lst) if x == a]
+    #
+    # @staticmethod
+    # def is_empty_wb(book):
+    #     if isinstance(book, Book):
+    #         return book.number_of_sheets() is 0
 
     def transmit_report(self):
         return self.fr
 
-    @staticmethod
-    def make_summary(headers):
-        todays_summary = Sheet()
-        todays_summary.row += headers
-        todays_summary.name_columns_by_row(0)
-        return todays_summary
-
-    @staticmethod
-    def add_time(dt_t, add_time=None):
-        return (datetime.combine(datetime.today(), dt_t) + add_time).time()
+    # @staticmethod
+    # def make_summary(headers):
+    #     todays_summary = Sheet()
+    #     todays_summary.row += headers
+    #     todays_summary.name_columns_by_row(0)
+    #     return todays_summary
+    #
+    # @staticmethod
+    # def add_time(dt_t, add_time=None):
+    #     return (datetime.combine(datetime.today(), dt_t) + add_time).time()
 
     def check_finished(self, report_string=None, sub_dir=None, fmt='xlsx'):
         if report_string and sub_dir:
@@ -371,16 +378,16 @@ class AReport(UtilityObject):
         except ValueError:
             return default_rtn if default_rtn is not None else self.util_datetime
 
-    @staticmethod
-    def safe_parse(dt=None):
-        try:
-            return parse(dt)
-        except ValueError:
-            print('Could not parse date_time: {dt}'.format(dt=dt))
+    # @staticmethod
+    # def safe_parse(dt=None):
+    #     try:
+    #         return parse(dt)
+    #     except ValueError:
+    #         print('Could not parse date_time: {dt}'.format(dt=dt))
 
     def parse_to_sec(self, dt=None):
-        dt_t = self.safe_parse(dt).time()
-        return self.convert_sec(h=dt_t.hour, m=dt_t.minute, s=dt_t.second)
+        dt_t = self.util.safe_parse(dt).time()
+        return self.util.convert_sec(h=dt_t.hour, m=dt_t.minute, s=dt_t.second)
 
     def read_time(self, time_object, spc_chr='*'):
         try:

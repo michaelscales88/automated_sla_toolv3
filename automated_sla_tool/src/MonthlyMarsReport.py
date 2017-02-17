@@ -29,7 +29,7 @@ class MonthlyMarsReport(AReport):
 
     def run(self):
         # TODO Make this a dispatcher -> threading
-        run_date = datetime.strptime(self.dates, '%B').date().replace(year=2016)
+        run_date = datetime.strptime(self._inr, '%B').date().replace(year=2016)
         end_date = run_date + relativedelta(months=1)
         while run_date < end_date:
             try:
@@ -111,8 +111,8 @@ class MonthlyMarsReport(AReport):
         return sheet
 
     def save_report(self):
-        mars_string = '{mo}_{f_type}'.format(mo=self.dates, f_type=self.fr.type)
-        mars_save_dir = '{yr}\{mo}'.format(yr=None, mo=self.dates)
+        mars_string = '{mo}_{f_type}'.format(mo=self._inr, f_type=self.fr.type)
+        mars_save_dir = '{yr}\{mo}'.format(yr=None, mo=self._inr)
         super().save(user_string=mars_string, sub_dir=mars_save_dir)
         # self.set_save_path('monthly_mars_report')
         # the_file = r'{0}_mars_report'.format(self.dates.strftime('%B'))

@@ -122,7 +122,10 @@ def test_method(self, something_else):
 
 
 def test():
-    AppSettings(settings_file=_settings)
+    test1 = AppSettings(settings_file=_settings)
+    # test1.test()
+    print('completed format')
+    print(test1)
     # sheet = get_book(file_name=FILEPATH)
     # print(sheet.__class__.__name__ == 'Book')
     # jar = requests.RequestsCookieJar()

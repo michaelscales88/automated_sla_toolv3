@@ -23,7 +23,7 @@ def main(report_date_delta):
 
         while start_date <= end_date:
             try:
-                file = SlaReport(report_date=start_date)
+                file = SlaReport(rpt_inr=start_date)
                 print('constructed')
                 file.compile_call_details()
                 print('compiled')

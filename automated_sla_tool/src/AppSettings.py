@@ -11,7 +11,8 @@ class AppSettings(ConfigObj):
             self._my_app = app
             super().__init__(settings_file if settings_file else self.settings_file,
                              create_empty=True)
-            self.format_settings()
+            self.init_keywords()
+            self.apply_custom_format(lvl=self)
         else:
             raise SystemError('No application for AppSettings')
 
@@ -23,49 +24,32 @@ class AppSettings(ConfigObj):
     def settings_directory(self):
         return join(dirname(dirname(__file__)), 'settings')
 
-    def setting(self, *keys):
+    def setting(self, *keys, rtn_val=()):
         try:
-            return reduce(dict.__getitem__, keys, self)
+            rtn_val = reduce(dict.__getitem__, keys, self)
         except (KeyError, TypeError):
             print('Could not find settings: {settings}'.format(settings=keys))
+        return rtn_val
 
-    # TODO this is not working as intended. should go to nth depth, but is missing depth - 1
+    def init_keywords(self):
+        if self._my_app and self._my_app.interval:
+            for k, v in self.setting('Keyword Formats', rtn_val={}).items():
+                self['Keyword Formats'][k] = datetime.today().strftime(v)
+
+    # TODO this is not working as intended. should go to nth depth, but is going to n - 1
     def __iter__(self, v=None):
-        for k, v in (v if v else self).items():
-            if hasattr(v, 'items'):
-                # print('diving deeper')
-                # print(v)
-                self.__iter__(v=v)
+        for kvl, vvl in (v if v else self).items():
+            if hasattr(vvl, 'items'):
+                self.__iter__(v=vvl)
             else:
-                # print('k {}'.format(k))
-                # print('v {}'.format(v))
-                yield k, v
+                yield kvl, vvl
 
-    def format_settings(self, date=None):
-        format_list = self.setting('Date Formats')
-        date = datetime.today()
-        for label, value in self:
-            if label == 'file_fmt':
-                print('label {}'.format(label))
-                print('value {}'.format(value))
-                # print('checking formats')
-            for fmt in format_list:
-                if label == 'file_fmt':
-                    print(fmt)
-                    print(format_list[fmt])
-                    # print(date.strftime(format_list[fmt]))
+    def apply_custom_format(self, lvl=None):
+        for k, v in lvl.items():
+            if hasattr(v, 'items'):
+                self.apply_custom_format(lvl=v)
+            else:
                 try:
-                    print(value.format(fmt=date.strftime(format_list[fmt])))
-                except KeyError:
-                    print('keyerror')
-                    print(fmt)
-                    print(format_list[fmt])
-                    print(date.strftime(format_list[fmt]))
-                except AttributeError:
+                    lvl[k] = v.format(**self.setting('Keyword Formats', rtn_val={}))
+                except (AttributeError, KeyError):
                     pass
-                else:
-                    print(value)
-                    # for item in value:
-                    #     print(item)
-                # self[label] = value.format(fmt=date.strftime(format_list[fmt]))
-            # print(self[label])

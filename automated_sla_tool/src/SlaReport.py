@@ -9,7 +9,6 @@ from time import sleep
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
-from automated_sla_tool.src.AppSettings import AppSettings
 
 
 # TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
@@ -17,18 +16,14 @@ from automated_sla_tool.src.AppSettings import AppSettings
 
 class SlaReport(AReport):
     def __init__(self, report_date=None):
-        report_date = report_date if report_date else self.manual_input()
-        self._settings = AppSettings(app=self)
-        super().__init__(report_dates=report_date,
-                         report_type=self._settings['report_type'])  # provide month/day to put manual_input -1 layer
+        super().__init__(rpt_inr=report_date)  # provide month/day to put manual_input -1 layer
         self.clients = self.get_client_settings()
         self.clients_verbose = self.make_verbose_dict()
         if self.check_finished(sub_dir=self._settings['sub_dir_fmt'],
                                report_string=self._settings['file_fmt']):
-            print('Report Complete for {date}'.format(date=self.dates))
+            print('Report Complete for {date}'.format(date=self._inr))
         else:
-            print('Building a report for {date}'.format(date=self.dates))
-            self.req_src_files = self._settings['req_src_files']
+            print('Building a report for {date}'.format(date=self._inr))
             self.load_and_prepare()
             self.sla_report = {}
             self.norm_day = self.day_of_wk not in (5, 6)
@@ -61,24 +56,26 @@ class SlaReport(AReport):
                 ('Yesterday', -1)
             ]
         )
-        return date.today() + timedelta(days=self.return_selection(input_opt))
+        return date.today() + timedelta(days=self.util.return_selection(input_opt))
 
     def load_and_prepare(self):
-        super().load_documents()
+        super().load()
         call_details_filters = [
-            self.inbound_call_filter,
-            self.zero_duration_filter,
-            self.remove_internal_inbound_filter
+            self.util.inbound_call_filter,
+            self.util.zero_duration_filter,
+            self.util.remove_internal_inbound_filter
         ]
-        self.src_files[r'Call Details'] = self.collate_wb_to_sheet(wb=self.src_files[r'Call Details'])
-        self.apply_formatters_to_sheet(sheet=self.src_files[r'Call Details'],
-                                       filters=call_details_filters)
+        self.src_files[r'Call Details'] = self.util.collate_wb_to_sheet(wb=self.src_files[r'Call Details'])
+        self.util.apply_format_to_sheet(sheet=self.src_files[r'Call Details'],
+                                        filters=call_details_filters)
         self.src_files[r'Call Details'].name = 'call_details'
         self.compile_call_details()
 
-        self.src_files[r'Group Abandoned Calls'] = self.collate_wb_to_sheet(wb=self.src_files[r'Group Abandoned Calls'])
-        self.apply_formatters_to_sheet(sheet=(self.src_files[r'Group Abandoned Calls']),
-                                       one_filter=self.answered_filter)
+        self.src_files[r'Group Abandoned Calls'] = self.util.collate_wb_to_sheet(
+            wb=self.src_files[r'Group Abandoned Calls']
+        )
+        self.util.apply_format_to_sheet(sheet=(self.src_files[r'Group Abandoned Calls']),
+                                        one_filter=self.util.answered_filter)
         self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
         self.scrutinize_abandon_group()
 
@@ -90,7 +87,7 @@ class SlaReport(AReport):
             lost_cid_by_client = self.group_cid_by_client(self.src_files[r'Group Abandoned Calls'])
             for client_name, client_num, full_service in [(client,
                                                            int(values['client_num']),
-                                                           self.str_to_bool(values['full_service']))
+                                                           self.util.str_to_bool(values['full_service']))
                                                           for client, values in self._settings['Clients'].items()]:
                 self.sla_report[client_num] = Client(
                     name=client_num,
@@ -111,7 +108,7 @@ class SlaReport(AReport):
         if self.fr.finished:
             return
         else:
-            headers = [self.dates.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
+            headers = [self._inr.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
                        'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
                        'Average Wait Answered',
                        'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
@@ -123,7 +120,7 @@ class SlaReport(AReport):
             total_row['Label'] = 'Summary'
             for client_name, client_num in [(client, int(values['client_num']))
                                             for client, values in self._settings['Clients'].items()
-                                            if self.str_to_bool(values['full_service']) or self.norm_day]:
+                                            if self.util.str_to_bool(values['full_service']) or self.norm_day]:
                 num_calls = self.sla_report[client_num].get_number_of_calls()
                 this_row = dict((value, 0) for value in headers[1:])
                 this_row['I/C Presented'] = sum(num_calls.values())
@@ -178,31 +175,31 @@ class SlaReport(AReport):
     Report Filters by row
     '''
 
-    @staticmethod
-    def blank_row_filter(row_index, row):
-        result = [element for element in str(row[3]) if element != '']
-        return len(result) == 0
-
-    @staticmethod
-    def answered_filter(row_index, row):
-        try:
-            answered = row[-5]
-        except ValueError:
-            answered = False
-        return answered
-
-    @staticmethod
-    def inbound_call_filter(row_index, row):
-        return row[0] not in ('Inbound', 'Call Direction')
-
-    @staticmethod
-    def zero_duration_filter(row_index, row):
-        result = [element for element in row[-1] if element != '']
-        return len(result) == 0
-
-    @staticmethod
-    def remove_internal_inbound_filter(row_index, row):
-        return row[-2] == row[-3]
+    # @staticmethod
+    # def blank_row_filter(row_index, row):
+    #     result = [element for element in str(row[3]) if element != '']
+    #     return len(result) == 0
+    #
+    # @staticmethod
+    # def answered_filter(row_index, row):
+    #     try:
+    #         answered = row[-5]
+    #     except ValueError:
+    #         answered = False
+    #     return answered
+    #
+    # @staticmethod
+    # def inbound_call_filter(row_index, row):
+    #     return row[0] not in ('Inbound', 'Call Direction')
+    #
+    # @staticmethod
+    # def zero_duration_filter(row_index, row):
+    #     result = [element for element in row[-1] if element != '']
+    #     return len(result) == 0
+    #
+    # @staticmethod
+    # def remove_internal_inbound_filter(row_index, row):
+    #     return row[-2] == row[-3]
 
     '''
     SlaReport Functions
@@ -222,19 +219,19 @@ class SlaReport(AReport):
             for row_name in self.src_files[r'Call Details'].rownames:
                 unhandled_call_data = {
                     k: 0 for k in hold_events
-                }
-                tot_call_duration = self.get_sec(self.src_files[r'Call Details'][row_name, 'Call Duration'])
-                talk_duration = self.get_sec(self.src_files[r'Call Details'][row_name, 'Talking Duration'])
+                    }
+                tot_call_duration = self.util.get_sec(self.src_files[r'Call Details'][row_name, 'Call Duration'])
+                talk_duration = self.util.get_sec(self.src_files[r'Call Details'][row_name, 'Talking Duration'])
                 call_id = row_name.replace(':', ' ')
                 cradle_sheet = self.src_files[r'Cradle to Grave'][call_id]
                 for event_row in cradle_sheet.rownames:
                     event_type = cradle_sheet[event_row, 'Event Type']
                     if event_type in hold_events:
-                        unhandled_call_data[event_type] += self.get_sec(cradle_sheet[event_row, 'Event Duration'])
+                        unhandled_call_data[event_type] += self.util.get_sec(cradle_sheet[event_row, 'Event Duration'])
                 raw_hold_time = sum(val for val in unhandled_call_data.values())
                 raw_time_waited = tot_call_duration - talk_duration - raw_hold_time
-                additional_columns['Hold Time'].append(self.convert_time_stamp(raw_hold_time))
-                additional_columns['Wait Time'].append(self.convert_time_stamp(raw_time_waited))
+                additional_columns['Hold Time'].append(self.util.convert_time_stamp(raw_hold_time))
+                additional_columns['Wait Time'].append(self.util.convert_time_stamp(raw_time_waited))
             self.src_files[r'Call Details'].extend_columns(additional_columns)
 
     def scrutinize_abandon_group(self):
@@ -246,7 +243,8 @@ class SlaReport(AReport):
 
     # TODO combine remove non-distinct and calls <20 into general filter function to remove multiple for loops
     def remove_non_distinct_callers(self):
-        i_count = self.find_non_distinct(sheet=self.src_files[r'Group Abandoned Calls'], event_col='External Party')
+        i_count = self.util.find_non_distinct(sheet=self.src_files[r'Group Abandoned Calls'],
+                                              event_col='External Party')
         for dup_val, dup_call_ids in {k: reversed(sorted(v['rows']))
                                       for k, v in i_count.items() if v['count'] > 1}.items():
             for call_id in dup_call_ids:
@@ -263,7 +261,7 @@ class SlaReport(AReport):
 
     def remove_calls_less_than_twenty_seconds(self):
         for row_name in reversed(self.src_files[r'Group Abandoned Calls'].rownames):
-            call_duration = self.get_sec(self.src_files[r'Group Abandoned Calls'][row_name, 'Call Duration'])
+            call_duration = self.util.get_sec(self.src_files[r'Group Abandoned Calls'][row_name, 'Call Duration'])
             if call_duration < 20:
                 self.src_files[r'Group Abandoned Calls'].delete_named_row_at(row_name)
 
@@ -296,8 +294,7 @@ class SlaReport(AReport):
     def get_voicemails(self):
         file_fmt = self._settings['Voice Mail Data']['File Fmt Info']
         vm_f_path = join(
-            self.src_doc_path, file_fmt['f_fmt'].format(file_fmt=self.dates.strftime(file_fmt['string_fmt']),
-                                                        f_ext=file_fmt['f_ext'])
+            self.src_doc_path, file_fmt['f_fmt']
         )
         try:
             self.read_voicemail_data(vm_f_path)
@@ -317,7 +314,7 @@ class SlaReport(AReport):
 
     def retrieve_voicemail_emails(self):
         from automated_sla_tool.src.EmailGetter import EmailGetter
-        mail = EmailGetter(self.dates, self.login_type)
+        mail = EmailGetter(self._inr, self.login_type)
         mail.login(self.user_name, self.password)
         mail.inbox()
         read_ids = mail.read_ids()
@@ -327,7 +324,7 @@ class SlaReport(AReport):
         rtn_dict = {}
         if isinstance(inc_data, dict):
             c_vm = self.new_type_cradle_vm()
-            for client_name, inc_data, c_vm in sorted(self.common_keys(inc_data, c_vm)):
+            for client_name, inc_data, c_vm in sorted(self.util.common_keys(inc_data, c_vm)):
                 for match1, match2 in self.return_matches(inc_data, c_vm, match_val='phone_number'):
                     if abs(match1['time'] - match2['time']) < timedelta(seconds=15):
                         call_id = match1['call_id'] if match1.get('call_id', None) else match2['call_id']
@@ -419,24 +416,24 @@ class SlaReport(AReport):
     Utilities Section
     '''
 
-    @staticmethod
-    def safe_div(num, denom):
-        rtn_val = 0
-        try:
-            rtn_val = num / denom
-        except ZeroDivisionError:
-            pass
-        return rtn_val
+    # @staticmethod
+    # def safe_div(num, denom):
+    #     rtn_val = 0
+    #     try:
+    #         rtn_val = num / denom
+    #     except ZeroDivisionError:
+    #         pass
+    #     return rtn_val
 
     def add_row(self, a_row):
         self.format_row(a_row)
         self.fr.row += self.return_row_as_list(a_row)
 
     def format_row(self, row):
-        row['Average Incoming Duration'] = self.convert_time_stamp(row['Average Incoming Duration'])
-        row['Average Wait Answered'] = self.convert_time_stamp(row['Average Wait Answered'])
-        row['Average Wait Lost'] = self.convert_time_stamp(row['Average Wait Lost'])
-        row['Longest Waiting Answered'] = self.convert_time_stamp(row['Longest Waiting Answered'])
+        row['Average Incoming Duration'] = self.util.convert_time_stamp(row['Average Incoming Duration'])
+        row['Average Wait Answered'] = self.util.convert_time_stamp(row['Average Wait Answered'])
+        row['Average Wait Lost'] = self.util.convert_time_stamp(row['Average Wait Lost'])
+        row['Longest Waiting Answered'] = self.util.convert_time_stamp(row['Longest Waiting Answered'])
         row['Incoming Answered (%)'] = '{0:.1%}'.format(row['Incoming Answered (%)'])
         row['Incoming Lost (%)'] = '{0:.1%}'.format(row['Incoming Lost (%)'])
         row['PCA'] = '{0:.1%}'.format(row['PCA'])
@@ -511,9 +508,9 @@ class SlaReport(AReport):
         settings_file = r'{0}\{1}'.format(self.path, r'settings\report_settings.xlsx')
         settings = get_sheet(file_name=settings_file, name_columns_by_row=0)
         return_dict = OrderedDict()
-        is_weekend = self.dates.isoweekday() in (6, 7)
+        is_weekend = self._inr.isoweekday() in (6, 7)
         for row in range(settings.number_of_rows()):
-            is_fullservice = self.str_to_bool(settings[row, 'Full Service'])
+            is_fullservice = self.util.str_to_bool(settings[row, 'Full Service'])
             if is_weekend:
                 if is_fullservice is True:
                     this_client = client(name=settings[row, 'Client Name'],

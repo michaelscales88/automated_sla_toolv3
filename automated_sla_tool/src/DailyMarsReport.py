@@ -15,11 +15,11 @@ class DailyMarsReport(AReport):
         super().__init__(report_dates=day,
                          report_type='mars_report')
         if self.check_finished():
-            print('Report Complete for {}'.format(self.dates))
+            print('Report Complete for {}'.format(self._inr))
         else:
             self.req_src_files = [r'Agent Time Card', r'Agent Realtime Feature Trace', r'Agent Calls']
             # TODO more testing on load documents + whether it is messing up duration/dnd
-            self.load_documents()
+            self.load()
             spreadsheet = r'M:\Help Desk\Schedules for OPS.xlsx'
             self.tracker = EmployeeTracker(spreadsheet, self.get_data_measurements())
             self.notes = Notes()
@@ -160,7 +160,7 @@ class DailyMarsReport(AReport):
         self.fr.name_rows_by_column(0)
 
     def check_day_card(self, time_card, shift_start, shift_end):
-        prev_day = self.dates - timedelta(days=1)
+        prev_day = self._inr - timedelta(days=1)
         self.remove_row_w_day(time_card, prev_day)
         start_time = self.get_start_time(time_card.column['Logged In'])
         end_time = self.get_end_time(time_card.column['Logged Out'])
@@ -181,7 +181,7 @@ class DailyMarsReport(AReport):
                 clocked_out)
 
     def check_night_card(self, time_card, shift_start, shift_end):
-        tomorrow = self.dates + timedelta(days=1)
+        tomorrow = self._inr + timedelta(days=1)
         self.remove_row_w_day(time_card, tomorrow)
         start_time = self.get_start_time(time_card.column['Logged In'], overnight=True)
         end_time = self.get_end_time(time_card.column['Logged Out'])
@@ -228,7 +228,7 @@ class DailyMarsReport(AReport):
             (bug_posts.bp_user not like 4) and
             (bugs.bg_user_defined_attribute not like 15)
             '''
-        ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+        ).format(self._inr.strftime('%m/%d/%Y'), (self._inr + timedelta(days=1)).strftime('%m/%d/%Y'))
 
         SQL_COMMAND2 = (
             '''
@@ -264,7 +264,7 @@ class DailyMarsReport(AReport):
             AND  bg_reported_date >= '{0}' AND  bg_reported_date <= '{1}'
             ORDER BY bg_id DESC
             '''
-        ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+        ).format(self._inr.strftime('%m/%d/%Y'), (self._inr + timedelta(days=1)).strftime('%m/%d/%Y'))
 
         SQL_COMMAND3 = (
             '''
@@ -304,7 +304,7 @@ class DailyMarsReport(AReport):
 
             ORDER BY bg_id DESC
             '''
-        ).format(self.dates.strftime('%m/%d/%Y'), (self.dates + timedelta(days=1)).strftime('%m/%d/%Y'))
+        ).format(self._inr.strftime('%m/%d/%Y'), (self._inr + timedelta(days=1)).strftime('%m/%d/%Y'))
 
         sql_commands = [SQL_COMMAND, SQL_COMMAND2, SQL_COMMAND3]
 
@@ -388,7 +388,7 @@ class DailyMarsReport(AReport):
              clocked_out) = self.check_night_card(time_card, shift_start, shift_end)
             if clocked_in:
                 emp_data.data.add_note(self.notes.add_note(r'Logged in {}'.format(
-                    self.dates - timedelta(days=1)))
+                    self._inr - timedelta(days=1)))
                 )
         if clocked_in is False:
             emp_data.data.add_note(self.notes.add_note(r'No Login'))
@@ -396,12 +396,12 @@ class DailyMarsReport(AReport):
             emp_data.data.add_note(self.notes.add_note(r'No Logout'))
         try:
             duration = (datetime.min +
-                        (datetime.combine(self.dates, emp_data.data['Logged Out']) -
-                         datetime.combine(self.dates, emp_data.data['Logged In']))).time()
+                        (datetime.combine(self._inr, emp_data.data['Logged Out']) -
+                         datetime.combine(self._inr, emp_data.data['Logged In']))).time()
         except OverflowError:
             duration = (datetime.min +
-                        (datetime.combine(self.dates + timedelta(days=1), emp_data.data['Logged Out']) -
-                         datetime.combine(self.dates, emp_data.data['Logged In']))).time()
+                        (datetime.combine(self._inr + timedelta(days=1), emp_data.data['Logged Out']) -
+                         datetime.combine(self._inr, emp_data.data['Logged In']))).time()
         emp_data.data['Duration'] = duration
         late = self.read_time(emp_data.data['Logged In']) > self.check_grace_pd(shift_start,
                                                                                 minutes=timedelta(minutes=5))
@@ -507,7 +507,7 @@ class DailyMarsReport(AReport):
                     print('done read')
                 if clocked_in:
                     emp_data.data.add_note(self.notes.add_note(r'Logged in {}'.format(
-                        self.dates - timedelta(days=1)))
+                        self._inr - timedelta(days=1)))
                     )
                 if emp_data.l_name == 'Rice':
                     print('cleared clocked in')
@@ -519,12 +519,12 @@ class DailyMarsReport(AReport):
                 emp_data.data.add_note(self.notes.add_note(r'No Logout'))
             try:
                 duration = (datetime.min +
-                            (datetime.combine(self.dates, rtn_data['Logged Out']) -
-                             datetime.combine(self.dates, rtn_data['Logged In']))).time()
+                            (datetime.combine(self._inr, rtn_data['Logged Out']) -
+                             datetime.combine(self._inr, rtn_data['Logged In']))).time()
             except OverflowError:
                 duration = (datetime.min +
-                            (datetime.combine(self.dates + timedelta(days=1), rtn_data['Logged Out']) -
-                             datetime.combine(self.dates, rtn_data['Logged In']))).time()
+                            (datetime.combine(self._inr + timedelta(days=1), rtn_data['Logged Out']) -
+                             datetime.combine(self._inr, rtn_data['Logged In']))).time()
             rtn_data['Duration'] = duration
             late = self.read_time(rtn_data['Logged In']) > self.check_grace_pd(shift_start,
                                                                                minutes=timedelta(minutes=5))
