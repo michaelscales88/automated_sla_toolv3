@@ -1,5 +1,5 @@
 import operator
-from datetime import time, timedelta, date
+from datetime import time, timedelta, date, datetime
 from dateutil.parser import parse
 from collections import defaultdict, OrderedDict, namedtuple
 from os.path import join, isfile
@@ -9,6 +9,7 @@ from time import sleep
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
+from automated_sla_tool.src.factory import SlaSrcHunter
 
 
 # TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
@@ -30,6 +31,10 @@ class SlaReport(AReport):
             self.orphaned_voicemails = None
             self.src_files[r'Voice Mail'] = defaultdict(list)
             self.get_voicemails()
+            print(self.src_files[r'Voice Mail'])
+            print(self.modify_vm(SlaSrcHunter(parent=self).get_vm(self.interval)))
+
+
 
     '''
     UI Section
@@ -40,7 +45,7 @@ class SlaReport(AReport):
         return self._settings
 
     def run(self):
-        if self.fr.finished:
+        if self._output.finished:
             return
         else:
             self.extract_report_information()
@@ -80,7 +85,7 @@ class SlaReport(AReport):
         self.scrutinize_abandon_group()
 
     def extract_report_information(self):
-        if self.fr.finished:
+        if self._output.finished or self.test_mode:
             return
         else:
             ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
@@ -105,7 +110,7 @@ class SlaReport(AReport):
                             self.src_files[r'Group Abandoned Calls'])
 
     def process_report(self):
-        if self.fr.finished:
+        if self._output.finished or self.test_mode:
             return
         else:
             headers = [self._inr.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
@@ -114,8 +119,8 @@ class SlaReport(AReport):
                        'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
                        'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
                        'PCA']
-            self.fr.row += headers
-            self.fr.name_columns_by_row(0)
+            self._output.row += headers
+            self._output.name_columns_by_row(0)
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
             for client_name, client_num in [(client, int(values['client_num']))
@@ -154,10 +159,10 @@ class SlaReport(AReport):
                     self.add_row(this_row)
             self.finalize_total_row(total_row)
             self.add_row(total_row)
-            self.fr.name_rows_by_column(0)
+            self._output.name_rows_by_column(0)
 
     def save_report(self):
-        if self.fr.finished:
+        if self._output.finished or self.test_mode:
             return
         else:
             # TODO build this into manifest E.g. tgt delivery
@@ -206,7 +211,7 @@ class SlaReport(AReport):
     '''
 
     def compile_call_details(self):
-        if self.fr.finished:
+        if self._output.finished:
             return
         else:
             hold_events = ('Hold', 'Transfer Hold', 'Park')
@@ -235,7 +240,7 @@ class SlaReport(AReport):
             self.src_files[r'Call Details'].extend_columns(additional_columns)
 
     def scrutinize_abandon_group(self):
-        if self.fr.finished:
+        if self._output.finished:
             return
         else:
             self.remove_calls_less_than_twenty_seconds()
@@ -266,15 +271,15 @@ class SlaReport(AReport):
                 self.src_files[r'Group Abandoned Calls'].delete_named_row_at(row_name)
 
     def validate_final_report(self):
-        for row in self.fr.rownames:
+        for row in self._output.rownames:
             ticker_total = 0
-            answered = self.fr[row, 'I/C Answered']
-            ticker_total += self.fr[row, 'Calls Ans Within 15']
-            ticker_total += self.fr[row, 'Calls Ans Within 30']
-            ticker_total += self.fr[row, 'Calls Ans Within 45']
-            ticker_total += self.fr[row, 'Calls Ans Within 60']
-            ticker_total += self.fr[row, 'Calls Ans Within 999']
-            ticker_total += self.fr[row, 'Call Ans + 999']
+            answered = self._output[row, 'I/C Answered']
+            ticker_total += self._output[row, 'Calls Ans Within 15']
+            ticker_total += self._output[row, 'Calls Ans Within 30']
+            ticker_total += self._output[row, 'Calls Ans Within 45']
+            ticker_total += self._output[row, 'Calls Ans Within 60']
+            ticker_total += self._output[row, 'Calls Ans Within 999']
+            ticker_total += self._output[row, 'Call Ans + 999']
             if answered != ticker_total:
                 raise ValueError('Validation error ->'
                                  'ticker total != answered for: '
@@ -304,7 +309,7 @@ class SlaReport(AReport):
 
     def read_voicemail_data(self, vm_f_path):
         if isfile(vm_f_path):
-            with open(vm_f_path) as f:
+            with open(vm_f_path, mode='r') as f:
                 content = f.readlines()
                 for item in content:
                     client_info = item.replace('\n', '').split(',')
@@ -325,13 +330,22 @@ class SlaReport(AReport):
         if isinstance(inc_data, dict):
             c_vm = self.new_type_cradle_vm()
             for client_name, inc_data, c_vm in sorted(self.util.common_keys(inc_data, c_vm)):
-                for match1, match2 in self.return_matches(inc_data, c_vm, match_val='phone_number'):
-                    if abs(match1['time'] - match2['time']) < timedelta(seconds=15):
+                print('common keys')
+                print("{} ".format(datetime.now().time()), client_name)
+                print("{} ".format(datetime.now().time()), inc_data)
+                print("{} ".format(datetime.now().time()), c_vm)
+                for match1, match2 in self.util.return_matches(inc_data, c_vm, match_val='phone_number'):
+                    print("{} ".format(datetime.now().time()), 'matches')
+                    print("{} ".format(datetime.now().time()), match1)
+                    print("{} ".format(datetime.now().time()), match2)
+                    print(abs(match1['time'] - match2['time']))
+                    if abs(match1['time'] - match2['time']) < timedelta(seconds=30):
                         call_id = match1['call_id'] if match1.get('call_id', None) else match2['call_id']
                         client_info = rtn_dict.get(client_name, [])
                         client_info.append(call_id)
+                        print("{} matched".format(datetime.now().time()), call_id)
                         rtn_dict[client_name] = client_info
-        return rtn_dict, self.new_type_cradle_vm()
+        return rtn_dict
 
     def new_type_cradle_vm(self):
         voice_mail_dict = defaultdict(list)
@@ -350,7 +364,7 @@ class SlaReport(AReport):
                         print('need a way to fix blanks and numbers')
                     client_info = voice_mail_dict.get(receiving_party, [])
                     a_vm = {
-                        'phone_number': ''.join([ch for ch in call_id_page[row_name, 'Calling Party'] if ch.isdigit()]),
+                        'phone_number': ''.join(self.util.phone_number(call_id_page[row_name, 'Calling Party'])),
                         'call_id': call_id_page.name,
                         'time': valid_dt(call_id_page[row_name, 'End Time'])
                     }
@@ -369,8 +383,7 @@ class SlaReport(AReport):
             else:
                 if 'Voicemail' in sheet_events:
                     voicemail_index = sheet_events.index('Voicemail')
-                    real_voicemail = call_id_page[
-                                         voicemail_index, col_index.index('Receiving Party')] in self.clients_verbose
+                    real_voicemail = call_id_page[voicemail_index, col_index.index('Receiving Party')] in self.clients_verbose
                     if real_voicemail:
                         voicemail = {}
                         receiving_party = call_id_page[voicemail_index, col_index.index('Receiving Party')]
@@ -416,18 +429,9 @@ class SlaReport(AReport):
     Utilities Section
     '''
 
-    # @staticmethod
-    # def safe_div(num, denom):
-    #     rtn_val = 0
-    #     try:
-    #         rtn_val = num / denom
-    #     except ZeroDivisionError:
-    #         pass
-    #     return rtn_val
-
     def add_row(self, a_row):
         self.format_row(a_row)
-        self.fr.row += self.return_row_as_list(a_row)
+        self._output.row += self.return_row_as_list(a_row)
 
     def format_row(self, row):
         row['Average Incoming Duration'] = self.util.convert_time_stamp(row['Average Incoming Duration'])
@@ -645,9 +649,6 @@ class Client:
             'lost': len(self.lost_calls),
             'voicemails': len(self.voicemails)
         }
-
-    def chop_microseconds(self, delta):
-        return delta - timedelta(microseconds=delta.microseconds)
 
     def get_call_ticker(self):
         return self.call_details_ticker

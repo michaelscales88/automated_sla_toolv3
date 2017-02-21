@@ -91,3 +91,7 @@ class SlaSrcHunter(ImapConnection):
                 client_data.append(a_vm)
                 payload[client_name] = client_data
         return payload
+
+    def date(self, on):
+        if isinstance(on, datetime):
+            on = on.strftime("")

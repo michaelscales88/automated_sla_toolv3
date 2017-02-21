@@ -11,10 +11,10 @@ from automated_sla_tool.src.AppSettings import AppSettings
 
 class ImapConnection(IMAP4_SSL):
 
-    def __init__(self, settings, parent):
+    def __init__(self, settings=None, parent=None):
         conn_info = self._get_conn_settings(settings, parent)
         self._parent = parent
-        self._settings = AppSettings(self)
+        self._settings = AppSettings(app=self)
         try:
             print(
                 'Attempting to connect to {conn_type} : {connection}'.format(
@@ -43,8 +43,10 @@ class ImapConnection(IMAP4_SSL):
                     error_log=format_exc()
                 )
             )
+        else:
+            self.go_to_box('Inbox')
 
-    def __new__(cls, settings, parent):
+    def __new__(cls, settings=None, parent=None):
         try:
             return parent.instances[cls] if cls in parent.instances else super().__new__(cls)
         except AttributeError:

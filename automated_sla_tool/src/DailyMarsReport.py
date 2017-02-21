@@ -62,7 +62,7 @@ class DailyMarsReport(AReport):
     #         self.finalize_report()
 
     def run2(self):
-        if self.fr.finished:
+        if self._output.finished:
             return
         else:
             agents = self.tracker.get_tracker()
@@ -82,9 +82,9 @@ class DailyMarsReport(AReport):
                             'Duration': 0,
                             'Absent': 1
                         }
-                    if not self.fr.colnames:
-                        self.fr.row += ([''] + sorted(rtn_data.keys()))
-                        self.fr.name_columns_by_row(0)
+                    if not self._output.colnames:
+                        self._output.row += ([''] + sorted(rtn_data.keys()))
+                        self._output.name_columns_by_row(0)
                     # sheet_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
 
                     # try:
@@ -135,13 +135,13 @@ class DailyMarsReport(AReport):
                     #     pass
                     row_name = r'{0} {1}({2})'.format(agent.f_name, agent.l_name, ext)
                     row_portion = [rtn_data[k] for k in sorted(rtn_data.keys())]
-                    self.fr.row += [row_name] + row_portion
+                    self._output.row += [row_name] + row_portion
 
             self.finalize_report()
 
     def test(self):
-        print(self.fr)
-        print(self.fr.query_format())
+        print(self._output)
+        print(self._output.query_format())
 
     def save_report(self):
         pass
@@ -155,9 +155,9 @@ class DailyMarsReport(AReport):
 
     def finalize_report(self):
         notes_label = [self.notes.pop(0)]
-        self.fr.row += notes_label
-        self.fr.row += self.notes.get_notes()
-        self.fr.name_rows_by_column(0)
+        self._output.row += notes_label
+        self._output.row += self.notes.get_notes()
+        self._output.name_rows_by_column(0)
 
     def check_day_card(self, time_card, shift_start, shift_end):
         prev_day = self._inr - timedelta(days=1)
@@ -587,7 +587,7 @@ class DailyMarsReport(AReport):
         return self.add_time(dt_t, add_time=minutes)
 
     def __str__(self):
-        return str(self.fr)
+        return str(self._output)
 
 
 class EmployeeTracker(UtilityObject):

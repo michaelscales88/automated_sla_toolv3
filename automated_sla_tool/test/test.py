@@ -117,15 +117,142 @@ def filter_row(row_index, row):
     return len(result) == 0
 
 
+def common_keys(*dcts):
+    for i in set(dcts[0]).intersection(*dcts[1:]):
+        yield (i,) + tuple(d[i] for d in dcts)
+
+
 def test_method(self, something_else):
     print(self, something_else)
 
 
+def yielder(match_val='something1'):
+    test1 = {
+        'test1': {
+           [
+               {
+                   'something1': 'value1',
+                   'something3': 'value2'
+               },
+               {
+                   'something1': 'value1',
+                   'something4': 'value5'
+               }
+           ]
+        },
+        'test2': {
+            [
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                },
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                }
+            ]
+        },
+        'test3': {
+            [
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                },
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                }
+            ]
+        },
+        'test6': {
+            [
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                },
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                }
+            ]
+        }
+    }
+    test2 = {
+        'test1': {
+           [
+               {
+                   'something1': 'value1',
+                   'something2': 'value2'
+               },
+               {
+                   'something1': 'value1',
+                   'something2': 'value2'
+               }
+           ]
+        },
+        'test2': {
+           [
+               {
+                   'something1': 'value1',
+                   'something2': 'value2'
+               },
+               {
+                   'something1': 'value1',
+                   'something2': 'value2'
+               }
+           ]
+        },
+        'test3': {
+           [
+               {
+                   'something1': 'value1',
+                   'something2': 'value2'
+               },
+               {
+                   'something1': 'value1',
+                   'something2': 'value2'
+               }
+           ]
+        },
+        'test4': {
+            [
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                },
+                {
+                    'something1': 'value1',
+                    'something2': 'value2'
+                }
+            ]
+        }
+    }
+    for items in common_keys(test1, test2):
+        print(items)
+
+    indexed = {}
+    for top_key in test1.keys():
+        lvl = test2.get(top_key)
+        if lvl:
+            print(lvl)
+            for lvl_item in test1[top_key]:
+                print(lvl_item)
+
+    #     indexed[test1[key][match_val]] = item
+    # for item in shortest_list:
+    #     if item[match_val] in indexed:
+    #         yield item, indexed[item[match_val]]
+
+
 def test():
-    test1 = AppSettings(settings_file=_settings)
+    yielder()
+    # for item1, item2 in yielder():
+    #     print(item1)
+    #     print(item2)
+    # test1 = AppSettings(settings_file=_settings)
     # test1.test()
-    print('completed format')
-    print(test1)
+    # print('completed format')
+    # print(test1)
     # sheet = get_book(file_name=FILEPATH)
     # print(sheet.__class__.__name__ == 'Book')
     # jar = requests.RequestsCookieJar()

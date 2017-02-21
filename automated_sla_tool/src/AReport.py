@@ -23,17 +23,18 @@ class UniqueDict(dict):
 class AReport(ReportTemplate):
     def __init__(self, rpt_inr=None):
         super().__init__()
-        self._settings = AppSettings(app=self)
+        self.test_mode = True
         self._util = ReportUtilities()
         self._inr = rpt_inr if rpt_inr else self.manual_input()
-        self.fr = FinalReport(report_type=self._settings['report_type'],
-                              report_date=self._inr,
-                              my_report=self)
+        self._settings = AppSettings(app=self)
+        self._output = FinalReport(report_type=self._settings['report_type'],
+                                   report_date=self._inr,
+                                   my_report=self)
         self.req_src_files = self._settings.setting('req_src_files', rtn_val=[])
 
-        self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
-        self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
-        self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
+        # self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
+        # self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')
+        # self.converter_exc = r'{0}\{1}'.format(self.path, r'converter\ofc.exe')
         self.login_type = r'imap.gmail.com'
         self.user_name = r'mindwirelessreporting@gmail.com'
         self.password = r'7b!2gX4bD3'
@@ -50,7 +51,7 @@ class AReport(ReportTemplate):
         # TODO abstract this -> *args
         # TODO 2: error handling for BadZipFile error from openpyxl. handles corrupted files
         # Error handling should prompt the user to redownload the file
-        if self.fr.finished:
+        if self._output.finished:
             return
         else:
             for (f, p) in self.loader(self.req_src_files).items():
@@ -69,10 +70,10 @@ class AReport(ReportTemplate):
                 raise SystemExit()
 
     def open(self, user_string=None, sub_dir=None, alt_dir=None):
-        self.fr.open(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
+        self._output.open(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
 
     def save(self, user_string=None, sub_dir=None, alt_dir=None):
-        self.fr.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
+        self._output.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
 
     '''
     OS Operations
@@ -123,15 +124,15 @@ class AReport(ReportTemplate):
                 {**loaded_files, **self.loader(unloaded_files, need_to_dl=True)})
 
     def dl_src_files(self, files):
-        if self.fr.finished:
+        if self._output.finished:
             return
         else:
             self.download_chronicall_files(file_list=files)
-            src_file_directory = listdir(self.src_doc_path)
-            for file in src_file_directory:
-                if file.endswith(".xls"):
-                    self.copy_and_convert(self.src_doc_path, src_file_directory)
-                    break
+            # src_file_directory = listdir(self.src_doc_path)
+            # for file in src_file_directory:
+            #     if file.endswith(".xls"):
+            #         self.copy_and_convert(self.src_doc_path, src_file_directory)
+            #         break
 
     '''
     Report Utilities
@@ -163,24 +164,24 @@ class AReport(ReportTemplate):
     #     if one_filter:
     #         del sheet.row[one_filter]
 
-    def copy_and_convert(self, file_location, directory):
-        from shutil import move
-        for src_file in directory:
-            if src_file.endswith(".xls"):
-                src = join(file_location, src_file)
-                des = join(self.active_directory, src_file)
-                move(src, des)
-
-        proc.run([self.converter_exc, self.converter_arg])
-        filelist = [f for f in listdir(self.active_directory) if f.endswith(".xls")]
-        for f in filelist:
-            f = join(self.active_directory, f)
-            remove(f)
-
-        for src_file in listdir(self.active_directory):
-            src = join(self.active_directory, src_file)
-            des = join(file_location, src_file)
-            move(src, des)
+    # def copy_and_convert(self, file_location, directory):
+    #     from shutil import move
+    #     for src_file in directory:
+    #         if src_file.endswith(".xls"):
+    #             src = join(file_location, src_file)
+    #             des = join(self.active_directory, src_file)
+    #             move(src, des)
+    #
+    #     proc.run([self.converter_exc, self.converter_arg])
+    #     filelist = [f for f in listdir(self.active_directory) if f.endswith(".xls")]
+    #     for f in filelist:
+    #         f = join(self.active_directory, f)
+    #         remove(f)
+    #
+    #     for src_file in listdir(self.active_directory):
+    #         src = join(self.active_directory, src_file)
+    #         des = join(file_location, src_file)
+    #         move(src, des)
 
     def filter_chronicall_reports(self, workbook):
         try:
@@ -240,28 +241,6 @@ class AReport(ReportTemplate):
     # def common_keys(*dcts):
     #     for i in set(dcts[0]).intersection(*dcts[1:]):
     #         yield (i,) + tuple(d[i] for d in dcts)
-
-    def return_matches(self, *args, match_val=None):
-        shortest_list, longest_list = self.util.shortest_longest(*args)
-        longest_list_indexed = {}
-        for item in longest_list:
-            longest_list_indexed[item[match_val]] = item
-        for item in shortest_list:
-            if item[match_val] in longest_list_indexed:
-                yield item, longest_list_indexed[item[match_val]]
-
-    # TODO make a typedef decorator
-
-    # @staticmethod
-    # def return_selection(input_opt):
-    #     selection = list(input_opt.values())
-    #     return selection[
-    #         int(
-    #             input(
-    #                 ''.join(['{k}: {i}\n'.format(k=k, i=i) for i, k in enumerate(input_opt)])
-    #             )
-    #         )
-    #     ]
 
     def chck_w_in_days(self, doc_dt, num_days=1):
         try:
@@ -348,7 +327,7 @@ class AReport(ReportTemplate):
     #         return book.number_of_sheets() is 0
 
     def transmit_report(self):
-        return self.fr
+        return self._output
 
     # @staticmethod
     # def make_summary(headers):
@@ -363,11 +342,11 @@ class AReport(ReportTemplate):
 
     def check_finished(self, report_string=None, sub_dir=None, fmt='xlsx'):
         if report_string and sub_dir:
-            the_file = join(self.fr.save_path, sub_dir, '{file}.{ext}'.format(file=report_string, ext=fmt))
+            the_file = join(self._output.save_path, sub_dir, '{file}.{ext}'.format(file=report_string, ext=fmt))
             if isfile(the_file):
                 print('I know this file is completed.')
-                self.fr.open_existing(the_file)
-            return self.fr.finished
+                self._output.open_existing(the_file)
+            return self._output.finished
         else:
             print('No report_string in check_finished'
                   '-> Cannot check if file is completed.')

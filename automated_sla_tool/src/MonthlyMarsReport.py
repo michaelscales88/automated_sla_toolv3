@@ -83,7 +83,7 @@ class MonthlyMarsReport(AReport):
                 agent_summary.collect_data(agent, report)
             print('completed report {report}'.format(report=report.name))
         self.set_final_report(agent_summary)
-        print(self.fr)
+        print(self._output)
 
     '''
     Utilities Section
@@ -95,14 +95,14 @@ class MonthlyMarsReport(AReport):
             sheet.name_columns_by_row(0)
 
     def set_final_report(self, report_summary):
-        self.fr.row += report_summary.get_header()
-        self.fr.name_columns_by_row(0)
+        self._output.row += report_summary.get_header()
+        self._output.name_columns_by_row(0)
         for (agent, data) in report_summary.items():
             row = [agent] + [data[k] for k in sorted(data.keys())]
-            self.fr.row += row
-        self.fr.name_rows_by_column(0)
+            self._output.row += row
+        self._output.name_rows_by_column(0)
         # self.fr.make_programatic_column_with(self.calculate_avail, "Avail")
-        self.fr.format_columns_with(self.convert_time_stamp, "Duration")
+        self._output.format_columns_with(self.convert_time_stamp, "Duration")
 
     def create_sheet(self, headers):
         sheet = pe.Sheet()
@@ -111,7 +111,7 @@ class MonthlyMarsReport(AReport):
         return sheet
 
     def save_report(self):
-        mars_string = '{mo}_{f_type}'.format(mo=self._inr, f_type=self.fr.type)
+        mars_string = '{mo}_{f_type}'.format(mo=self._inr, f_type=self._output.type)
         mars_save_dir = '{yr}\{mo}'.format(yr=None, mo=self._inr)
         super().save(user_string=mars_string, sub_dir=mars_save_dir)
         # self.set_save_path('monthly_mars_report')
