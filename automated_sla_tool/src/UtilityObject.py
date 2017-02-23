@@ -1,5 +1,4 @@
 from os import makedirs
-import pyexcel as pe
 
 
 class UtilityObject(object):
@@ -42,22 +41,3 @@ class UtilityObject(object):
     @staticmethod
     def make_dir(the_dir):
         makedirs(the_dir, exist_ok=True)
-
-    # def load_data(self, file):
-    #     if type(file) is pe.sheets.sheet.Sheet:
-    #         return_file = file
-    #     else:
-    #         return_file = self.open_pe_file(file)
-    #     return_file.name_columns_by_row(0)
-    #     return_file.name_rows_by_column(0)
-    #     return return_file
-    #
-    # @staticmethod
-    # def open_pe_file(file):
-    #     try:
-    #         return_file = pe.get_sheet(file_name=file)
-    #     except OSError:
-    #         print('OSError ->'
-    #               'cannot open {}'.format(file))
-    #     else:
-    #         return return_file

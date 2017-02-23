@@ -23,7 +23,7 @@ class UniqueDict(dict):
 class AReport(ReportTemplate):
     def __init__(self, rpt_inr=None):
         super().__init__()
-        self.test_mode = True
+        self.test_mode = False
         self._util = ReportUtilities()
         self._inr = rpt_inr if rpt_inr else self.manual_input()
         self._settings = AppSettings(app=self)
@@ -105,6 +105,7 @@ class AReport(ReportTemplate):
                                                                     ext=ext))
             rename(old_f, new_f)
 
+    # TODO push this into ReportUtilities
     def loader(self, unloaded_files, need_to_dl=False):
         if need_to_dl:
             self.dl_src_files(files=unloaded_files)
@@ -123,10 +124,12 @@ class AReport(ReportTemplate):
                 if (len(unloaded_files) is 0 or got_downloads) else
                 {**loaded_files, **self.loader(unloaded_files, need_to_dl=True)})
 
+    # TODO push this into ReportUtilities
     def dl_src_files(self, files):
         if self._output.finished:
             return
         else:
+            # TODO this should be using SlaSrcHunter.get_f_list
             self.download_chronicall_files(file_list=files)
             # src_file_directory = listdir(self.src_doc_path)
             # for file in src_file_directory:

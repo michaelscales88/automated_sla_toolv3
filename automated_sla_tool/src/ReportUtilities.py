@@ -109,7 +109,7 @@ class ReportUtilities(UtilityObject):
         return_file.name_rows_by_column(0)
         return return_file
 
-    # TODO build out ReportUtility to open pe files
+    # TODO build out ReportUtility to open pe files for sheets/books
     @staticmethod
     def open_pe_file(file):
         try:
