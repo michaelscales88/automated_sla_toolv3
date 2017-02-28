@@ -245,11 +245,11 @@ def yielder(match_val='something1'):
 
 
 def test():
-    yielder()
+    # yielder()
     # for item1, item2 in yielder():
     #     print(item1)
     #     print(item2)
-    # test1 = AppSettings(settings_file=_settings)
+    test1 = AppSettings(settings_file=_settings)
     # test1.test()
     # print('completed format')
     # print(test1)

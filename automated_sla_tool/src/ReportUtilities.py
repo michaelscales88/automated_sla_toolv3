@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, date, time
 from dateutil.parser import parse
 from pyexcel import Book, Sheet, get_sheet
+from subprocess import Popen
 from re import split
 
 from automated_sla_tool.src.UtilityObject import UtilityObject
@@ -13,6 +14,22 @@ class UniqueDict(dict):
 
 
 class ReportUtilities(UtilityObject):
+
+    @staticmethod
+    def is_weekday(raw_date):
+        try:
+            return ReportUtilities.day_of_week(raw_date) not in (5, 6)
+        except AttributeError:
+            print('{date} is invalid to get day of the week.'.format(date=raw_date))
+            return None
+
+    @staticmethod
+    def day_of_week(raw_date):
+        return raw_date.weekday() if isinstance(raw_date, date) else raw_date
+
+    @staticmethod
+    def date_to_dt(raw_date):
+        return datetime.combine(raw_date, time()) if isinstance(raw_date, date) else raw_date
 
     @staticmethod
     def phone_number(raw_number):
@@ -178,3 +195,8 @@ class ReportUtilities(UtilityObject):
     @staticmethod
     def remove_internal_inbound_filter(row_index, row):
         return row[-2] == row[-3]
+
+    @staticmethod
+    def open_directory(tgt_dir):
+        Popen('explorer "{0}"'.format(tgt_dir))
+        input('Any key to continue.')

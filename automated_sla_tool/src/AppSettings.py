@@ -1,8 +1,10 @@
 from configobj import ConfigObj
+from validate import Validator
 from os.path import join, dirname
 from functools import reduce
 
 
+# TODO add 'configobj Validator and add config writer interface
 class AppSettings(ConfigObj):
 
     def __init__(self, app=None, settings_file=None):
@@ -10,6 +12,9 @@ class AppSettings(ConfigObj):
             self._my_app = app
             super().__init__(settings_file if settings_file else self.settings_file,
                              create_empty=True)
+            # http://www.voidspace.org.uk/python/articles/configobj.shtml <- this has examples of configspec
+            # validated = self.validate(Validator()) # this needs a config spec to work
+            # print('I validated the configobj: {}'.format(validated))
             self.init_keywords()
             self.apply_custom_format(lvl=self)
         else:

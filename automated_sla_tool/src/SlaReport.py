@@ -1,10 +1,7 @@
 import operator
-from datetime import time, timedelta, date, datetime
+from datetime import time, timedelta, date
 from dateutil.parser import parse
-from collections import defaultdict, OrderedDict, namedtuple
-from os.path import join, isfile
-from pyexcel import get_sheet
-from time import sleep
+from collections import defaultdict, OrderedDict
 
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
@@ -12,14 +9,10 @@ from automated_sla_tool.src.utilities import valid_dt
 from automated_sla_tool.src.factory import SlaSrcHunter
 
 
-# TODO Add feature to run report without call pruning. Ex. Call spike days where too many duplicates are removed
-
-
 class SlaReport(AReport):
+
     def __init__(self, report_date=None):
-        super().__init__(rpt_inr=report_date)  # provide month/day to put manual_input -1 layer
-        # self.clients = self.get_client_settings()
-        # self.clients_verbose = self.make_verbose_dict()
+        super().__init__(rpt_inr=report_date)
         if self.check_finished(sub_dir=self._settings['sub_dir_fmt'],
                                report_string=self._settings['file_fmt']):
             print('Report Complete for {date}'.format(date=self._inr))
@@ -27,15 +20,8 @@ class SlaReport(AReport):
             print('Building a report for {date}'.format(date=self._inr))
             self.load_and_prepare()
             self.sla_report = {}
-            self.norm_day = self.day_of_wk not in (5, 6)
-            # self.orphaned_voicemails = None
-            # self.src_files[r'Voice Mail'] = defaultdict(list)
-            # self.get_voicemails()
-            # print(self.src_files[r'Voice Mail'])
-            # print(self.modify_vm(SlaSrcHunter(parent=self).get_vm(self.interval)))
-
-
-
+            # self.new_run()
+            # self.norm_day = self.day_of_wk not in (5, 6)
 
     '''
     UI Section
@@ -52,7 +38,6 @@ class SlaReport(AReport):
             self.extract_report_information()
             self.process_report()
             self.save_report()
-            # print(self._output)
 
     def manual_input(self):
         input_opt = OrderedDict(
@@ -88,6 +73,25 @@ class SlaReport(AReport):
 
         self.src_files[r'Voice Mail'] = self.modify_vm(SlaSrcHunter(parent=self).get_vm(self.interval))
 
+    def new_run(self):
+        ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
+        lost_cid_by_client = self.group_cid_by_client(self.src_files[r'Group Abandoned Calls'])
+        print(ans_cid_by_client)
+        print(lost_cid_by_client)
+        print(self.src_files[r'Voice Mail'])
+        # TODO: this should be generator that handles full_service or normal day of the week
+        # TODO 2: AppSettings needs to autodetect int, bool, ts, text etc
+        for client_name, client_details in self._settings['Clients'].items():
+            print(client_details['client_num'])
+            vm = self.src_files[r'Voice Mail'].get(client_name, [])
+            calls_ans = ans_cid_by_client.get(int(client_details['client_num']), [])
+            calls_lost = lost_cid_by_client.get(int(client_details['client_num']), [])
+            print(client_name)
+            print(vm)
+            print(calls_ans)
+            print(calls_lost)
+
+    # TODO refactor this: combine process and extract and remove client -> call it run
     def extract_report_information(self):
         if self._output.finished or self.test_mode:
             return
@@ -117,6 +121,7 @@ class SlaReport(AReport):
         if self._output.finished or self.test_mode:
             return
         else:
+            is_weekday = self.util.is_weekday(self.interval)
             headers = [self._inr.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
                        'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
                        'Average Wait Answered',
@@ -129,7 +134,7 @@ class SlaReport(AReport):
             total_row['Label'] = 'Summary'
             for client_name, client_num in [(client, int(values['client_num']))
                                             for client, values in self._settings['Clients'].items()
-                                            if self.util.str_to_bool(values['full_service']) or self.norm_day]:
+                                            if self.util.str_to_bool(values['full_service']) or is_weekday]:
                 num_calls = self.sla_report[client_num].get_number_of_calls()
                 this_row = dict((value, 0) for value in headers[1:])
                 this_row['I/C Presented'] = sum(num_calls.values())
@@ -270,35 +275,7 @@ class SlaReport(AReport):
                 report_details[client].append(row_name)
         return report_details
 
-    # def get_voicemails(self):
-    #     file_fmt = self._settings['Voice Mail Data']['File Fmt Info']
-    #     vm_f_path = join(
-    #         self.src_doc_path, file_fmt['f_fmt']
-    #     )
-    #     try:
-    #         self.read_voicemail_data(vm_f_path)
-    #     except FileNotFoundError:
-    #         self.make_voicemail_data()
-    #         self.write_voicemail_data(vm_f_path)
-
-    # def read_voicemail_data(self, vm_f_path):
-    #     if isfile(vm_f_path):
-    #         with open(vm_f_path, mode='r') as f:
-    #             content = f.readlines()
-    #             for item in content:
-    #                 client_info = item.replace('\n', '').split(',')
-    #                 self.src_files[r'Voice Mail'][client_info[0]] = client_info[1:]
-    #     else:
-    #         raise FileNotFoundError()
-
-    # def retrieve_voicemail_emails(self):
-    #     from automated_sla_tool.src.EmailGetter import EmailGetter
-    #     mail = EmailGetter(self._inr, self.login_type)
-    #     mail.login(self.user_name, self.password)
-    #     mail.inbox()
-    #     read_ids = mail.read_ids()
-    #     return mail.get_voice_mail_info(read_ids)
-
+    # TODO modify naming for this and new_type_cradle...
     def modify_vm(self, inc_data):
         rtn_dict = {}
         if isinstance(inc_data, dict):
@@ -346,58 +323,12 @@ class SlaReport(AReport):
                     voice_mail_dict[receiving_party] = client_info
         return voice_mail_dict
 
-    # def retrieve_voicemail_cradle(self):
-    #     voice_mail_dict = defaultdict(list)
-    #     for call_id_page in self.src_files[r'Cradle to Grave']:
-    #         try:
-    #             col_index = call_id_page.colnames
-    #             sheet_events = call_id_page.column['Event Type']
-    #         except IndexError:
-    #             pass
-    #         else:
-    #             if 'Voicemail' in sheet_events:
-    #                 voicemail_index = sheet_events.index('Voicemail')
-    #                 real_voicemail = call_id_page[voicemail_index, col_index.index('Receiving Party')] in self.clients_verbose
-    #                 if real_voicemail:
-    #                     voicemail = {}
-    #                     receiving_party = call_id_page[voicemail_index, col_index.index('Receiving Party')]
-    #                     telephone_number = str(call_id_page[voicemail_index, col_index.index('Calling Party')])[-4:]
-    #                     if telephone_number.isalpha():
-    #                         telephone_number = str(call_id_page[0, col_index.index('Calling Party')])[-4:]
-    #                     call_time = call_id_page[voicemail_index, col_index.index('End Time')]
-    #                     voicemail['call_id'] = call_id_page.name
-    #                     voicemail['number'] = telephone_number
-    #                     voicemail['call_time'] = call_time
-    #                     voice_mail_dict[receiving_party].append(voicemail)
-    #     return voice_mail_dict
-
-    # def make_voicemail_data(self):
-    #     e_vm = self.retrieve_voicemail_emails()
-    #     c_vm = self.retrieve_voicemail_cradle()
-    #     for client, e_list in e_vm.items():
-    #         c_list = c_vm.get(client, None)
-    #         if c_list is None:
-    #             self.src_files[r'Voice Mail'][client] = ['orphan-{}'.format(i.split(' + ')[0]) for i in e_list]
-    #         else:
-    #             for evoicemail in e_list:
-    #                 email_number, email_time = evoicemail.split(' + ')
-    #                 matched_call = next((l for l in c_list if l['number'] == email_number), None)
-    #                 if matched_call is None:
-    #                     self.src_files[r'Voice Mail'][client].append('orphan-{}'.format(email_number))
-    #                 else:
-    #                     email_datetime = parse(email_time)
-    #                     cradle_datetime = parse(matched_call['call_time'])
-    #                     difference = cradle_datetime - email_datetime
-    #                     if difference < timedelta(seconds=31):
-    #                         print('found a vm {call}'.format(call=matched_call['call_id']))
-    #                         self.src_files[r'Voice Mail'][client].append(matched_call['call_id'])
-
-    def write_voicemail_data(self, voicemail_file_path):
-        text_file = open(voicemail_file_path, 'w')
-        for voicemail_group in self.src_files[r'Voice Mail'].items():
-            text_string = '{0},{1}\n'.format(voicemail_group[0], ",".join(voicemail_group[1]))
-            text_file.write(text_string)
-        text_file.close()
+    # def write_voicemail_data(self, voicemail_file_path):
+    #     text_file = open(voicemail_file_path, 'w')
+    #     for voicemail_group in self.src_files[r'Voice Mail'].items():
+    #         text_string = '{0},{1}\n'.format(voicemail_group[0], ",".join(voicemail_group[1]))
+    #         text_file.write(text_string)
+    #     text_file.close()
 
     '''
     Utilities Section
@@ -473,32 +404,10 @@ class SlaReport(AReport):
                 tr['Average Wait Lost'] = operator.floordiv(tr['Average Wait Lost'],
                                                             tr['I/C Lost'])
 
-    # def make_verbose_dict(self):
-    #     return dict((value.name, key) for key, value in self.clients.items())
-
     def handle_read_value_error(self, call_id):
         sheet = self.src_files[r'Cradle to Grave'][call_id.replace(':', ' ')]
         hunt_index = sheet.column['Event Type'].index('Ringing')
         return sheet.column['Receiving Party'][hunt_index]
-
-    # def get_client_settings(self):
-    #     client = namedtuple('client_settings', 'name full_service')
-    #     settings_file = r'{0}\{1}'.format(self.path, r'settings\report_settings.xlsx')
-    #     settings = get_sheet(file_name=settings_file, name_columns_by_row=0)
-    #     return_dict = OrderedDict()
-    #     is_weekend = self._inr.isoweekday() in (6, 7)
-    #     for row in range(settings.number_of_rows()):
-    #         is_fullservice = self.util.str_to_bool(settings[row, 'Full Service'])
-    #         if is_weekend:
-    #             if is_fullservice is True:
-    #                 this_client = client(name=settings[row, 'Client Name'],
-    #                                      full_service=is_fullservice)
-    #                 return_dict[settings[row, 'Client Number']] = this_client
-    #         else:
-    #             this_client = client(name=settings[row, 'Client Name'],
-    #                                  full_service=is_fullservice)
-    #             return_dict[settings[row, 'Client Number']] = this_client
-    #     return return_dict
 
     def __del__(self):
         try:

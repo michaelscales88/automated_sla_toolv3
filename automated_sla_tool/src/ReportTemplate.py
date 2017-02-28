@@ -21,3 +21,9 @@ class ReportTemplate(object):
     def run(self):
         pass
 
+    def open(self):
+        pass
+
+    def save(self):
+        pass
+

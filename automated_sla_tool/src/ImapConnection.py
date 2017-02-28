@@ -63,10 +63,7 @@ class ImapConnection(IMAP4_SSL):
         finally:
             ImapConnection._conn_set = False
 
-    '''
-    Interface
-    '''
-
+    # Interface
     def go_to_box(self, tgt_box):
         return self.select(tgt_box)
 
@@ -102,10 +99,7 @@ class ImapConnection(IMAP4_SSL):
             rtn_ids[rtn_id['subject']] = rtn_id
         return rtn_ids
 
-    '''
-    Connection Operations
-    '''
-
+    # Connection Operations
     def _attempt_login(self, username, password):
         attempts = 3
         while attempts:
@@ -149,10 +143,7 @@ class ImapConnection(IMAP4_SSL):
                       'for property: {arg}'.format(arg=arg))
         return conn_info
 
-    '''
-    Email Operations
-    '''
-
+    # Email Operations
     def _make_data(self, email_info):
         return {
             'from': email_info.get('From', None),
@@ -249,10 +240,7 @@ class ImapConnection(IMAP4_SSL):
                         # payload[f_name] = f
         return payload
 
-    '''
-    Iterator
-    '''
-
+    # Iterator
     def _search(self, look_for, status):
         if isinstance(look_for, (date, datetime)):
             on = 'ON {date}'.format(date=look_for.strftime("%d-%b-%Y"))
