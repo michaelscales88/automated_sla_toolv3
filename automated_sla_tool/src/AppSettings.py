@@ -1,28 +1,43 @@
-from configobj import ConfigObj
+from inspect import isclass
+from configobj import ConfigObj, ConfigObjError, flatten_errors
+from json import dumps
 from validate import Validator
 from os.path import join, dirname
 from functools import reduce
 
 
-# TODO add 'configobj Validator and add config writer interface
+# http://www.voidspace.org.uk/python/articles/configobj.shtml <- this has examples of configspec
+# TODO add config writer interface E.g. adding clients, modify settings, etc
 class AppSettings(ConfigObj):
-
-    def __init__(self, app=None, settings_file=None):
-        if app or settings_file:
-            self._my_app = app
-            super().__init__(settings_file if settings_file else self.settings_file,
-                             create_empty=True)
-            # http://www.voidspace.org.uk/python/articles/configobj.shtml <- this has examples of configspec
-            # validated = self.validate(Validator()) # this needs a config spec to work
-            # print('I validated the configobj: {}'.format(validated))
-            self.init_keywords()
-            self.apply_custom_format(lvl=self)
+    def __init__(self, app=None, file_name=None):
+        self._app = app if app else file_name
+        if isclass(self._app) or isinstance(self._app, str):
+            try:
+                # TODO this param list should be mutable E.g. **kwargs
+                super().__init__(infile=self.settings_file,
+                                 configspec=self.config_spec_file,
+                                 create_empty=True,
+                                 file_error=True)
+            except (ConfigObjError, IOError) as e:
+                print('Could not read {f_name}\n'
+                      '{error}'.format(f_name=self.settings_file,
+                                       error=e))
+            else:
+                self.init_and_validate()
         else:
             raise SystemError('No application or settings for AppSettings')
 
     @property
+    def f_name(self):
+        return self._app if isinstance(self._app, str) else self._app.__class__.__name__
+
+    @property
     def settings_file(self):
-        return join(self.settings_directory, '{f_name}.ini'.format(f_name=self._my_app.__class__.__name__))
+        return join(self.settings_directory, '{f_name}.ini'.format(f_name=self.f_name))
+
+    @property
+    def config_spec_file(self):
+        return join(self.settings_directory, '{f_name}ConfigSpec.ini'.format(f_name=self.f_name))
 
     @property
     def settings_directory(self):
@@ -35,14 +50,48 @@ class AppSettings(ConfigObj):
             print('Could not find settings: {settings}'.format(settings=keys))
         return rtn_val
 
-    # TODO this needs better logic since my_app is being used for ImapConnection and SlaReport. Ea. has diff 2nd cond
-    def init_keywords(self):
-        try:
-            if self._my_app and self._my_app.interval:
-                for k, v in self.setting('Keyword Formats', rtn_val={}).items():
-                    self['Keyword Formats'][k] = self._my_app.interval.strftime(v)
-        except AttributeError:
-            pass
+    def init_and_validate(self):
+        for section_list, key, val in flatten_errors(self, self.validate(Validator())):
+            # TODO add write capability to correct errors and update config file
+            if key:
+                print('The "{failed_key}" key in the section '
+                      '"{failed_section}" failed validation'.format(failed_key=key,
+                                                                    failed_section=': '.join(section_list))
+                      )
+                print(val)
+            else:
+                # TODO 2: Get the missing section key or use the configspec to add a default which requires user input
+                print('The {section_w_o_key} section '
+                      'is missing a required setting.'.format(section_w_o_key=': '.join(section_list))
+                      )
+                print(val)
+        else:
+            print('Settings validated for: {f_name}'.format(f_name=self.f_name))
+            self.apply_custom_format(lvl=self)
+            try:
+                if self._app.interval:
+                    for k, v in self.setting('Keyword Formats', rtn_val={}).items():
+                        self['Keyword Formats'][k] = self._app.interval.strftime(v)
+            except AttributeError:
+                pass  # For tests without a parent
+        # if validated:
+        #     print('Settings validated for: {f_name}'.format(f_name=self.f_name))
+        #     # print(self['Clients']['AMI French']['full_service'])
+        #     # print(type(self['Clients']['AMI French']['full_service']))
+        #     try:
+        #         if self._my_app.interval:
+        #             for k, v in self.setting('Keyword Formats', rtn_val={}).items():
+        #                 self['Keyword Formats'][k] = self._my_app.interval.strftime(v)
+        #     except AttributeError:
+        #         pass  # For tests without a parent
+        # else:
+        #     for (section_list, key, _) in flatten_errors(self, validated):
+        #         if key is not None:
+        #             print('The "%s" key in the section "%s" failed validation' % (key, ', '.join(section_list)))
+        #
+        #         else:
+        #             print('The following section was missing:%s ' % ', '.join(section_list))
+            # Show errors and allow user to update.
 
     # TODO this is not working as intended. should go to nth depth, but is going to n - 1
     def __iter__(self, v=None):
@@ -61,3 +110,7 @@ class AppSettings(ConfigObj):
                     lvl[k] = v.format(**self.setting('Keyword Formats', rtn_val={}))
                 except (AttributeError, KeyError):
                     pass
+
+    def __str__(self):
+        print('Settings for {f_name}'.format(f_name=self.f_name))
+        return dumps(self, indent=4)

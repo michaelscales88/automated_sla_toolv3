@@ -6,7 +6,7 @@ from datetime import datetime
 
 def main():
     my_ui = Ui()
-    # my_obj = SlaReport(report_date=datetime.today().date().replace(year=2017, month=1, day=23))
+    # my_obj = SlaReport(report_date=datetime.today().date().replace(year=2017, month=2, day=19))
     # my_obj.run()
     my_obj = SlaReport()
     my_ui.object = my_obj

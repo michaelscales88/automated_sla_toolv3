@@ -1,3 +1,4 @@
+validate
 configobj
 Daily-SLA-Program==1.0
 pip-save==0.1.4

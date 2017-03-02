@@ -60,12 +60,13 @@ class AReport(ReportTemplate):
                 try:
                     print(f)
                     self.src_files[f] = self.filter_chronicall_reports(file)
-                except IndexError:
+                except (IndexError, TypeError):
                     print(self.src_files.keys())
                     print('I hit an issue opening my src file: {file}.\n'
                           'Please try to open and re-save before proceeding.'.format(file=f))
                     self.util.open_directory(self.src_doc_path)
-                    self.src_files[f] = self.filter_chronicall_reports(get_book(file_name=p))
+                    raise SystemExit()
+                    # self.src_files[f] = self.filter_chronicall_reports(get_book(file_name=p))
                 except KeyError:
                     self.util.open_directory(self.src_doc_path)
                 # self.src_files[f] = file

@@ -33,8 +33,8 @@ class ReportUtilities(UtilityObject):
 
     @staticmethod
     def phone_number(raw_number):
-        rtn_val = [ch for ch in raw_number if ch.isdigit()]
-        return rtn_val[1:] if len(raw_number) > 7 and raw_number[0] == 1 else rtn_val
+        rtn_val = [ch for ch in str(raw_number) if ch.isdigit()]
+        return rtn_val[1:] if len(rtn_val) > 7 and rtn_val[0] == 1 else rtn_val
 
     @staticmethod
     def find_non_distinct(sheet=None, event_col=None):

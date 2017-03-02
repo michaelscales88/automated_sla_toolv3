@@ -249,7 +249,8 @@ def test():
     # for item1, item2 in yielder():
     #     print(item1)
     #     print(item2)
-    test1 = AppSettings(settings_file=_settings)
+    test1 = AppSettings(file_name='SlaReport')
+    print(test1)
     # test1.test()
     # print('completed format')
     # print(test1)

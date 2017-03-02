@@ -264,6 +264,8 @@ class SlaReport(AReport):
                                  'ticker total != answered for: '
                                  '{0}'.format(row[0]))
 
+    # TODO generalize this to group reports by col/type
+    # TODO 2: push into ReportUtilities
     def group_cid_by_client(self, report):
         report_details = defaultdict(list)
         for row_name in report.rownames:
@@ -314,13 +316,18 @@ class SlaReport(AReport):
                         # should catch blanks and clients in ext fmt
                         print('need a way to fix blanks and numbers')
                     client_info = voice_mail_dict.get(receiving_party, [])
-                    a_vm = {
-                        'phone_number': ''.join(self.util.phone_number(call_id_page[row_name, 'Calling Party'])),
-                        'call_id': call_id_page.name,
-                        'time': valid_dt(call_id_page[row_name, 'End Time'])
-                    }
-                    client_info.append(a_vm)
-                    voice_mail_dict[receiving_party] = client_info
+                    try:
+                        # TODO: phone_number might be faster lookup as an integer
+                        a_vm = {
+                            'phone_number': ''.join(self.util.phone_number(call_id_page[row_name, 'Calling Party'])),
+                            'call_id': call_id_page.name,
+                            'time': valid_dt(call_id_page[row_name, 'End Time'])
+                        }
+                        client_info.append(a_vm)
+                        voice_mail_dict[receiving_party] = client_info
+                    except TypeError:
+                        print(call_id_page[row_name, 'Calling Party'])
+                        raise
         return voice_mail_dict
 
     # def write_voicemail_data(self, voicemail_file_path):

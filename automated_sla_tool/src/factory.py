@@ -61,7 +61,7 @@ def _write_f_data(data, f_path):
 class SlaSrcHunter(ImapConnection):
 
     @staticmethod
-    def tokenize(full_string, pivot):  # create settings option which creates an OrdDict that executes instructions
+    def lexer(full_string, pivot):  # create settings option which creates an OrdDict that executes instructions
         if full_string:
             search_object = search('\(([^()]+)\)', full_string, M | I | DOTALL)
             try:
@@ -81,7 +81,7 @@ class SlaSrcHunter(ImapConnection):
         payload = {}
         ids = super().get_ids(on, 'FROM "vmpro@mindwireless.com"')
         for k, v in ids.items():
-            phone_number, client_name = self.tokenize(v.pop('subject', None), pivot=' > ')
+            phone_number, client_name = self.lexer(v.pop('subject', None), pivot=' > ')
             if client_name:
                 client_data = payload.get(client_name, [])
                 a_vm = {
