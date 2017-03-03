@@ -20,12 +20,17 @@ class SlaReport(AReport):
             print('Building a report for {date}'.format(date=self._inr))
             self.load_and_prepare()
             self.sla_report = {}
+            print(self._settings)
             # self.new_run()
             # self.norm_day = self.day_of_wk not in (5, 6)
 
     '''
     UI Section
     '''
+
+    def __doc__(self):
+        # Allows use of inspect.isclass
+        pass
 
     @property
     def settings(self):

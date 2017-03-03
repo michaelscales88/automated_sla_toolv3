@@ -1,17 +1,18 @@
-from inspect import isclass
 from configobj import ConfigObj, ConfigObjError, flatten_errors
 from json import dumps
 from validate import Validator
 from os.path import join, dirname
 from functools import reduce
+from time import sleep
 
 
 # http://www.voidspace.org.uk/python/articles/configobj.shtml <- this has examples of configspec
 # TODO add config writer interface E.g. adding clients, modify settings, etc
+# TODO 2 make this class "static" so that it could produce settings dictionaries for multiple instances
 class AppSettings(ConfigObj):
     def __init__(self, app=None, file_name=None):
         self._app = app if app else file_name
-        if isclass(self._app) or isinstance(self._app, str):
+        if hasattr(self._app, '__module__') or isinstance(self._app, str):  # figure out how to use isclass here
             try:
                 # TODO this param list should be mutable E.g. **kwargs
                 super().__init__(infile=self.settings_file,
@@ -25,6 +26,7 @@ class AppSettings(ConfigObj):
             else:
                 self.init_and_validate()
         else:
+            sleep(.5)
             raise SystemError('No application or settings for AppSettings')
 
     @property
@@ -67,31 +69,8 @@ class AppSettings(ConfigObj):
                 print(val)
         else:
             print('Settings validated for: {f_name}'.format(f_name=self.f_name))
+            self.apply_keyword_format()
             self.apply_custom_format(lvl=self)
-            try:
-                if self._app.interval:
-                    for k, v in self.setting('Keyword Formats', rtn_val={}).items():
-                        self['Keyword Formats'][k] = self._app.interval.strftime(v)
-            except AttributeError:
-                pass  # For tests without a parent
-        # if validated:
-        #     print('Settings validated for: {f_name}'.format(f_name=self.f_name))
-        #     # print(self['Clients']['AMI French']['full_service'])
-        #     # print(type(self['Clients']['AMI French']['full_service']))
-        #     try:
-        #         if self._my_app.interval:
-        #             for k, v in self.setting('Keyword Formats', rtn_val={}).items():
-        #                 self['Keyword Formats'][k] = self._my_app.interval.strftime(v)
-        #     except AttributeError:
-        #         pass  # For tests without a parent
-        # else:
-        #     for (section_list, key, _) in flatten_errors(self, validated):
-        #         if key is not None:
-        #             print('The "%s" key in the section "%s" failed validation' % (key, ', '.join(section_list)))
-        #
-        #         else:
-        #             print('The following section was missing:%s ' % ', '.join(section_list))
-            # Show errors and allow user to update.
 
     # TODO this is not working as intended. should go to nth depth, but is going to n - 1
     def __iter__(self, v=None):
@@ -110,6 +89,14 @@ class AppSettings(ConfigObj):
                     lvl[k] = v.format(**self.setting('Keyword Formats', rtn_val={}))
                 except (AttributeError, KeyError):
                     pass
+
+    def apply_keyword_format(self):
+        try:
+            if self._app.interval:
+                for k, v in self.setting('Keyword Formats', rtn_val={}).items():
+                    self['Keyword Formats'][k] = self._app.interval.strftime(v)
+        except AttributeError:
+            pass  # For tests without a parent ( no interval )
 
     def __str__(self):
         print('Settings for {f_name}'.format(f_name=self.f_name))

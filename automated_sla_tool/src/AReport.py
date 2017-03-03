@@ -23,7 +23,7 @@ class AReport(ReportTemplate):
 
     def __init__(self, rpt_inr=None):
         super().__init__()
-        self.test_mode = False
+        self.test_mode = True
         self._util = ReportUtilities()
         self._inr = rpt_inr if rpt_inr else self.manual_input()
         self._settings = AppSettings(app=self)
