@@ -12,6 +12,10 @@ from time import sleep
 class AppSettings(ConfigObj):
     def __init__(self, app=None, file_name=None):
         self._app = app if app else file_name
+        print('creating AppSettings')
+        print(self._app.__class__)
+        print(hasattr(self._app, '__module__'))
+        print(isinstance(self._app, str))
         if hasattr(self._app, '__module__') or isinstance(self._app, str):  # figure out how to use isclass here
             try:
                 # TODO this param list should be mutable E.g. **kwargs
@@ -20,6 +24,8 @@ class AppSettings(ConfigObj):
                                  create_empty=True,
                                  file_error=True)
             except (ConfigObjError, IOError) as e:
+                # TODO Give this menu options for fixing the issues. Opt 1: Show the configspec to fix.
+                # TODO at least show the configspec file name that is missing
                 print('Could not read {f_name}\n'
                       '{error}'.format(f_name=self.settings_file,
                                        error=e))

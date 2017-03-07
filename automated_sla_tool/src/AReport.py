@@ -21,9 +21,9 @@ class UniqueDict(dict):
 
 class AReport(ReportTemplate):
 
-    def __init__(self, rpt_inr=None):
+    def __init__(self, rpt_inr=None, test_mode=False):
         super().__init__()
-        self.test_mode = True
+        self.test_mode = test_mode
         self._util = ReportUtilities()
         self._inr = rpt_inr if rpt_inr else self.manual_input()
         self._settings = AppSettings(app=self)

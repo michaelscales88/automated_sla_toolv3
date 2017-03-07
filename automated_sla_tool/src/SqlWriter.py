@@ -1,33 +1,13 @@
 import pypyodbc as ps
+from json import dumps
 from automated_sla_tool.src.QueryWriter import QueryWriter
+from automated_sla_tool.src.utilities import DateTimeEncoder
 
 
 class SqlWriter(QueryWriter):
-    def __init__(self, **parameters):
-        super().__init__()
-        self.init_params(**parameters)
-        self._conn = self.get_conn()
-        print('Successful connection to:\n{0}'.format(self))
 
     def get_conn(self):
-        conn_string = ''.join([v for v in self._params.values() if v is not None])
-        print(conn_string)
-        # return ps.connect(conn_string, timeout=2, unicode_results=True, readonly=True)
-        return ps.connect('Driver={SQL Server};Server=10.1.3.43;Database=IssueTracker;uid=IssueTrackerWeblogin;pwd=mw!2006')
-
-    def init_params(self, **kwargs):
-        self._params['DRIVER'] = '{0}={1};'.format('DRIVER', kwargs.get('DRIVER', '{PostgreSQL Unicode}'))
-        self._params['UID'] = '{0}={1};'.format('UID', kwargs.get('UID', None))
-        self._params['PWD'] = '{0}={1};'.format('PWD', kwargs.get('PWD', None))
-        self._params['SERVER'] = '{0}={1};'.format('SERVER', kwargs.get('SERVER', None))
-        self._params['PORT'] = '{0}={1};'.format('PORT', kwargs.get('PORT', None))
-        self._params['data'] = '{0}={1};'.format('database', kwargs.get('DATABASE', None))
-        self._params['Trusted_Connection'] = '{0}={1};'.format('Trusted_Connection',
-                                                               kwargs.get('Trusted_Connection', 'yes'))
-
-    def refresh_connection(self):
-        self._conn.close()
-        self._conn = self.get_conn()
+        return ps.connect(self.conn_settings)
 
     def rtn_excel(self, sql_command):
         columns, data = self.get_data(sql_command)
@@ -58,3 +38,17 @@ class SqlWriter(QueryWriter):
                 print('{i}: {row}'.format(i=i, row=rows['table_name']))
                 for fld in cursor2.columns(rows['table_name']):
                     print(fld['table_name'], fld['column_name'])
+
+    def test_command(self):
+        table = self.transform(self.exc_cmd(self.multi_line_cmd()))
+        print(table)
+        print(type(table))
+
+    def dict_command(self):
+        table = self.rtn_dict(self.multi_line_cmd())
+        print(table)
+        print(dumps(table,
+                    indent=4,
+                    cls=DateTimeEncoder))
+        print(type(table))
+

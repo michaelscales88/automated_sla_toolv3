@@ -1,6 +1,8 @@
 from dateutil.parser import parse
 from traceback import format_exc
 from functools import wraps
+from datetime import datetime
+from json import JSONEncoder
 
 
 def valid_dt(date_string):
@@ -21,6 +23,12 @@ def call_back_handler(fn, exceptions, handler, *args, **kwargs):
     except Exception:
         print(format_exc())
 
+
+class DateTimeEncoder(JSONEncoder):
+    def default(self, o):
+        if isinstance(o, datetime):
+            return o.isoformat()
+        return super(DateTimeEncoder, self).default(o)
 
 # class MyError(Exception):
 #     pass

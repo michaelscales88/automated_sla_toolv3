@@ -33,6 +33,11 @@ import pypyodbc as py
 import types
 from urllib.request import urlopen
 import requests
+from automated_sla_tool.src.SlaReport import SlaReport
+from automated_sla_tool.src.GenericUi import GenericUi as Ui
+from automated_sla_tool.src.SqlWriter import SqlWriter as PgConn
+from automated_sla_tool.src.timeit import timeit
+from dateutil.parser import parse
 
 
 # Settings path
@@ -112,9 +117,15 @@ _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_
 AUDIO_FILE = path.join(r'C:\Users\mscales\Downloads', "MSG00053.wav")
 FILEPATH = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0104\Group Abandoned Calls.xlsx'
 
+
 def filter_row(row_index, row):
     result = [element for element in row if element != '']
     return len(result) == 0
+
+
+@timeit
+def print_stuff(stuff):
+    print(stuff)
 
 
 def common_keys(*dcts):
@@ -245,12 +256,16 @@ def yielder(match_val='something1'):
 
 
 def test():
+    my_ui = Ui()
+    # my_obj = SlaReport(test_mode=True)
+    my_ui.object = PgConn()
+    my_ui.run()
     # yielder()
     # for item1, item2 in yielder():
     #     print(item1)
     #     print(item2)
-    test1 = AppSettings(file_name='SlaReport')
-    print(test1)
+    # test1 = AppSettings(file_name='SlaReport')
+    # print(test1)
     # test1.test()
     # print('completed format')
     # print(test1)

@@ -4,6 +4,7 @@ from time import sleep
 
 from automated_sla_tool.src.FinishedDecorator import FinishedDecorator as check_set
 from automated_sla_tool.src.StackedTracebackDecorator import StackedTracebackDecorator as tb_decorator
+from automated_sla_tool.src.timeit import timeit
 
 
 class GenericUi(object):
@@ -44,7 +45,7 @@ class GenericUi(object):
             **dict(inspect.getmembers(obj, predicate=inspect.ismethod)),
             **{'Quit': self.exit,
                'Setmode Safe': self.toggle_safe_mode,
-               # 'Clear': self.clear_obj
+               'Time It': self.time_fn
                }
         }
         for e in self._exclusions:
@@ -77,10 +78,15 @@ class GenericUi(object):
     def exc_fnc_safe_mode(self):
         return self.exc_fnc()
 
+    @timeit
+    def time_fn(self):
+        print('Performing timeit on next menu selection:')
+        return self.exc_fnc()
+
     def display_selection(self, selection):
         print('GenericUI: {app}\n'
-              'Current Mode: {mode}'.format(app=self._obj.__class__.__name__,
-                                            mode=('Not Active', 'Safe Active')[self._safe]), flush=True)
+              'Safe Mode: {mode}'.format(app=self._obj.__class__.__name__,
+                                         mode=('Not Active', 'Safe Active')[self._safe]), flush=True)
         print("\n".join(['{k}: {v}'.format(k=k, v=v) for k, v in sorted(selection.items())]))
 
     def __del__(self):

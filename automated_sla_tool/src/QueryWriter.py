@@ -1,17 +1,24 @@
 import pyexcel as pe
+from sys import stdin
 from datetime import datetime
 from collections import OrderedDict
+from automated_sla_tool.src.AppSettings import AppSettings
 
 
 class QueryWriter(object):
+    # TODO Settings needed to be configured for multiple connections
     def __init__(self):
-        super().__init__()
+        self._settings = AppSettings(app=self)
         self._conn = None
-        self._params = {}
+        self.connect()
 
     @property
     def name(self):
-        return self._params['local_db'] if self._params.get('local_db', None) else self._params.get('DATABASE', 'unknwn')
+        return self._settings.get('DATABASE', 'Generic Name')
+
+    @property
+    def conn_settings(self):
+        return ';'.join(['{k}={v}'.format(k=key, v=val) for key, val in self._settings['Connection Info'].items()])
 
     @staticmethod
     def transform(ptr):
@@ -24,7 +31,7 @@ class QueryWriter(object):
         return rtn_sheet
 
     def __repr__(self):
-        return '\n'.join([v for v in self._params.values()])
+        return self._settings.__str__()
 
     def __del__(self):
         self.close_conn()
@@ -54,6 +61,16 @@ class QueryWriter(object):
     '''
     Query Methods
     '''
+    @staticmethod
+    def multi_line_cmd():
+        buffer = ''
+        while True:
+            line = stdin.readline()
+            if line.strip() == 'quit':
+                break
+            else:
+                buffer += line
+        return buffer
 
     def get_data(self, sql_command):
         cur = self.exc_cmd(sql_command)
