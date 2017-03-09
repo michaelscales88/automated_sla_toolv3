@@ -7,7 +7,7 @@ from automated_sla_tool.src.utilities import DateTimeEncoder
 class SqlWriter(QueryWriter):
 
     def get_conn(self):
-        return ps.connect(self.conn_settings)
+        return ps.connect(self.conn_string)
 
     def rtn_excel(self, sql_command):
         columns, data = self.get_data(sql_command)
@@ -39,11 +39,6 @@ class SqlWriter(QueryWriter):
                 for fld in cursor2.columns(rows['table_name']):
                     print(fld['table_name'], fld['column_name'])
 
-    def test_command(self):
-        table = self.transform(self.exc_cmd(self.multi_line_cmd()))
-        print(table)
-        print(type(table))
-
     def dict_command(self):
         table = self.rtn_dict(self.multi_line_cmd())
         print(table)
@@ -52,3 +47,18 @@ class SqlWriter(QueryWriter):
                     cls=DateTimeEncoder))
         print(type(table))
 
+    def simple_query(self):
+        # TODO Fix error: malformed results. Sample that breaks below
+        # Issue seems to be with joining tables with matching field names
+        '''
+        Select Distinct c_call.call_id, c_event.event_id, *
+        From c_event
+        Inner Join c_call on c_event.call_id = c_call.call_id
+        where to_char(c_call.start_time, 'YYYY-MM-DD') = '2017-03-06' and
+        c_call.call_direction = 1
+        Order by c_event.event_id
+        '''
+        rtn = super().simple_query()
+        print(rtn.number_of_columns())
+        print(rtn.colnames)
+        print(rtn)
