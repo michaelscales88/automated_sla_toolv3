@@ -1,9 +1,12 @@
-import pyexcel as pe
+from pyexcel import get_sheet
 from sys import stdin
 from datetime import datetime
-from collections import OrderedDict
+from collections import OrderedDict, defaultdict
 from numbers import Integral
+from json import dumps
+
 from automated_sla_tool.src.AppSettings import AppSettings
+from automated_sla_tool.src.utilities import DateTimeEncoder
 
 
 class QueryWriter(object):
@@ -29,11 +32,22 @@ class QueryWriter(object):
 
     @staticmethod
     def transform_ptr(ptr):
-        # print(len(QueryWriter.header(ptr)))
-        return pe.get_sheet(
-            colnames=QueryWriter.header(ptr),
-            array=QueryWriter.data(ptr),
+        return {
+            'colnames': QueryWriter.header(ptr),
+            'array': QueryWriter.data(ptr)
+        }
+
+    @staticmethod
+    def ptr_to_sheet(ptr):
+        return get_sheet(
+            **QueryWriter.transform_ptr(ptr)
         )
+
+    @staticmethod
+    def ptr_to_dict(ptr):
+        test1 = QueryWriter.transform_ptr(ptr)
+        rtn = [dict(zip(test1['colnames'], row)) for row in test1['array']]
+        return rtn
 
     @staticmethod
     def header(ptr):
@@ -69,6 +83,14 @@ class QueryWriter(object):
                 buffer += line
         return buffer
 
+    @staticmethod
+    def pretty_dict(fixer_upper):
+        return dumps(
+            fixer_upper,
+            indent=4,
+            cls=DateTimeEncoder
+        )
+
     def __repr__(self):
         return self._settings.__str__()
 
@@ -101,14 +123,24 @@ class QueryWriter(object):
     Query Methods
     '''
 
-    def simple_query(self):
-        table = QueryWriter.transform_ptr(
+    def pivot(self, pivot):
+        un_grouped = QueryWriter.ptr_to_dict(
             self.exc_cmd(
                 self.multi_line_cmd()
             )
         )
-        # print(table)
-        return table
+        grouped = defaultdict(list)
+        for call_event in un_grouped:
+            call_id = call_event.pop(pivot, 'default')
+            grouped[call_id].append(call_event)
+        return grouped
+
+    def simple_query(self):
+        return QueryWriter.ptr_to_sheet(
+            self.exc_cmd(
+                self.multi_line_cmd()
+            )
+        )
 
     def get_data(self, sql_command):
         ptr = self.exc_cmd(sql_command)

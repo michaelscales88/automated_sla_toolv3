@@ -1,24 +1,12 @@
 import pypyodbc as ps
-from json import dumps
 from automated_sla_tool.src.QueryWriter import QueryWriter
-from automated_sla_tool.src.utilities import DateTimeEncoder
+from datetime import timedelta
 
 
 class SqlWriter(QueryWriter):
 
     def get_conn(self):
         return ps.connect(self.conn_string)
-
-    def rtn_excel(self, sql_command):
-        columns, data = self.get_data(sql_command)
-        return data
-
-    def rtn_dict(self, sql_command):
-        columns, data = self.get_data(sql_command)
-        results = []
-        for row in data:
-            results.append(dict(zip(columns.keys(), row)))
-        return results
 
     def replicate_to(self, dest_conn=None, sql_commands=()):
         if dest_conn:
@@ -40,12 +28,15 @@ class SqlWriter(QueryWriter):
                     print(fld['table_name'], fld['column_name'])
 
     def dict_command(self):
-        table = self.rtn_dict(self.multi_line_cmd())
-        print(table)
-        print(dumps(table,
-                    indent=4,
-                    cls=DateTimeEncoder))
-        print(type(table))
+        for call_id, call_details in super().pivot('call_id').items():
+            print(call_id)
+            duration = timedelta(0)
+            for call_detail in call_details:
+                print(call_detail)
+                diff = call_detail['end_time'] - call_detail['start_time']
+                print(diff)
+                duration += diff
+            print(duration)
 
     def simple_query(self):
         # TODO Fix error: malformed results. Sample that breaks below
