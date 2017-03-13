@@ -123,7 +123,7 @@ class QueryWriter(object):
     Query Methods
     '''
 
-    def pivot(self, pivot):
+    def group(self, group_by):
         un_grouped = QueryWriter.ptr_to_dict(
             self.exc_cmd(
                 self.multi_line_cmd()
@@ -131,7 +131,7 @@ class QueryWriter(object):
         )
         grouped = defaultdict(list)
         for call_event in un_grouped:
-            call_id = call_event.pop(pivot, 'default')
+            call_id = call_event.pop(group_by, 'group_by parameter not found')
             grouped[call_id].append(call_event)
         return grouped
 

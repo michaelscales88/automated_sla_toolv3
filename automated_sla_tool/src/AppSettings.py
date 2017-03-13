@@ -10,12 +10,13 @@ from time import sleep
 # TODO add config writer interface E.g. adding clients, modify settings, etc
 # TODO 2 make this class "static" so that it could produce settings dictionaries for multiple instances
 class AppSettings(ConfigObj):
+
     def __init__(self, app=None, file_name=None):
         self._app = app if app else file_name
-        print('creating AppSettings')
-        print(self._app.__class__)
-        print(hasattr(self._app, '__module__'))
-        print(isinstance(self._app, str))
+        # print('creating AppSettings')
+        # print(self._app.__class__)
+        # print(hasattr(self._app, '__module__'))
+        # print(isinstance(self._app, str))
         if hasattr(self._app, '__module__') or isinstance(self._app, str):  # figure out how to use isclass here
             try:
                 # TODO this param list should be mutable E.g. **kwargs

@@ -38,7 +38,8 @@ from automated_sla_tool.src.GenericUi import GenericUi as Ui
 from automated_sla_tool.src.SqlWriter import SqlWriter as PgConn
 from automated_sla_tool.src.timeit import timeit
 from dateutil.parser import parse
-
+from re import split
+from types import MethodType
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
@@ -255,11 +256,58 @@ def yielder(match_val='something1'):
     #         yield item, indexed[item[match_val]]
 
 
+class Test(object):
+
+    bound_settings = []
+
+    @staticmethod
+    def curr_keyword():
+        return Test.bound_settings
+
+    @staticmethod
+    def bind_settings(settings):
+        Test.bound_settings = settings
+
+    @staticmethod
+    def header_filter(row_index, row):
+        keyword = Test.curr_keyword()
+        print(keyword)
+        corner_case = split('\(| - ', row[0])
+        bad_word = corner_case[0].split(' ')[0] not in keyword
+        return True if len(corner_case) > 1 else bad_word
+
+
 def test():
-    my_ui = Ui()
+    test1 = Test()
+    test1.bind_settings(['Feature', 'Call', 'Event'])
+    # test1.bound_settings.append(['Feature', 'Call', 'Event'])
+    print(test1.bound_settings)
+    # bound_header_filter = MethodType(header_filter, stuff)
+    FILEPATH2 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Cradle to Grave.xlsx'
+    workbook = pe.get_book(file_name=FILEPATH2)
+    workbook.remove_sheet('Summary')
+    for sheet_name in reversed(workbook.sheet_names()):
+        sheet = workbook.sheet_by_name(sheet_name)
+        # del sheet.row[bound_header_filter]
+        del sheet.row[test1.header_filter]
+        sheet.name_rows_by_column(0)
+        sheet.name_columns_by_row(0)
+    print(workbook)
+    print(test1.bound_settings)
+        # try:
+        #     self.chck_rpt_dates(sheet)
+        # except ValueError:
+        #     workbook.remove_sheet(sheet_name)
+    # FILEPATH1 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Group Abandoned Calls.xlsx'
+    # test = pe.get_sheet(file_name=FILEPATH1)
+    # print(test)
+    # FILEPATH2 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Cradle to Grave.xlsx'
+    # test2 = pe.get_sheet(file_name=FILEPATH2)
+    # print(test2)
+    # my_ui = Ui()
     # my_obj = SlaReport(test_mode=True)
-    my_ui.object = PgConn()
-    my_ui.run()
+    # my_ui.object = PgConn()
+    # my_ui.run()
     # yielder()
     # for item1, item2 in yielder():
     #     print(item1)

@@ -28,7 +28,7 @@ class SqlWriter(QueryWriter):
                     print(fld['table_name'], fld['column_name'])
 
     def dict_command(self):
-        for call_id, call_details in super().pivot('call_id').items():
+        for call_id, call_details in super().group('call_id').items():
             print(call_id)
             duration = timedelta(0)
             for call_detail in call_details:

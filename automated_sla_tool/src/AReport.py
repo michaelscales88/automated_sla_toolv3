@@ -55,6 +55,7 @@ class AReport(ReportTemplate):
         if self._output.finished:
             return
         else:
+            self.util.bound_settings.bind_settings(self._settings['Header Formats'])
             for (f, p) in self.loader(self.req_src_files).items():
                 file = get_book(file_name=p)
                 try:
@@ -76,6 +77,7 @@ class AReport(ReportTemplate):
                     files='\n'.join([f for f in self.req_src_files])
                 ), flush=True)
                 raise SystemExit()
+            self.util.bound_settings.clear_keyword()
 
     # TODO if output is completed then open should open that file
     def open(self, user_string=None, sub_dir=None, alt_dir=None):
