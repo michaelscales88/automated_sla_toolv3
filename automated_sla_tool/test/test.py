@@ -278,22 +278,33 @@ class Test(object):
 
 
 def test():
-    test1 = Test()
-    test1.bind_settings(['Feature', 'Call', 'Event'])
-    # test1.bound_settings.append(['Feature', 'Call', 'Event'])
-    print(test1.bound_settings)
-    # bound_header_filter = MethodType(header_filter, stuff)
-    FILEPATH2 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Cradle to Grave.xlsx'
-    workbook = pe.get_book(file_name=FILEPATH2)
-    workbook.remove_sheet('Summary')
-    for sheet_name in reversed(workbook.sheet_names()):
-        sheet = workbook.sheet_by_name(sheet_name)
-        # del sheet.row[bound_header_filter]
-        del sheet.row[test1.header_filter]
-        sheet.name_rows_by_column(0)
-        sheet.name_columns_by_row(0)
-    print(workbook)
-    print(test1.bound_settings)
+    # Active Testing
+    my_ui = Ui()
+    my_ui.object = SlaReport(test_mode=True)
+    my_ui.run()
+
+    # Other Testing
+    # FILEPATH2 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Cradle to Grave.xlsx'
+    # file = pe.get_book(file_name=FILEPATH2)
+    # try:
+    #     file.remove_sheet('blarnsballs')
+    # except KeyError:
+    #     print('I realized it wasnt in there')
+    # test1 = Test()
+    # test1.bind_settings(['Feature', 'Call', 'Event'])
+    # # test1.bound_settings.append(['Feature', 'Call', 'Event'])
+    # print(test1.bound_settings)
+    # # bound_header_filter = MethodType(header_filter, stuff)
+    # workbook = pe.get_book(file_name=FILEPATH2)
+    # workbook.remove_sheet('Summary')
+    # for sheet_name in reversed(workbook.sheet_names()):
+    #     sheet = workbook.sheet_by_name(sheet_name)
+    #     # del sheet.row[bound_header_filter]
+    #     del sheet.row[test1.header_filter]
+    #     sheet.name_rows_by_column(0)
+    #     sheet.name_columns_by_row(0)
+    # print(workbook)
+    # print(test1.bound_settings)
         # try:
         #     self.chck_rpt_dates(sheet)
         # except ValueError:
@@ -304,10 +315,6 @@ def test():
     # FILEPATH2 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Cradle to Grave.xlsx'
     # test2 = pe.get_sheet(file_name=FILEPATH2)
     # print(test2)
-    # my_ui = Ui()
-    # my_obj = SlaReport(test_mode=True)
-    # my_ui.object = PgConn()
-    # my_ui.run()
     # yielder()
     # for item1, item2 in yielder():
     #     print(item1)

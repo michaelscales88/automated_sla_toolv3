@@ -18,11 +18,9 @@ class SlaReport(AReport):
             print('Report Complete for {date}'.format(date=self._inr))
         else:
             print('Building a report for {date}'.format(date=self._inr))
+            # self.util.load_data(self)
             self.load_and_prepare()
             self.sla_report = {}
-            # print(self._settings)
-            # self.new_run()
-            # self.norm_day = self.day_of_wk not in (5, 6)
 
     '''
     UI Section
@@ -65,15 +63,12 @@ class SlaReport(AReport):
         self.src_files[r'Call Details'] = self.util.collate_wb_to_sheet(wb=self.src_files[r'Call Details'])
         self.util.apply_format_to_sheet(sheet=self.src_files[r'Call Details'],
                                         filters=call_details_filters)
-        # self.src_files[r'Call Details'].name = 'call_details'
         self.compile_call_details()
-
         self.src_files[r'Group Abandoned Calls'] = self.util.collate_wb_to_sheet(
             wb=self.src_files[r'Group Abandoned Calls']
         )
         self.util.apply_format_to_sheet(sheet=(self.src_files[r'Group Abandoned Calls']),
                                         one_filter=self.util.answered_filter)
-        # self.src_files[r'Group Abandoned Calls'].name = 'abandon_grp'
         self.scrutinize_abandon_group()
 
         self.src_files[r'Voice Mail'] = self.modify_vm(SlaSrcHunter(parent=self).get_vm(self.interval))

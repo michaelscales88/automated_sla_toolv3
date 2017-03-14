@@ -3,6 +3,8 @@ from dateutil.parser import parse
 from pyexcel import Book, Sheet, get_sheet, get_book
 from subprocess import Popen
 from re import split
+from glob import glob
+from os.path import join
 
 from automated_sla_tool.src.UtilityObject import UtilityObject
 
@@ -15,26 +17,48 @@ class UniqueDict(dict):
 
 class BoundSettings(object):
 
-    bound_settings = []
+    def __init__(self):
+        self._bound_settings = []
+        self._cwd = None
 
     @property
-    def keyword(self):
-        return BoundSettings.bound_settings
+    def current_binding(self):
+        return self._bound_settings
 
-    @staticmethod
-    def bind_settings(settings):
-        BoundSettings.bound_settings = settings
-        print('set bound settings')
+    @current_binding.setter
+    def current_binding(self, new_binding):
+        self._bound_settings = new_binding
 
-    @staticmethod
-    def clear_keyword():
-        BoundSettings.bound_settings = []
-        print('cleared bound settings')
+    @property
+    def cwd(self):
+        return self._cwd
+
+    @cwd.setter
+    def cwd(self, new_dir):
+        self._cwd = new_dir
 
 
 class ReportUtilities(UtilityObject):
 
-    bound_settings = BoundSettings()
+    def __init__(self):
+        super().__init__()
+        self._bound_settings = BoundSettings()
+
+    @property
+    def cwd(self):
+        return self._bound_settings.cwd
+
+    @cwd.setter
+    def cwd(self, new_wd):
+        self._bound_settings.cwd = new_wd
+
+    @property
+    def bound_settings(self):
+        return tuple(self._bound_settings.current_binding)
+
+    @bound_settings.setter
+    def bound_settings(self, new_bindings):
+        self._bound_settings.current_binding = new_bindings
 
     @staticmethod
     def is_weekday(raw_date):
@@ -141,65 +165,65 @@ class ReportUtilities(UtilityObject):
             print('Could not parse date_time: {dt}'.format(dt=dt))
 
     @staticmethod
-    def open_excel(file):
-        if isinstance(file, Sheet):
-            return_file = file
-        else:
-            return_file = ReportUtilities.open_pe_file(file)
-        return_file.name_columns_by_row(0)
-        return_file.name_rows_by_column(0)
-        return return_file
+    def apply_header_filters(work_sheet):
+        del work_sheet.row[ReportUtilities.header_filter]
+        work_sheet.name_rows_by_column(0)
+        work_sheet.name_columns_by_row(0)
 
-    # @staticmethod
-    # def load_data(report):
-    #     # load_data takes the target report and extracts the information to call loader
-    #     # return_file = ReportUtilities.open_excel(file)
-    #     for (f, p) in ReportUtilities.loader(report.req_src_files).items():
-    #         file = get_book(file_name=p)
-    #         try:
-    #             print(f)
-    #             report.src_files[f] = self.filter_chronicall_reports(file)
-    #         except (IndexError, TypeError):
-    #             print(self.src_files.keys())
-    #             print('I hit an issue opening my src file: {file}.\n'
-    #                   'Please try to open and re-save before proceeding.'.format(file=f))
-    #             self.util.open_directory(report.src_doc_path)
-    #             raise SystemExit()
-    #             # self.src_files[f] = self.filter_chronicall_reports(get_book(file_name=p))
-    #         except KeyError:
-    #             self.util.open_directory(self.src_doc_path)
-    #             # self.src_files[f] = file
-    #
-    #     if self.req_src_files:
-    #         print('Could not find files:\n{files}'.format(
-    #             files='\n'.join([f for f in self.req_src_files])
-    #         ), flush=True)
-    #         raise SystemExit()
-    #     return return_file
-    #
-    # # TODO push this into ReportUtilities
-    # @staticmethod
-    # def loader(unloaded_files, need_to_dl=False):
-    #     if need_to_dl:
-    #         self.dl_src_files(files=unloaded_files)
-    #         got_downloads = True
-    #     else:
-    #         got_downloads = False
-    #     loaded_files = {}
-    #     self.clean_src_loc(spc_ch=['-', '_'],
-    #                        del_ch=['%', r'\d+'])
-    #     for f_name in reversed(unloaded_files):
-    #         src_f = glob(r'{f_path}*.*'.format(f_path=join(self.src_doc_path, f_name)))
-    #         if len(src_f) is 1:
-    #             loaded_files[f_name] = src_f[0]
-    #             unloaded_files.remove(f_name)
-    #     return (loaded_files
-    #             if (len(unloaded_files) is 0 or got_downloads) else
-    #             {**loaded_files, **self.loader(unloaded_files, need_to_dl=True)})
+    @staticmethod
+    def apply_body_filters(work_sheet):
+        # Remove summary page
+        # workbook.remove_sheet('Summary') -> map this to settings
+        # try:
+        #     self.chck_rpt_dates(sheet)
+        # except ValueError:
+        #     workbook.remove_sheet(sheet_name)
+        pass
+
+    @staticmethod
+    def remove_sheets_per_settings(workbook):
+        workbook.remove_sheet('Summary')
+        # for sheet_to_remove in 'Summary':
+        #     try:
+        #         workbook.remove_sheet(sheet_to_remove)
+        #     except KeyError:
+        #         pass
+
+    # TODO this need to be able to handle more data types than excel
+    @staticmethod
+    def load_data(report):
+        print('testing load_data')
+
+        unloaded_files = list(report.req_src_files)
+        ReportUtilities.cwd = str(report.src_doc_path)
+        ReportUtilities._bound_settings = report.settings['Header Formats']
+
+        for f_name, path in ReportUtilities.loader(unloaded_files):
+            file = ReportUtilities.open_excel(path)
+            ReportUtilities.remove_sheets_per_settings(file)
+            for sheet_name in reversed(file.sheet_names()):
+                # Modify with mapped header stuff
+                ReportUtilities.apply_header_filters(file.sheet_by_name(sheet_name))
+                # Modify with mapped other stuff
+                ReportUtilities.apply_body_filters(file.sheet_by_name(sheet_name))
+                # yield book with basic modifications
+            print(file)
+        ReportUtilities._bound_settings = []
+        ReportUtilities.cwd = None
+        print('test complete')
+
+    # TODO push this into ReportUtilities
+    @staticmethod
+    def loader(unloaded_files):
+        for f_name in reversed(unloaded_files):
+            src_f = glob(r'{f_path}*.*'.format(f_path=join(ReportUtilities.cwd, f_name)))
+            if len(src_f) is 1:
+                unloaded_files.remove(f_name)
+            yield f_name, src_f[0]
 
     # TODO build out ReportUtility to open pe files for sheets/books
     @staticmethod
-    def open_pe_file(f_name):
+    def open_excel(f_name):
         try:
             return get_book(file_name=f_name)
         except OSError:
@@ -236,8 +260,9 @@ class ReportUtilities(UtilityObject):
     @staticmethod
     def header_filter(row_index, row):
         corner_case = split('\(| - ', row[0])
-        # bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
-        bad_word = corner_case[0].split(' ')[0] not in ReportUtilities.bound_settings.keyword
+        bad_word = corner_case[0].split(' ')[0] not in ('Feature', 'Call', 'Event')
+        # bad_word = corner_case[0].split(' ')[0] not in tuple(ReportUtilities.bound_settings)
+        # bad_words = ReportUtilities.bound_settings
         return True if len(corner_case) > 1 else bad_word
 
     @staticmethod
