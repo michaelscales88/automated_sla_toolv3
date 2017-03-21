@@ -40,6 +40,7 @@ from automated_sla_tool.src.timeit import timeit
 from dateutil.parser import parse
 from re import split
 from types import MethodType
+from subprocess import Popen
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
@@ -116,7 +117,7 @@ _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_
 #         self._name = name
 # AUDIO_FILE = path.join(r'C:\Users\mscales\Downloads', "man1_nb.wav")
 AUDIO_FILE = path.join(r'C:\Users\mscales\Downloads', "MSG00053.wav")
-FILEPATH = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0104\Group Abandoned Calls.xlsx'
+FILEPATH = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0320\Group Abandoned Calls.xlsx'
 
 
 def filter_row(row_index, row):
@@ -282,7 +283,16 @@ def test():
     my_ui = Ui()
     my_ui.object = SlaReport(test_mode=True)
     my_ui.run()
+    # with get_book(file_name=FILEPATH) as book:
+    #     print(book)
 
+    # with open(FILEPATH, mode='rb') as book2:
+    #     book = get_book(file_content=book2, file_type='xlsx')
+    #     for sheet in book:
+    #         print(sheet)
+    #     # print(book)
+    # Popen('explorer "{0}"'.format(r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0320'))
+    # input('Any key to continue.')
     # Other Testing
     # FILEPATH2 = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0310\Cradle to Grave.xlsx'
     # file = pe.get_book(file_name=FILEPATH2)

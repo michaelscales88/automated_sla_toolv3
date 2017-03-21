@@ -47,6 +47,11 @@ class AReport(ReportTemplate):
             self.util_datetime = None
             self.day_of_wk = None
 
+    @staticmethod
+    def context_manager(file_name):
+        with open(file_name, mode='rb') as file_object:
+            return get_book(file_content=file_object, file_type='xlsx')
+
     # TODO abstract this -> *args
     # TODO 2: error handling for BadZipFile error from openpyxl. handles corrupted files
     # TODO 3: Move this into ReportUtilities. Keep filter_chronicall_reports in this class
@@ -55,29 +60,28 @@ class AReport(ReportTemplate):
         if self._output.finished:
             return
         else:
-            # self.util.bound_settings = self._settings['Header Formats']
+            # for f_name, file in self.util.load_data(self):
+            #     self.src_files[f_name] = file
+
             for (f, p) in self.loader(self.req_src_files).items():
-                file = get_book(file_name=p)
                 try:
-                    print(f)
+                    file = self.context_manager(p)
                     self.src_files[f] = self.filter_chronicall_reports(file)
                 except (IndexError, TypeError):
                     print(self.src_files.keys())
                     print('I hit an issue opening my src file: {file}.\n'
                           'Please try to open and re-save before proceeding.'.format(file=f))
                     self.util.open_directory(self.src_doc_path)
-                    raise SystemExit()
-                    # self.src_files[f] = self.filter_chronicall_reports(get_book(file_name=p))
+                    file = self.context_manager(p)
+                    self.src_files[f] = self.filter_chronicall_reports(file)
                 except KeyError:
                     self.util.open_directory(self.src_doc_path)
-                # self.src_files[f] = file
 
             if self.req_src_files:
                 print('Could not find files:\n{files}'.format(
                     files='\n'.join([f for f in self.req_src_files])
                 ), flush=True)
                 raise SystemExit()
-            # self.util.bound_settings = []
 
     # TODO if output is completed then open should open that file
     def open(self, user_string=None, sub_dir=None, alt_dir=None):

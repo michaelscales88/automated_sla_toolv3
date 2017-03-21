@@ -4,7 +4,9 @@ from pyexcel import Book, Sheet, get_sheet, get_book
 from subprocess import Popen
 from re import split
 from glob import glob
-from os.path import join
+from os.path import join, splitext, basename
+from pywinauto.findwindows import find_window, WindowNotFoundError
+from pywinauto.controls.hwndwrapper import HwndWrapper
 
 from automated_sla_tool.src.UtilityObject import UtilityObject
 
@@ -164,6 +166,20 @@ class ReportUtilities(UtilityObject):
         except ValueError:
             print('Could not parse date_time: {dt}'.format(dt=dt))
 
+    # TODO beef this up to handle multiple kinds of files
+    @staticmethod
+    def context_manager(file_name, ext):
+        with open(file_name, mode='rb') as file_object:
+            return get_book(file_content=file_object, file_type=ext)
+
+    @staticmethod
+    def prepare_excel(file):
+        ReportUtilities.remove_sheets_per_settings(file)
+        for sheet_name in reversed(file.sheet_names()):
+            sheet = file.sheet_by_name(sheet_name)
+            ReportUtilities.apply_header_filters(sheet)
+            ReportUtilities.apply_body_filters(sheet)
+
     @staticmethod
     def apply_header_filters(work_sheet):
         del work_sheet.row[ReportUtilities.header_filter]
@@ -172,7 +188,6 @@ class ReportUtilities(UtilityObject):
 
     @staticmethod
     def apply_body_filters(work_sheet):
-        # Remove summary page
         # workbook.remove_sheet('Summary') -> map this to settings
         # try:
         #     self.chck_rpt_dates(sheet)
@@ -183,52 +198,52 @@ class ReportUtilities(UtilityObject):
     @staticmethod
     def remove_sheets_per_settings(workbook):
         workbook.remove_sheet('Summary')
-        # for sheet_to_remove in 'Summary':
+        # for sheet_to_remove in ['Summary']:
         #     try:
         #         workbook.remove_sheet(sheet_to_remove)
         #     except KeyError:
         #         pass
 
     # TODO this need to be able to handle more data types than excel
+    # TODO 2: this should also download files
     @staticmethod
     def load_data(report):
         print('testing load_data')
 
-        unloaded_files = list(report.req_src_files)
+        # unloaded_files = list(report.req_src_files)
         ReportUtilities.cwd = str(report.src_doc_path)
         ReportUtilities._bound_settings = report.settings['Header Formats']
 
-        for f_name, path in ReportUtilities.loader(unloaded_files):
-            file = ReportUtilities.open_excel(path)
-            ReportUtilities.remove_sheets_per_settings(file)
-            for sheet_name in reversed(file.sheet_names()):
-                # Modify with mapped header stuff
-                ReportUtilities.apply_header_filters(file.sheet_by_name(sheet_name))
-                # Modify with mapped other stuff
-                ReportUtilities.apply_body_filters(file.sheet_by_name(sheet_name))
-                # yield book with basic modifications
-            print(file)
+        for f_name, ext, path in ReportUtilities.loader(report.req_src_files):
+            try:
+                file = ReportUtilities.context_manager(path, ext)
+                ReportUtilities.prepare_excel(file)
+            except (IndexError, TypeError) as e:
+                print(e)
+                print('Encountered an issue with file: {file_name}\n'
+                      'Try to open and save the file.'.format(file_name=f_name))
+                ReportUtilities.open_directory(report.src_doc_path)
+                file = ReportUtilities.context_manager(path, ext)
+                ReportUtilities.prepare_excel(file)
+            yield f_name, file
         ReportUtilities._bound_settings = []
         ReportUtilities.cwd = None
         print('test complete')
 
-    # TODO push this into ReportUtilities
+    # TODO This should download files which were not found
     @staticmethod
-    def loader(unloaded_files):
+    def loader(unloaded_files, download=False):
+        if download:
+            # Need to add SrcHunter to ReportUtilities
+            pass
         for f_name in reversed(unloaded_files):
             src_f = glob(r'{f_path}*.*'.format(f_path=join(ReportUtilities.cwd, f_name)))
+            print(src_f)
             if len(src_f) is 1:
                 unloaded_files.remove(f_name)
-            yield f_name, src_f[0]
-
-    # TODO build out ReportUtility to open pe files for sheets/books
-    @staticmethod
-    def open_excel(f_name):
-        try:
-            return get_book(file_name=f_name)
-        except OSError:
-            print('OSError ->'
-                  'cannot open {}'.format(f_name))
+                yield f_name, splitext(src_f[0])[1][1:], src_f[0]
+        if len(unloaded_files) > 0 and not download:
+            ReportUtilities.loader(unloaded_files, download=True)
 
     @staticmethod
     def safe_div(num, denom):
@@ -293,5 +308,8 @@ class ReportUtilities(UtilityObject):
 
     @staticmethod
     def open_directory(tgt_dir):
-        Popen('explorer "{0}"'.format(tgt_dir))
+        try:
+            HwndWrapper(find_window(title=basename(tgt_dir))).set_focus()
+        except WindowNotFoundError:
+            Popen('explorer "{path}"'.format(path=tgt_dir))
         input('Any key to continue.')
