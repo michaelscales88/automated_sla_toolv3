@@ -10,7 +10,6 @@ from automated_sla_tool.src.ReportTemplate import ReportTemplate
 from automated_sla_tool.src.ReportUtilities import ReportUtilities
 from automated_sla_tool.src.FinalReport import FinalReport
 from automated_sla_tool.src.AppSettings import AppSettings
-from automated_sla_tool.src.factory import get_email_data
 
 
 class UniqueDict(dict):

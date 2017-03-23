@@ -6,7 +6,7 @@ from collections import defaultdict, OrderedDict
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
-from automated_sla_tool.src.factory import SlaSrcHunter
+from automated_sla_tool.src.factory import Downloader
 
 
 class SlaReport(AReport):
@@ -18,7 +18,6 @@ class SlaReport(AReport):
             print('Report Complete for {date}'.format(date=self._inr))
         else:
             print('Building a report for {date}'.format(date=self._inr))
-            # self.util.load_data(self)
             self.load_and_prepare()
             self.sla_report = {}
 
@@ -48,7 +47,8 @@ class SlaReport(AReport):
                 ('-4 Days', -4),
                 ('-3 Days', -3),
                 ('-2 Days', -2),
-                ('Yesterday', -1)
+                ('Yesterday', -1),
+                # ('Testing - Do not use', 0)
             ]
         )
         return date.today() + timedelta(days=self.util.return_selection(input_opt))
@@ -71,7 +71,7 @@ class SlaReport(AReport):
                                         one_filter=self.util.answered_filter)
         self.scrutinize_abandon_group()
 
-        self.src_files[r'Voice Mail'] = self.modify_vm(SlaSrcHunter(parent=self).get_vm(self.interval))
+        self.src_files[r'Voice Mail'] = self.modify_vm(Downloader(parent=self).get_vm(self.interval))
 
     def new_run(self):
         ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
@@ -283,20 +283,11 @@ class SlaReport(AReport):
         if isinstance(inc_data, dict):
             c_vm = self.new_type_cradle_vm()
             for client_name, inc_data, c_vm in sorted(self.util.common_keys(inc_data, c_vm)):
-                # print('common keys')
-                # print("{} ".format(datetime.now().time()), client_name)
-                # print("{} ".format(datetime.now().time()), inc_data)
-                # print("{} ".format(datetime.now().time()), c_vm)
                 for match1, match2 in self.util.return_matches(inc_data, c_vm, match_val='phone_number'):
-                    # print("{} ".format(datetime.now().time()), 'matches')
-                    # print("{} ".format(datetime.now().time()), match1)
-                    # print("{} ".format(datetime.now().time()), match2)
-                    # print(abs(match1['time'] - match2['time']))
                     if abs(match1['time'] - match2['time']) < timedelta(seconds=30):
                         call_id = match1['call_id'] if match1.get('call_id', None) else match2['call_id']
                         client_info = rtn_dict.get(client_name, [])
                         client_info.append(call_id)
-                        # print("{} matched".format(datetime.now().time()), call_id)
                         rtn_dict[client_name] = client_info
         return rtn_dict
 
@@ -329,13 +320,6 @@ class SlaReport(AReport):
                         print(call_id_page[row_name, 'Calling Party'])
                         raise
         return voice_mail_dict
-
-    # def write_voicemail_data(self, voicemail_file_path):
-    #     text_file = open(voicemail_file_path, 'w')
-    #     for voicemail_group in self.src_files[r'Voice Mail'].items():
-    #         text_string = '{0},{1}\n'.format(voicemail_group[0], ",".join(voicemail_group[1]))
-    #         text_file.write(text_string)
-    #     text_file.close()
 
     '''
     Utilities Section

@@ -21,7 +21,6 @@ import iso8601
 from os import path
 from os.path import basename
 from automated_sla_tool.src.AppSettings import AppSettings
-from automated_sla_tool.src.factory import get_email_data
 from automated_sla_tool.src.InternalDb import InternalDb
 from time import sleep
 from collections import defaultdict, OrderedDict

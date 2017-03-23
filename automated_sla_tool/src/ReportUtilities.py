@@ -8,7 +8,9 @@ from os.path import join, splitext, basename
 from pywinauto.findwindows import find_window, WindowNotFoundError
 from pywinauto.controls.hwndwrapper import HwndWrapper
 
+
 from automated_sla_tool.src.UtilityObject import UtilityObject
+from automated_sla_tool.src.factory import Loader
 
 
 class UniqueDict(dict):
@@ -45,6 +47,7 @@ class ReportUtilities(UtilityObject):
     def __init__(self):
         super().__init__()
         self._bound_settings = BoundSettings()
+        self._bound_connection = None
 
     @property
     def cwd(self):
@@ -55,12 +58,20 @@ class ReportUtilities(UtilityObject):
         self._bound_settings.cwd = new_wd
 
     @property
-    def bound_settings(self):
+    def bind_settings(self):
         return tuple(self._bound_settings.current_binding)
 
-    @bound_settings.setter
-    def bound_settings(self, new_bindings):
-        self._bound_settings.current_binding = new_bindings
+    @bind_settings.setter
+    def bind_settings(self, new_binding):
+        self._bound_settings.current_binding = new_binding
+
+    @property
+    def bind_connection(self):
+        return self._bound_connection
+
+    @bind_connection.setter
+    def bind_connection(self, new_binding):
+        self._bound_connection = new_binding
 
     @staticmethod
     def is_weekday(raw_date):
@@ -206,15 +217,18 @@ class ReportUtilities(UtilityObject):
 
     # TODO this need to be able to handle more data types than excel
     # TODO 2: this should also download files
-    @staticmethod
-    def load_data(report):
+    def load_data(self, report):
         print('testing load_data')
 
-        # unloaded_files = list(report.req_src_files)
-        ReportUtilities.cwd = str(report.src_doc_path)
-        ReportUtilities._bound_settings = report.settings['Header Formats']
+        ld = Loader()
+        # self.cwd = str(report.src_doc_path)
+        ld.connection = report
+        ld.cwd = report.src_doc_path
+        self.bind_settings = report.settings['Header Formats']
+        # self.bind_connection = 'testytest'
+        for f_name, path, ext in ld.load_or_dl(report.req_src_files):
+        # for f_name, path, ext in ReportUtilities.loader(report.req_src_files):
 
-        for f_name, ext, path in ReportUtilities.loader(report.req_src_files):
             try:
                 file = ReportUtilities.context_manager(path, ext)
                 ReportUtilities.prepare_excel(file)
@@ -223,26 +237,28 @@ class ReportUtilities(UtilityObject):
                 print('Encountered an issue with file: {file_name}\n'
                       'Try to open and save the file.'.format(file_name=f_name))
                 ReportUtilities.open_directory(report.src_doc_path)
+
                 file = ReportUtilities.context_manager(path, ext)
                 ReportUtilities.prepare_excel(file)
+
             yield f_name, file
-        ReportUtilities._bound_settings = []
-        ReportUtilities.cwd = None
+        # self.bind_connection = None
+        self.bind_settings = []
+        # self.cwd = None
         print('test complete')
 
     # TODO This should download files which were not found
     @staticmethod
     def loader(unloaded_files, download=False):
         if download:
-            # Need to add SrcHunter to ReportUtilities
+            print('Downloading from: {}'.format(ReportUtilities.bind_connection))
             pass
         for f_name in reversed(unloaded_files):
             src_f = glob(r'{f_path}*.*'.format(f_path=join(ReportUtilities.cwd, f_name)))
-            print(src_f)
             if len(src_f) is 1:
                 unloaded_files.remove(f_name)
-                yield f_name, splitext(src_f[0])[1][1:], src_f[0]
-        if len(unloaded_files) > 0 and not download:
+                yield f_name, src_f[0], splitext(src_f[0])[1][1:]
+        if len(unloaded_files) > 0 and download is False:
             ReportUtilities.loader(unloaded_files, download=True)
 
     @staticmethod
