@@ -29,10 +29,6 @@ class SlaReport(AReport):
         # Allows use of inspect.isclass
         pass
 
-    @property
-    def settings(self):
-        return self._settings
-
     def run(self):
         if self._output.finished:
             return
@@ -48,7 +44,7 @@ class SlaReport(AReport):
                 ('-3 Days', -3),
                 ('-2 Days', -2),
                 ('Yesterday', -1),
-                # ('Testing - Do not use', 0)
+                ('Testing - Do not use', 0)
             ]
         )
         return date.today() + timedelta(days=self.util.return_selection(input_opt))

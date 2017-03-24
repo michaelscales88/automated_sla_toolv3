@@ -40,6 +40,7 @@ from dateutil.parser import parse
 from re import split
 from types import MethodType
 from subprocess import Popen
+from automated_sla_tool.src.AudioTranscription import AudioTranscription
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
@@ -282,6 +283,11 @@ def test():
     my_ui = Ui()
     my_ui.object = SlaReport(test_mode=True)
     my_ui.run()
+
+    # x = AudioTranscription()
+    #
+    # for text in x.transcribe([AUDIO_FILE]):
+    #     print(text)
     # with get_book(file_name=FILEPATH) as book:
     #     print(book)
 

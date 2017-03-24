@@ -20,7 +20,7 @@ class AudioTranscription(object):
                 except sr.RequestError as e:
                     print("Could not request results from Google Cloud Speech service; {0}".format(e))
                 else:
-                    AudioTranscription.del_read_file(filename=wav_file)
+                    # AudioTranscription.del_read_file(filename=wav_file)
                     yield (trans_text)
 
     @staticmethod

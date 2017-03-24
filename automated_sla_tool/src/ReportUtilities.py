@@ -1,9 +1,9 @@
 from datetime import datetime, date, time
+from os import listdir, rename
 from dateutil.parser import parse
-from pyexcel import Book, Sheet, get_sheet, get_book
+from pyexcel import Book, Sheet, get_book
 from subprocess import Popen
-from re import split
-from glob import glob
+from re import split, sub
 from os.path import join, splitext, basename
 from pywinauto.findwindows import find_window, WindowNotFoundError
 from pywinauto.controls.hwndwrapper import HwndWrapper
@@ -183,6 +183,20 @@ class ReportUtilities(UtilityObject):
         with open(file_name, mode='rb') as file_object:
             return get_book(file_content=file_object, file_type=ext)
 
+    def clean_dir(self):
+        # Should get spc characters and del characters from settings
+        pass
+        # file_list = [f for f in listdir(self.connection.src_doc_path) if f.endswith((".xlsx", ".xls"))]
+        # for f in file_list:
+        #     f_name, ext = splitext(f)
+        #     f_name = sub('[{spc_chrs}]'.format(spc_chrs=''.join(spc_ch)), ' ', f_name)
+        #     f_name = sub('[{del_chs}]'.format(del_chs=''.join(del_ch)), '', f_name)
+        #     f_name = f_name.strip()
+        #     old_f = join(self.src_doc_path, f)
+        #     new_f = join(self.src_doc_path, r'{f_name}{ext}'.format(f_name=f_name,
+        #                                                             ext=ext))
+        #     rename(old_f, new_f)
+
     @staticmethod
     def prepare_excel(file):
         ReportUtilities.remove_sheets_per_settings(file)
@@ -221,14 +235,13 @@ class ReportUtilities(UtilityObject):
         print('testing load_data')
 
         ld = Loader()
-        # self.cwd = str(report.src_doc_path)
         ld.connection = report
         ld.cwd = report.src_doc_path
-        self.bind_settings = report.settings['Header Formats']
-        # self.bind_connection = 'testytest'
-        for f_name, path, ext in ld.load_or_dl(report.req_src_files):
-        # for f_name, path, ext in ReportUtilities.loader(report.req_src_files):
 
+        self.bind_settings = report.settings['Header Formats']
+
+        for f_name, path, ext in ld.load_or_dl(report.req_src_files):
+            print(f_name, path, ext)
             try:
                 file = ReportUtilities.context_manager(path, ext)
                 ReportUtilities.prepare_excel(file)
@@ -242,24 +255,9 @@ class ReportUtilities(UtilityObject):
                 ReportUtilities.prepare_excel(file)
 
             yield f_name, file
-        # self.bind_connection = None
-        self.bind_settings = []
-        # self.cwd = None
-        print('test complete')
 
-    # TODO This should download files which were not found
-    @staticmethod
-    def loader(unloaded_files, download=False):
-        if download:
-            print('Downloading from: {}'.format(ReportUtilities.bind_connection))
-            pass
-        for f_name in reversed(unloaded_files):
-            src_f = glob(r'{f_path}*.*'.format(f_path=join(ReportUtilities.cwd, f_name)))
-            if len(src_f) is 1:
-                unloaded_files.remove(f_name)
-                yield f_name, src_f[0], splitext(src_f[0])[1][1:]
-        if len(unloaded_files) > 0 and download is False:
-            ReportUtilities.loader(unloaded_files, download=True)
+        self.bind_settings = []
+        print('test complete')
 
     @staticmethod
     def safe_div(num, denom):

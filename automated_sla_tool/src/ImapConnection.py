@@ -4,6 +4,7 @@ from imaplib import IMAP4_SSL, IMAP4
 from pyexcel import get_book
 from traceback import format_exc
 from datetime import date, datetime
+from os.path import join, isfile
 
 
 from automated_sla_tool.src.AppSettings import AppSettings
@@ -62,6 +63,10 @@ class ImapConnection(IMAP4_SSL):
             print('No connection to close.')
         finally:
             ImapConnection._conn_set = False
+
+    @property
+    def parent(self):
+        return self._parent
 
     # Interface
     def go_to_box(self, tgt_box):
@@ -177,13 +182,23 @@ class ImapConnection(IMAP4_SSL):
             # See if its possible to get f_ext from .get_content_charset()
             if f_name and f_ext:
                 if f_ext == 'xlsx':
-                    with NamedTemporaryFile(mode='w+b', suffix=f_ext) as f:
-                        f.write(part.get_payload(decode=True))
-                        f.seek(0)
+                    try:
+                        f_path = join(self.parent.src_doc_path, f_name)
+                        if not isfile(f_path):
+                            with open(f_path, mode='wb') as f:
+                                f.write(part.get_payload(decode=True))
+                                f.close()
                         payload[f_name] = get_book(
-                            file_type=f_ext,
-                            file_content=f.read()
+                            file_name=f_path
                         )
+                    except AttributeError:
+                        with NamedTemporaryFile(mode='w+b', suffix=f_ext) as f:
+                            f.write(part.get_payload(decode=True))
+                            f.seek(0)
+                            payload[f_name] = get_book(
+                                file_type=f_ext,
+                                file_content=f.read()
+                            )
                 if f_ext == 'wav':
                     with NamedTemporaryFile(mode='w+b', suffix=f_ext) as f:  # change this back to delete=False for scribing
                         f.write(part.get_payload(decode=True))
