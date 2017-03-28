@@ -50,8 +50,11 @@ class AReport(ReportTemplate):
             return
         else:
             for f_name, file in self.util.load_data(self):
+                # print(f_name)
+                # print(type(f_name))
+                # print(type(file))
                 self.src_files[f_name] = file
-
+            # raise SystemExit()
             # for (f, p) in self.loader(self.req_src_files).items():
             #     try:
             #         file = self.context_manager(p)
@@ -153,6 +156,9 @@ class AReport(ReportTemplate):
     #         except ValueError:
     #             workbook.remove_sheet(sheet_name)
     #     return workbook
+
+    def print_output(self):
+        print(self.output)
 
     def chck_rpt_dates(self, sheet):
         first = self.chck_w_in_days(sheet.column['Start Time'][0])

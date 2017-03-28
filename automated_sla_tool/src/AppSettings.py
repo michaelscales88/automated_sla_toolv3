@@ -81,6 +81,7 @@ class AppSettings(ConfigObj):
 
     # TODO this is not working as intended. should go to nth depth, but is going to n - 1
     def __iter__(self, v=None):
+        print('inside __iter__')
         for kvl, vvl in (v if v else self).items():
             if hasattr(vvl, 'items'):
                 self.__iter__(v=vvl)

@@ -74,19 +74,19 @@ class ReportUtilities(UtilityObject):
         self._bound_connection = new_binding
 
     @staticmethod
-    def is_weekday(raw_date):
+    def is_weekday(given_day):
         try:
-            return ReportUtilities.day_of_week(raw_date) not in (5, 6)
+            return ReportUtilities.day_of_week(given_day) not in (5, 6)
         except AttributeError:
-            print('{date} is invalid to get day of the week.'.format(date=raw_date))
+            print('{date} is invalid to get day of the week.'.format(date=given_day))
 
     @staticmethod
-    def day_of_week(raw_date):
-        return raw_date.weekday() if isinstance(raw_date, datetime) else 'Unknown Date'
+    def day_of_week(given_day):
+        return given_day.weekday() if isinstance(given_day, (datetime, date)) else 'Unknown Date'
 
     @staticmethod
-    def name_of_day(raw_date):
-        return raw_date.strftime('%A') if isinstance(raw_date, datetime) else 'Unknown Date'
+    def name_of_day(given_day):
+        return given_day.strftime('%A') if isinstance(given_day, (datetime, date)) else 'Unknown Date'
 
     @staticmethod
     def date_to_dt(raw_date):
@@ -253,7 +253,6 @@ class ReportUtilities(UtilityObject):
 
                 file = ReportUtilities.context_manager(path, ext)
                 ReportUtilities.prepare_excel(file)
-
             yield f_name, file
 
         self.bind_settings = []

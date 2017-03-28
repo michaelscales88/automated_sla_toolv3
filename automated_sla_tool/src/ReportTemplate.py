@@ -4,7 +4,7 @@ from os.path import dirname, abspath
 class ReportTemplate(object):
     def __init__(self):
         self.path = dirname(dirname(abspath(__file__)))
-        self.src_files = None
+        self.src_files = {}
         self._inr = None
         self._util = None
         self._inr = None

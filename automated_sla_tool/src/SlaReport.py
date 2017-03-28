@@ -20,6 +20,7 @@ class SlaReport(AReport):
             print('Building a report for {date}'.format(date=self._inr))
             self.load_and_prepare()
             self.sla_report = {}
+            print(self.output.finished)
 
     '''
     UI Section
@@ -30,12 +31,12 @@ class SlaReport(AReport):
         pass
 
     def run(self):
-        if self._output.finished:
+        if self.output.finished:
             return
         else:
             self.extract_report_information()
             self.process_report()
-            self.save_report()
+            # self.save_report()
 
     def manual_input(self):
         input_opt = OrderedDict(
@@ -44,7 +45,8 @@ class SlaReport(AReport):
                 ('-3 Days', -3),
                 ('-2 Days', -2),
                 ('Yesterday', -1),
-                ('Testing - Do not use', 0)
+                ('Testing - Do not use', 0),
+                # ('Secret Special Number of Days', (lambda: int(input('- Days: ??'))))
             ]
         )
         return date.today() + timedelta(days=self.util.return_selection(input_opt))
@@ -89,14 +91,14 @@ class SlaReport(AReport):
 
     # TODO refactor this: combine process and extract and remove client -> call it run
     def extract_report_information(self):
-        if self._output.finished or self.test_mode:
+        if self.output.finished or self.test_mode:
             return
         else:
             ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
             lost_cid_by_client = self.group_cid_by_client(self.src_files[r'Group Abandoned Calls'])
             for client_name, client_num, full_service in [(client,
-                                                           int(values['client_num']),
-                                                           self.util.str_to_bool(values['full_service']))
+                                                           values['client_num'],
+                                                           values['full_service'])
                                                           for client, values in self._settings['Clients'].items()]:
                 self.sla_report[client_num] = Client(
                     name=client_num,
@@ -114,60 +116,105 @@ class SlaReport(AReport):
                             self.src_files[r'Group Abandoned Calls'])
 
     def process_report(self):
-        if self._output.finished or self.test_mode:
+        if self.output.finished or self.test_mode:
             return
         else:
+            # print('test')
+            # for client, client_num, full_service in self.process_gen('Clients'):
+            #     print(client, type(client))
+            #     print(client_num, type(client_num))
+            #     print(full_service, type(full_service))
+            # print('test complete')
             is_weekday = self.util.is_weekday(self.interval)
-            headers = [self._inr.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
+            headers = [self.interval.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
                        'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
                        'Average Wait Answered',
                        'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
                        'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
                        'PCA']
-            self._output.row += headers
-            self._output.name_columns_by_row(0)
+            self.output.row += headers
+            self.output.name_columns_by_row(0)
             total_row = dict((value, 0) for value in headers[1:])
             total_row['Label'] = 'Summary'
-            for client_name, client_num in [(client, int(values['client_num']))
-                                            for client, values in self._settings['Clients'].items()
-                                            if self.util.str_to_bool(values['full_service']) or is_weekday]:
-                num_calls = self.sla_report[client_num].get_number_of_calls()
-                this_row = dict((value, 0) for value in headers[1:])
-                this_row['I/C Presented'] = sum(num_calls.values())
-                this_row['Label'] = '{num} {name}'.format(num=client_num, name=client_name)
-                if this_row['I/C Presented'] > 0:
-                    ticker_stats = self.sla_report[client_num].get_call_ticker()
-                    this_row['I/C Answered'] = num_calls['answered']
-                    this_row['I/C Lost'] = num_calls['lost']
-                    this_row['Voice Mails'] = num_calls['voicemails']
-                    this_row['Incoming Answered (%)'] = (num_calls['answered'] / this_row['I/C Presented'])
-                    this_row['Incoming Lost (%)'] = (
-                        (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
-                    this_row['Average Incoming Duration'] = self.sla_report[client_num].get_avg_call_duration()
-                    this_row['Average Wait Answered'] = self.sla_report[client_num].get_avg_wait_answered()
-                    this_row['Average Wait Lost'] = self.sla_report[client_num].get_avg_lost_duration()
-                    this_row['Calls Ans Within 15'] = ticker_stats[15]
-                    this_row['Calls Ans Within 30'] = ticker_stats[30]
-                    this_row['Calls Ans Within 45'] = ticker_stats[45]
-                    this_row['Calls Ans Within 60'] = ticker_stats[60]
-                    this_row['Calls Ans Within 999'] = ticker_stats[999]
-                    this_row['Call Ans + 999'] = ticker_stats[999999]
-                    this_row['Longest Waiting Answered'] = self.sla_report[client_num].get_longest_answered()
-                    try:
-                        this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / num_calls['answered'])
-                    except ZeroDivisionError:
-                        this_row['PCA'] = 0
+            for client, client_num, full_service in self.process_gen('Clients'):
+                if is_weekday or full_service:
+                    num_calls = self.sla_report[client_num].get_number_of_calls()
+                    this_row = dict((value, 0) for value in headers[1:])
+                    this_row['I/C Presented'] = sum(num_calls.values())
+                    this_row['Label'] = '{num} {name}'.format(num=client_num, name=client)
+                    if this_row['I/C Presented'] > 0:
+                        ticker_stats = self.sla_report[client_num].get_call_ticker()
+                        this_row['I/C Answered'] = num_calls['answered']
+                        this_row['I/C Lost'] = num_calls['lost']
+                        this_row['Voice Mails'] = num_calls['voicemails']
+                        this_row['Incoming Answered (%)'] = (num_calls['answered'] / this_row['I/C Presented'])
+                        this_row['Incoming Lost (%)'] = (
+                            (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
+                        this_row['Average Incoming Duration'] = self.sla_report[client_num].get_avg_call_duration()
+                        this_row['Average Wait Answered'] = self.sla_report[client_num].get_avg_wait_answered()
+                        this_row['Average Wait Lost'] = self.sla_report[client_num].get_avg_lost_duration()
+                        this_row['Calls Ans Within 15'] = ticker_stats[15]
+                        this_row['Calls Ans Within 30'] = ticker_stats[30]
+                        this_row['Calls Ans Within 45'] = ticker_stats[45]
+                        this_row['Calls Ans Within 60'] = ticker_stats[60]
+                        this_row['Calls Ans Within 999'] = ticker_stats[999]
+                        this_row['Call Ans + 999'] = ticker_stats[999999]
+                        this_row['Longest Waiting Answered'] = self.sla_report[client_num].get_longest_answered()
+                        try:
+                            this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / num_calls['answered'])
+                        except ZeroDivisionError:
+                            this_row['PCA'] = 0
 
-                    self.accumulate_total_row(this_row, total_row)
-                    self.add_row(this_row)
-                else:
-                    self.add_row(this_row)
+                        self.accumulate_total_row(this_row, total_row)
+                        self.add_row(this_row)
+                    else:
+                        self.add_row(this_row)
             self.finalize_total_row(total_row)
             self.add_row(total_row)
-            self._output.name_rows_by_column(0)
+            self.output.name_rows_by_column(0)
+            self.output.finished = True
+
+            # for client_name, client_num in [(client, int(values['client_num']))
+            #                                 for client, values in self._settings['Clients'].items()
+            #                                 if self.util.str_to_bool(values['full_service']) or is_weekday]:
+            #     num_calls = self.sla_report[client_num].get_number_of_calls()
+            #     this_row = dict((value, 0) for value in headers[1:])
+            #     this_row['I/C Presented'] = sum(num_calls.values())
+            #     this_row['Label'] = '{num} {name}'.format(num=client_num, name=client_name)
+            #     if this_row['I/C Presented'] > 0:
+            #         ticker_stats = self.sla_report[client_num].get_call_ticker()
+            #         this_row['I/C Answered'] = num_calls['answered']
+            #         this_row['I/C Lost'] = num_calls['lost']
+            #         this_row['Voice Mails'] = num_calls['voicemails']
+            #         this_row['Incoming Answered (%)'] = (num_calls['answered'] / this_row['I/C Presented'])
+            #         this_row['Incoming Lost (%)'] = (
+            #             (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
+            #         this_row['Average Incoming Duration'] = self.sla_report[client_num].get_avg_call_duration()
+            #         this_row['Average Wait Answered'] = self.sla_report[client_num].get_avg_wait_answered()
+            #         this_row['Average Wait Lost'] = self.sla_report[client_num].get_avg_lost_duration()
+            #         this_row['Calls Ans Within 15'] = ticker_stats[15]
+            #         this_row['Calls Ans Within 30'] = ticker_stats[30]
+            #         this_row['Calls Ans Within 45'] = ticker_stats[45]
+            #         this_row['Calls Ans Within 60'] = ticker_stats[60]
+            #         this_row['Calls Ans Within 999'] = ticker_stats[999]
+            #         this_row['Call Ans + 999'] = ticker_stats[999999]
+            #         this_row['Longest Waiting Answered'] = self.sla_report[client_num].get_longest_answered()
+            #         try:
+            #             this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / num_calls['answered'])
+            #         except ZeroDivisionError:
+            #             this_row['PCA'] = 0
+            #
+            #         self.accumulate_total_row(this_row, total_row)
+            #         self.add_row(this_row)
+            #     else:
+            #         self.add_row(this_row)
+            # self.finalize_total_row(total_row)
+            # self.add_row(total_row)
+            # self.output.name_rows_by_column(0)
+            # self.output.finished = True
 
     def save_report(self):
-        if self._output.finished or self.test_mode:
+        if self.test_mode:
             return
         else:
             # TODO build this into manifest E.g. tgt delivery
@@ -185,8 +232,12 @@ class SlaReport(AReport):
     SlaReport Functions
     '''
 
+    def process_gen(self, lvl):
+        for key, items in self.settings[lvl].items():
+            yield (key,) + tuple(items[item] for item in items.keys())
+
     def compile_call_details(self):
-        if self._output.finished:
+        if self.output.finished:
             return
         else:
             hold_events = ('Hold', 'Transfer Hold', 'Park')
@@ -215,7 +266,7 @@ class SlaReport(AReport):
             self.src_files[r'Call Details'].extend_columns(additional_columns)
 
     def scrutinize_abandon_group(self):
-        if self._output.finished:
+        if self.output.finished:
             return
         else:
             self.remove_calls_less_than_twenty_seconds()
@@ -246,15 +297,15 @@ class SlaReport(AReport):
                 self.src_files[r'Group Abandoned Calls'].delete_named_row_at(row_name)
 
     def validate_final_report(self):
-        for row in self._output.rownames:
+        for row in self.output.rownames:
             ticker_total = 0
-            answered = self._output[row, 'I/C Answered']
-            ticker_total += self._output[row, 'Calls Ans Within 15']
-            ticker_total += self._output[row, 'Calls Ans Within 30']
-            ticker_total += self._output[row, 'Calls Ans Within 45']
-            ticker_total += self._output[row, 'Calls Ans Within 60']
-            ticker_total += self._output[row, 'Calls Ans Within 999']
-            ticker_total += self._output[row, 'Call Ans + 999']
+            answered = self.output[row, 'I/C Answered']
+            ticker_total += self.output[row, 'Calls Ans Within 15']
+            ticker_total += self.output[row, 'Calls Ans Within 30']
+            ticker_total += self.output[row, 'Calls Ans Within 45']
+            ticker_total += self.output[row, 'Calls Ans Within 60']
+            ticker_total += self.output[row, 'Calls Ans Within 999']
+            ticker_total += self.output[row, 'Call Ans + 999']
             if answered != ticker_total:
                 raise ValueError('Validation error ->'
                                  'ticker total != answered for: '
@@ -323,7 +374,7 @@ class SlaReport(AReport):
 
     def add_row(self, a_row):
         self.format_row(a_row)
-        self._output.row += self.return_row_as_list(a_row)
+        self.output.row += self.return_row_as_list(a_row)
 
     def format_row(self, row):
         row['Average Incoming Duration'] = self.util.convert_time_stamp(row['Average Incoming Duration'])
@@ -398,7 +449,7 @@ class SlaReport(AReport):
 
     def __del__(self):
         try:
-            if int(input('1 to open file: ')) is 1:
+            if self.output.finished and int(input('1 to open file: ')) is 1:
                 super().open(user_string=self._settings['file_fmt'],
                              sub_dir=self._settings['sub_dir_fmt'])
         except (ValueError, FileNotFoundError):

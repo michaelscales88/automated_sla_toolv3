@@ -41,9 +41,10 @@ from re import split
 from types import MethodType
 from subprocess import Popen
 from automated_sla_tool.src.AudioTranscription import AudioTranscription
+from json import dumps
 
 # Settings path
-_settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport.ini'
+_settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport'
 # GOOGLE_CLOUD_SPEECH_CREDENTIALS = r""""installed":{"client_id":"766872889458-u869th48ktiifumrk5ek2a7lp36tb04r.apps.googleusercontent.com","project_id":"encoded-vista-156916","auth_uri":"https://accounts.google.com/o/oauth2/auth","token_uri":"https://accounts.google.com/o/oauth2/token","auth_provider_x509_cert_url":"https://www.googleapis.com/oauth2/v1/certs","client_secret":"bTvPefgEbqvc5k11JcoeAhSJ","redirect_uris":["urn:ietf:wg:oauth:2.0:oob","http://localhost"]}"""
 # GOOGLE_CLOUD_SPEECH_CREDENTIALS = path.join(
 #     r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings',
@@ -279,10 +280,19 @@ class Test(object):
 
 
 def test():
+    settings = AppSettings(file_name=_settings)
+    print(dumps(settings, indent=4))
+    for items in settings.at_lvl('Clients'):
+        print(items)
+    # print(settings['Clients'])
+    # for items in settings.setting('Clients'):
+    #     print(items)
+    #     print(type(items))
+    #     print(hasattr(items, 'items'))
     # Active Testing
-    my_ui = Ui()
-    my_ui.object = SlaReport(test_mode=True)
-    my_ui.run()
+    # my_ui = Ui()
+    # my_ui.object = SlaReport(test_mode=True)
+    # my_ui.run()
 
     # x = AudioTranscription()
     #
