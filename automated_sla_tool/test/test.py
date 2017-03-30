@@ -280,19 +280,21 @@ class Test(object):
 
 
 def test():
-    settings = AppSettings(file_name=_settings)
-    print(dumps(settings, indent=4))
-    for items in settings.at_lvl('Clients'):
-        print(items)
+    # settings = AppSettings(file_name=_settings)
+    # print(dumps(settings, indent=4))
+    # for items in settings.at_lvl('Clients'):
+    #     print(items)
     # print(settings['Clients'])
     # for items in settings.setting('Clients'):
     #     print(items)
     #     print(type(items))
     #     print(hasattr(items, 'items'))
+
     # Active Testing
-    # my_ui = Ui()
+    my_ui = Ui()
     # my_ui.object = SlaReport(test_mode=True)
-    # my_ui.run()
+    my_ui.object = ps_write()
+    my_ui.run()
 
     # x = AudioTranscription()
     #
