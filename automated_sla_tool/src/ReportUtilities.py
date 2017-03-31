@@ -93,17 +93,32 @@ class ReportUtilities(UtilityObject):
         return datetime.combine(raw_date, time()) if isinstance(raw_date, date) else raw_date
 
     @staticmethod
-    def phone_number(raw_number):
-        rtn_val = [ch for ch in str(raw_number) if ch.isdigit()]
-        return rtn_val[1:] if len(rtn_val) > 7 and rtn_val[0] == 1 else rtn_val
+    def phone_number(mixed_string):
+        only_digits = [ch for ch in str(mixed_string) if ch.isdigit()]
+        try:
+            return int(
+                str(
+                    ''.join(
+                        only_digits[1:]
+                        if len(only_digits) > 7 and only_digits[0] == 1
+                        else only_digits
+                    )
+                )
+            )
+        except ValueError:
+            return None
 
     @staticmethod
     def find_non_distinct(sheet=None, event_col=None):
         i_count = {}
         for row_name in reversed(sheet.rownames):
             dup_event = sheet[row_name, event_col]
-            dup_info = i_count.get(dup_event, {'count': 0,
-                                               'rows': []})
+            dup_info = i_count.get(
+                dup_event, {
+                    'count': 0,
+                    'rows': []
+                }
+            )
             dup_info['count'] += 1
             dup_info['rows'].append(row_name)
             i_count[dup_event] = dup_info

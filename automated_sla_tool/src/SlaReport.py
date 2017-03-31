@@ -2,6 +2,7 @@ import operator
 from datetime import time, timedelta, date
 from dateutil.parser import parse
 from collections import defaultdict, OrderedDict
+from pyexcel import Sheet
 
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
@@ -73,7 +74,7 @@ class SlaReport(AReport):
                                         one_filter=self.util.answered_filter)
         self.scrutinize_abandon_group()
 
-        self.src_files[r'Voice Mail'] = self.modify_vm(Downloader(parent=self).get_vm(self.interval))
+        # self.src_files[r'Voice Mail'] = self.modify_vm(Downloader(parent=self).get_vm(self.interval))
 
     def new_run(self):
         ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
@@ -239,52 +240,96 @@ class SlaReport(AReport):
                             self.src_files[r'Group Abandoned Calls'])
 
     # TODO pyexcel auto dt, int, and strings for summing timestamps
+    # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
-        ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
-        lost_cid_by_client = self.group_cid_by_client(self.src_files[r'Group Abandoned Calls'])
-        for client, client_num, full_service in self.process_gen('Clients'):
-            print(client, client_num, full_service)
-            one = two = None
-            for call_id in ans_cid_by_client.get(client_num, []):
-                one = call_id
-                break
-            for call_id in lost_cid_by_client.get(client_num, []):
-                two = call_id
-                break
-            if one and two:
-                test = {}
-                print(self.src_files[r'Call Details'].colnames)
-                print(self.src_files[r'Call Details'].row[one])
-                sheet = self.src_files[r'Cradle to Grave'][one.replace(':', ' ')]
-                print(sheet)
-                test[one] = {
-                    'Call Duration': self.util.convert_time_stamp(
-                        sum(self.util.get_sec(item) for item in sheet.column['Event Duration'])
-                    ),
-                    'Start Time': min(sheet.column['Start Time']),
-                    'End Time': max(sheet.column['End Time']),
-                    'Answered': 'Talking' in sheet.column['Event Type'],
-                    'Talking Duration': (
-                        self.util.convert_time_stamp(
-                            sum(
-                                self.util.get_sec(e_time) for e_type, e_time in
-                                zip(sheet.column['Event Type'], sheet.column['Event Duration']) if
-                                e_type == 'Talking'
-                            )
-                        )
-                    ),
-                    'Receiving Party': sheet.column['Receiving Party'][0],
-                    'Calling Party': sheet.column['Calling Party'][0] #  normalize("NFKD", sheet.column['Calling Party'][0]) if all(sheet.column['Calling Party']) else None,
+        json_layer = {}
+        test_output = Sheet(colnames=['I/C Presented', 'I/C Answered', 'Duration'])
+        for sheet_name in self.src_files[r'Cradle to Grave'].sheet_names():
+            # data = json_layer.get(
+            #     sheet_name,
+            #     self.jsonify_sla(sheet_name)
+            # )
+            # Jsonify Chunk
+            if sheet_name in json_layer.keys():
+                data = json_layer[sheet_name]
+            else:
+                data = self.jsonify_sla(sheet_name)
+                json_layer[sheet_name] = data
 
-                }
-                print(sheet.column['Calling Party'][0], type(sheet.column['Calling Party'][0]))
-                print(normalize("NFKC", sheet.column['Calling Party'][0]))
-                print(decomposition(sheet.column['Calling Party'][0]))
-                print(dumps(test, indent=4))
-                print(self.src_files[r'Group Abandoned Calls'].colnames)
-                print(self.src_files[r'Group Abandoned Calls'].row[two])
-                print(self.src_files[r'Cradle to Grave'][two.replace(':', ' ')])
-                break
+            # Check if client for report
+            # TODO perhaps expand this check to also exclude after hours/not answered calls in same try block
+            # try:
+            #     client_data = self.settings['Clients'][data['Receiving Party']]
+            # except KeyError:
+            #     pass
+            # else:
+                # ADD or Update
+            row_name = str(data['Receiving Party'])
+            if row_name in test_output.rownames:
+                print('trying to increment')
+                test_output[row_name, 'I/C Presented'] += 1
+                test_output[row_name, 'I/C Answered'] += 1
+                test_output[row_name, 'Duration'].extend(data['Talking Duration'])
+                print('incremented')
+            else:
+                test_output.extend_rows(
+                    OrderedDict(
+                        [
+                            (row_name, [1, 1, [data['Talking Duration']]])
+                        ]
+                    )
+                )
+        for row in test_output.rownames:
+            total = sum(
+                    self.util.get_sec(item) for item in test_output[row, 'Duration']
+                )
+            test_output[row, 'Duration'] = self.util.convert_time_stamp(
+                total
+            )
+        print(test_output)
+        # for client, client_num, full_service in self.process_gen('Clients'):
+        #     print(client, client_num, full_service)
+        #     one = two = None
+        #     for call_id in ans_cid_by_client.get(client_num, []):
+        #         one = call_id
+        #         break
+        #     for call_id in lost_cid_by_client.get(client_num, []):
+        #         two = call_id
+        #         break
+        #     if one and two:
+        #         test = {}
+        #         print(self.src_files[r'Call Details'].colnames)
+        #         print(self.src_files[r'Call Details'].row[one])
+        #         sheet = self.src_files[r'Cradle to Grave'][one.replace(':', ' ')]
+        #         print(sheet)
+        #         test[one] = {
+        #             # 'Call Duration': self.util.convert_time_stamp(
+        #             #     sum(self.util.get_sec(item) for item in sheet.column['Event Duration'])
+        #             # ),
+        #             # 'Start Time': min(sheet.column['Start Time']),
+        #             # 'End Time': max(sheet.column['End Time']),
+        #             # 'Answered': 'Talking' in sheet.column['Event Type'],
+        #             # 'Talking Duration': (
+        #             #     self.util.convert_time_stamp(
+        #             #         sum(
+        #             #             self.util.get_sec(e_time) for e_type, e_time in
+        #             #             zip(sheet.column['Event Type'], sheet.column['Event Duration']) if
+        #             #             e_type == 'Talking'
+        #             #         )
+        #             #     )
+        #             # ),
+        #             # 'Receiving Party': sheet.column['Receiving Party'][0],
+        #             # 'Calling Party': self.util.phone_number(sheet.column['Calling Party'][0]) #  normalize("NFKD", sheet.column['Calling Party'][0]) if all(sheet.column['Calling Party']) else None,
+        #
+        #         }
+        #         print(sheet.column['Calling Party'][0], type(sheet.column['Calling Party'][0]))
+        #         print(normalize("NFKC", sheet.column['Calling Party'][0]))
+        #         # print(decomposition(sheet.column['Calling Party'][0]))
+        #         print(dumps(test, indent=4))
+        #         print(self.src_files[r'Group Abandoned Calls'].colnames)
+        #         print(self.src_files[r'Group Abandoned Calls'].row[two])
+        #         print(self.src_files[r'Cradle to Grave'][two.replace(':', ' ')])
+        #         break
 
                 # is_weekday = self.util.is_weekday(self.interval)
                 #
@@ -336,6 +381,29 @@ class SlaReport(AReport):
                 # self.add_row(total_row)
                 # self.output.name_rows_by_column(0)
                 # self.output.finished = True
+
+    def jsonify_sla(self, sheet_name):
+        sheet = self.src_files[r'Cradle to Grave'][sheet_name]
+        return {
+            'Call Duration': self.util.convert_time_stamp(
+                sum(self.util.get_sec(item) for item in sheet.column['Event Duration'])
+            ),
+            'Start Time': min(sheet.column['Start Time']),
+            'End Time': max(sheet.column['End Time']),
+            'Answered': 'Talking' in sheet.column['Event Type'],
+            'Talking Duration': (
+                self.util.convert_time_stamp(
+                    sum(
+                        self.util.get_sec(e_time) for e_type, e_time in
+                        zip(sheet.column['Event Type'], sheet.column['Event Duration']) if
+                        e_type == 'Talking'
+                    )
+                )
+            ),
+            'Receiving Party': self.util.phone_number(sheet.column['Receiving Party'][0]),
+            'Calling Party': self.util.phone_number(sheet.column['Calling Party'][0]),
+            'Call Direction': 1 if sheet.column['Receiving Party'][0] == 'Ringing' else 2
+        }
 
     def save_report(self):
         if self.test_mode:
@@ -481,7 +549,7 @@ class SlaReport(AReport):
                     try:
                         # TODO: phone_number might be faster lookup as an integer
                         a_vm = {
-                            'phone_number': ''.join(self.util.phone_number(call_id_page[row_name, 'Calling Party'])),
+                            'phone_number': self.util.phone_number(call_id_page[row_name, 'Calling Party']),
                             'call_id': call_id_page.name,
                             'time': valid_dt(call_id_page[row_name, 'End Time'])
                         }
