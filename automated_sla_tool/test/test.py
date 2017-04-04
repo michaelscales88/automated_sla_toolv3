@@ -42,6 +42,8 @@ from types import MethodType
 from subprocess import Popen
 from automated_sla_tool.src.AudioTranscription import AudioTranscription
 from json import dumps
+from pyexcel_io import get_data
+from pyexcel import Sheet
 
 # Settings path
 _settings = r'C:\Users\mscales\Desktop\Development\automated_sla_tool\automated_sla_tool\settings\SlaReport'
@@ -280,19 +282,31 @@ class Test(object):
 
 
 def test():
-    sheet = pe.Sheet(
-        [
-            ['A', 'B', 'C'],
-            ['B', 'B', 'C'],
-            ['C', 'B', 'C'],
-        ]
-    )
-    print(sheet)
-    sheet[1, 1] = [
-            2, 5
-        ]
-    sheet[1, 1] = sum(value for value in sheet[1, 1])
-    print(sheet)
+    # now = datetime.now().time()
+    # later = (datetime.now() + timedelta(minutes=30)).time()
+    # both = now + later
+    # print(
+    #     'Now', now
+    # )
+    # print(
+    #     'Later', later
+    # )
+    # print(
+    #     'Now + later {}'.format()
+    # )
+    # sheet = pe.Sheet(
+    #     [
+    #         ['A', 'B', 'C'],
+    #         ['B', 'B', 'C'],
+    #         ['C', 'B', 'C'],
+    #     ]
+    # )
+    # print(sheet)
+    # sheet[1, 1] = [
+    #         2, 5
+    #     ]
+    # sheet[1, 1] = sum(value for value in sheet[1, 1])
+    # print(sheet)
     # print(sheet)
     # settings = AppSettings(file_name=_settings)
     # print(dumps(settings, indent=4))
@@ -305,10 +319,10 @@ def test():
     #     print(hasattr(items, 'items'))
 
     # Active Testing
-    # my_ui = Ui()
-    # my_ui.object = SlaReport(test_mode=True)
+    my_ui = Ui()
+    my_ui.object = SlaReport(test_mode=True)
     # my_ui.object = ps_write()
-    # my_ui.run()
+    my_ui.run()
 
     # x = AudioTranscription()
     #

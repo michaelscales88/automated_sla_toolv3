@@ -3,12 +3,15 @@ from datetime import time, timedelta, date
 from dateutil.parser import parse
 from collections import defaultdict, OrderedDict
 from pyexcel import Sheet
+from operator import add
+from functools import reduce
 
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
 from automated_sla_tool.src.factory import Downloader
 from unicodedata import normalize, decomposition
+from datetime import datetime
 
 from json import dumps
 
@@ -16,8 +19,8 @@ from json import dumps
 class SlaReport(AReport):
     def __init__(self, report_date=None, test_mode=False):
         super().__init__(rpt_inr=report_date, test_mode=test_mode)
-        if self.check_finished(sub_dir=self._settings['sub_dir_fmt'],
-                               report_string=self._settings['file_fmt']):
+        if not self.test_mode and self.check_finished(sub_dir=self._settings['sub_dir_fmt'],
+                                                      report_string=self._settings['file_fmt']):
             print('Report Complete for {date}'.format(date=self._inr))
         else:
             print('Building a report for {date}'.format(date=self._inr))
@@ -57,6 +60,7 @@ class SlaReport(AReport):
         return date.today() + timedelta(days=self.util.return_selection(input_opt))
 
     def load_and_prepare(self):
+        # TODO https://github.com/pyexcel/pyexcel-xlsx: add io stream for opening xlsx instead of saving a copy
         super().load()
         call_details_filters = [
             self.util.inbound_call_filter,
@@ -67,6 +71,7 @@ class SlaReport(AReport):
         self.util.apply_format_to_sheet(sheet=self.src_files[r'Call Details'],
                                         filters=call_details_filters)
         self.compile_call_details()
+        self.src_files[r'Call Details'].name = 'call_details' # this is a hack for the Client Accum
         self.src_files[r'Group Abandoned Calls'] = self.util.collate_wb_to_sheet(
             wb=self.src_files[r'Group Abandoned Calls']
         )
@@ -74,7 +79,27 @@ class SlaReport(AReport):
                                         one_filter=self.util.answered_filter)
         self.scrutinize_abandon_group()
 
-        # self.src_files[r'Voice Mail'] = self.modify_vm(Downloader(parent=self).get_vm(self.interval))
+        if not self.test_mode:
+            self.src_files[r'Voice Mail'] = self.modify_vm(Downloader(parent=self).get_vm(self.interval))
+            print('got vm')
+            print(dumps(self.src_files[r'Voice Mail'], indent=4))
+        else:
+            print('applying format')
+            for sheet in self.src_files['Cradle to Grave']:
+                try:
+                    sheet.column.format('Event Duration', self.util.to_td)
+                    sheet.column.format('Start Time', self.util.to_dt)
+                    sheet.column.format('End Time', self.util.to_dt)
+                except Exception as e:
+                    print(e, 'Error Motherfreaker')
+                    # sheet.map(self.util.test_cleanse)
+            # self.src_files['Group Abandoned Calls'].map(self.util.test_cleanse)
+            print('testing format')
+            # for sheet in self.src_files['Cradle to Grave']:
+            #     for row in sheet:
+            #         print([type(cell) for cell in row])
+            # for row in self.src_files['Group Abandoned Calls']:
+            #     print([type(cell) for cell in row])
 
     def new_run(self):
         ans_cid_by_client = self.group_cid_by_client(self.src_files[r'Call Details'])
@@ -239,53 +264,81 @@ class SlaReport(AReport):
                         self.sla_report[client_num].extract_abandon_group_details(
                             self.src_files[r'Group Abandoned Calls'])
 
+    # def mask(self):
+    #     # TODO to abstract the report excel/sql headers need to link to a program header
+    #     # Ex .Ini
+    #     # SLA event_duration = Total Duration
+    #     # pivots the values to the keywords provided
+    #     # for each row in the src data add row/keyword "pivot value"
+    #     # this creates a report of target headers for each row
+    #     # row names can be specified in user documentation
+    #     pass
+
     # TODO pyexcel auto dt, int, and strings for summing timestamps
     # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
         json_layer = {}
-        test_output = Sheet(colnames=['I/C Presented', 'I/C Answered', 'Duration'])
+        headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
+                   'Voice Mails',
+                   'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
+                   'Average Wait Answered',
+                   'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
+                   'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
+                   'PCA']
+        test_header = ['I/C Presented', 'I/C Answered', 'Average Incoming Duration']
+        test_output = Sheet(colnames=['I/C Presented', 'I/C Answered', 'Average Incoming Duration'])
+        # print(dumps(self.settings['Clients'], indent=4))
         for sheet_name in self.src_files[r'Cradle to Grave'].sheet_names():
-            # data = json_layer.get(
-            #     sheet_name,
-            #     self.jsonify_sla(sheet_name)
-            # )
-            # Jsonify Chunk
+
+            # Wrap this into some kind of caching system
             if sheet_name in json_layer.keys():
                 data = json_layer[sheet_name]
             else:
                 data = self.jsonify_sla(sheet_name)
                 json_layer[sheet_name] = data
-
-            # Check if client for report
-            # TODO perhaps expand this check to also exclude after hours/not answered calls in same try block
-            # try:
-            #     client_data = self.settings['Clients'][data['Receiving Party']]
-            # except KeyError:
-            #     pass
-            # else:
-                # ADD or Update
-            row_name = str(data['Receiving Party'])
-            if row_name in test_output.rownames:
-                print('trying to increment')
-                test_output[row_name, 'I/C Presented'] += 1
-                test_output[row_name, 'I/C Answered'] += 1
-                test_output[row_name, 'Duration'].extend(data['Talking Duration'])
-                print('incremented')
+                # print(dumps(data, indent=4))
+                # print(data['Receiving Party'], type(data['Receiving Party']))
+                # Check if client for report
+                # TODO perhaps expand this check to also exclude after hours/not answered calls in same try block
+            try:
+                #         print(data['Receiving Party'], type(data['Receiving Party']))
+                # client_data = self.settings['Clients'][str(data['Receiving Party'])]
+                pass
+            except KeyError:
+                # print('Key Error')
+                pass
             else:
-                test_output.extend_rows(
-                    OrderedDict(
-                        [
-                            (row_name, [1, 1, [data['Talking Duration']]])
-                        ]
+                # ADD or Update
+                row_name = str(data['Receiving Party'])
+                if row_name in test_output.rownames:
+                    print('trying to increment')
+                    test_output[row_name, 'I/C Presented'] += 1
+                    test_output[row_name, 'I/C Answered'] += 1
+                    # test_output[row_name, 'I/C Lost'] += 1
+                    test_output[row_name, 'Average Incoming Duration'].append(data['Talking Duration'])
+                    print('incremented')
+                else:
+                    print('creating row')
+                    test_output.extend_rows(
+                        OrderedDict(
+                            [
+                                (row_name, [1, 1, [data['Talking Duration']]])
+                            ]
+                        )
                     )
-                )
+        print(dumps(json_layer, indent=4, default=self.util.datetime_handler))
+        print('i should be entering squash')
         for row in test_output.rownames:
-            total = sum(
-                    self.util.get_sec(item) for item in test_output[row, 'Duration']
-                )
-            test_output[row, 'Duration'] = self.util.convert_time_stamp(
-                total
+            print('about to squash')
+            test_delta = [item for item in test_output[row, 'Average Incoming Duration'] if isinstance(item, timedelta)]
+            test_output[row, 'Average Incoming Duration'] = str(
+                sum(
+                    test_delta,
+                    timedelta(0)
+                ) / len(test_delta)
             )
+            print('supposedly buttoned up a row')
+            # print(test_output[row, 'Duration'])
         print(test_output)
         # for client, client_num, full_service in self.process_gen('Clients'):
         #     print(client, client_num, full_service)
@@ -331,74 +384,70 @@ class SlaReport(AReport):
         #         print(self.src_files[r'Cradle to Grave'][two.replace(':', ' ')])
         #         break
 
-                # is_weekday = self.util.is_weekday(self.interval)
-                #
-                # headers = [self.interval.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
-                #            'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
-                #            'Average Wait Answered',
-                #            'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
-                #            'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
-                #            'PCA']
-                # self.output.row += headers
-                # self.output.name_columns_by_row(0)
-                # total_row = dict((value, 0) for value in headers[1:])
-                # total_row['Label'] = 'Summary'
-                #
-                # for client, client_num, full_service in self.process_gen('Clients'):
-                #     if is_weekday or full_service:
-                #         num_calls = self.sla_report[client_num].get_number_of_calls()
-                #         this_row = dict((value, 0) for value in headers[1:])
-                #         this_row['I/C Presented'] = sum(num_calls.values())
-                #         this_row['Label'] = '{num} {name}'.format(num=client_num, name=client)
-                #         if this_row['I/C Presented'] > 0:
-                #             ticker_stats = self.sla_report[client_num].get_call_ticker()
-                #             this_row['I/C Answered'] = num_calls['answered']
-                #             this_row['I/C Lost'] = num_calls['lost']
-                #             this_row['Voice Mails'] = num_calls['voicemails']
-                #             this_row['Incoming Answered (%)'] = (num_calls['answered'] / this_row['I/C Presented'])
-                #             this_row['Incoming Lost (%)'] = (
-                #                 (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
-                #             this_row['Average Incoming Duration'] = self.sla_report[client_num].get_avg_call_duration()
-                #             this_row['Average Wait Answered'] = self.sla_report[client_num].get_avg_wait_answered()
-                #             this_row['Average Wait Lost'] = self.sla_report[client_num].get_avg_lost_duration()
-                #             this_row['Calls Ans Within 15'] = ticker_stats[15]
-                #             this_row['Calls Ans Within 30'] = ticker_stats[30]
-                #             this_row['Calls Ans Within 45'] = ticker_stats[45]
-                #             this_row['Calls Ans Within 60'] = ticker_stats[60]
-                #             this_row['Calls Ans Within 999'] = ticker_stats[999]
-                #             this_row['Call Ans + 999'] = ticker_stats[999999]
-                #             this_row['Longest Waiting Answered'] = self.sla_report[client_num].get_longest_answered()
-                #             try:
-                #                 this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / num_calls['answered'])
-                #             except ZeroDivisionError:
-                #                 this_row['PCA'] = 0
-                #
-                #             self.accumulate_total_row(this_row, total_row)
-                #             self.add_row(this_row)
-                #         else:
-                #             self.add_row(this_row)
-                # self.finalize_total_row(total_row)
-                # self.add_row(total_row)
-                # self.output.name_rows_by_column(0)
-                # self.output.finished = True
+        # is_weekday = self.util.is_weekday(self.interval)
+        #
+        # headers = [self.interval.strftime('%A %m/%d/%Y'), 'I/C Presented', 'I/C Answered', 'I/C Lost', 'Voice Mails',
+        #            'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
+        #            'Average Wait Answered',
+        #            'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
+        #            'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
+        #            'PCA']
+        # self.output.row += headers
+        # self.output.name_columns_by_row(0)
+        # total_row = dict((value, 0) for value in headers[1:])
+        # total_row['Label'] = 'Summary'
+        #
+        # for client, client_num, full_service in self.process_gen('Clients'):
+        #     if is_weekday or full_service:
+        #         num_calls = self.sla_report[client_num].get_number_of_calls()
+        #         this_row = dict((value, 0) for value in headers[1:])
+        #         this_row['I/C Presented'] = sum(num_calls.values())
+        #         this_row['Label'] = '{num} {name}'.format(num=client_num, name=client)
+        #         if this_row['I/C Presented'] > 0:
+        #             ticker_stats = self.sla_report[client_num].get_call_ticker()
+        #             this_row['I/C Answered'] = num_calls['answered']
+        #             this_row['I/C Lost'] = num_calls['lost']
+        #             this_row['Voice Mails'] = num_calls['voicemails']
+        #             this_row['Incoming Answered (%)'] = (num_calls['answered'] / this_row['I/C Presented'])
+        #             this_row['Incoming Lost (%)'] = (
+        #                 (num_calls['lost'] + num_calls['voicemails']) / this_row['I/C Presented'])
+        #             this_row['Average Incoming Duration'] = self.sla_report[client_num].get_avg_call_duration()
+        #             this_row['Average Wait Answered'] = self.sla_report[client_num].get_avg_wait_answered()
+        #             this_row['Average Wait Lost'] = self.sla_report[client_num].get_avg_lost_duration()
+        #             this_row['Calls Ans Within 15'] = ticker_stats[15]
+        #             this_row['Calls Ans Within 30'] = ticker_stats[30]
+        #             this_row['Calls Ans Within 45'] = ticker_stats[45]
+        #             this_row['Calls Ans Within 60'] = ticker_stats[60]
+        #             this_row['Calls Ans Within 999'] = ticker_stats[999]
+        #             this_row['Call Ans + 999'] = ticker_stats[999999]
+        #             this_row['Longest Waiting Answered'] = self.sla_report[client_num].get_longest_answered()
+        #             try:
+        #                 this_row['PCA'] = ((ticker_stats[15] + ticker_stats[30]) / num_calls['answered'])
+        #             except ZeroDivisionError:
+        #                 this_row['PCA'] = 0
+        #
+        #             self.accumulate_total_row(this_row, total_row)
+        #             self.add_row(this_row)
+        #         else:
+        #             self.add_row(this_row)
+        # self.finalize_total_row(total_row)
+        # self.add_row(total_row)
+        # self.output.name_rows_by_column(0)
+        # self.output.finished = True
 
     def jsonify_sla(self, sheet_name):
         sheet = self.src_files[r'Cradle to Grave'][sheet_name]
         return {
-            'Call Duration': self.util.convert_time_stamp(
-                sum(self.util.get_sec(item) for item in sheet.column['Event Duration'])
-            ),
+            'Call Duration': sum([item for item in sheet.column['Event Duration'] if isinstance(item, timedelta)],
+                                 timedelta(0)),
             'Start Time': min(sheet.column['Start Time']),
             'End Time': max(sheet.column['End Time']),
             'Answered': 'Talking' in sheet.column['Event Type'],
-            'Talking Duration': (
-                self.util.convert_time_stamp(
-                    sum(
-                        self.util.get_sec(e_time) for e_type, e_time in
-                        zip(sheet.column['Event Type'], sheet.column['Event Duration']) if
-                        e_type == 'Talking'
-                    )
-                )
+            'Talking Duration': sum(
+                [e_time for e_type, e_time in
+                 zip(sheet.column['Event Type'], sheet.column['Event Duration']) if
+                 e_type == 'Talking' and isinstance(e_time, timedelta)],
+                timedelta(0)
             ),
             'Receiving Party': self.util.phone_number(sheet.column['Receiving Party'][0]),
             'Calling Party': self.util.phone_number(sheet.column['Calling Party'][0]),

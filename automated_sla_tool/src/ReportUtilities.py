@@ -1,4 +1,4 @@
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from os import listdir, rename
 from dateutil.parser import parse
 from pyexcel import Book, Sheet, get_book
@@ -125,9 +125,33 @@ class ReportUtilities(UtilityObject):
         return i_count
 
     @staticmethod
+    def datetime_handler(x):
+        if isinstance(x, datetime):
+            return x.isoformat()
+        elif isinstance(x, timedelta):
+            return str(x)
+        raise TypeError("Unknown type")
+
+    @staticmethod
     def apply_format_to_wb(wb, filters=(), one_filter=None):
         for sheet in wb:
             ReportUtilities.apply_format_to_sheet(sheet, filters, one_filter)
+
+    @staticmethod
+    def to_td(v):
+        try:
+            v = timedelta(seconds=ReportUtilities.get_sec(v))
+        except (AttributeError, ValueError) as e:
+            print(e, v)
+        return v
+
+    @staticmethod
+    def to_dt(v):
+        try:
+            v = parse(v)
+        except (AttributeError, ValueError) as e:
+            print(e, v)
+        return v
 
     @staticmethod
     def apply_format_to_sheet(sheet, filters=(), one_filter=None):
