@@ -21,10 +21,10 @@ class AReport(ReportTemplate):
         self.util = ReportUtilities()
         self.interval = rpt_inr if rpt_inr else self.manual_input()
         self.settings = AppSettings(app=self)
-        self.output = FinalReport(report_type=self._settings['report_type'],
+        self.output = FinalReport(report_type=self.settings['report_type'],
                                   report_date=self._inr,
                                   my_report=self)
-        self.req_src_files = self._settings.setting('req_src_files', rtn_val=[])
+        self.req_src_files = self.settings.setting('req_src_files', rtn_val=[])
 
         # self.active_directory = r'{0}\{1}'.format(self.path, r'active_files')
         # self.converter_arg = r'{0}\{1}'.format(self.path, r'converter\ofc.ini')

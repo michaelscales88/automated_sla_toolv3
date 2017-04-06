@@ -12,6 +12,7 @@ from automated_sla_tool.src.utilities import valid_dt
 from automated_sla_tool.src.factory import Downloader
 from unicodedata import normalize, decomposition
 from datetime import datetime
+from automated_sla_tool.src.DataCenter import DataCenter
 
 from json import dumps
 
@@ -26,6 +27,8 @@ class SlaReport(AReport):
             print('Building a report for {date}'.format(date=self._inr))
             self.load_and_prepare()
             self.sla_report = {}
+            if self.test_mode:
+                self.json_layer = {}
 
     '''
     UI Section
@@ -264,6 +267,22 @@ class SlaReport(AReport):
                         self.sla_report[client_num].extract_abandon_group_details(
                             self.src_files[r'Group Abandoned Calls'])
 
+    # TODO this should probably be packed into w/e data pipeline
+    # def cache(self, sheet_name):
+    #     if sheet_name in self.json_layer.keys():
+    #         data = self.json_layer[sheet_name]
+    #     else:
+    #         data = self.jsonify_sla(sheet_name)
+    #         self.json_layer[sheet_name] = data
+    #     # print(dumps(data, indent=4, default=self.util.datetime_handler))
+    #     return data
+
+    # def print_cache(self):
+    #     print(dumps(self.json_layer, indent=4, default=self.util.datetime_handler))
+    #
+    # def print_record(self, record):
+    #     print(dumps(record, indent=4, default=self.util.datetime_handler))
+
     # def mask(self):
     #     # TODO to abstract the report excel/sql headers need to link to a program header
     #     # Ex .Ini
@@ -277,7 +296,9 @@ class SlaReport(AReport):
     # TODO pyexcel auto dt, int, and strings for summing timestamps
     # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
-        json_layer = {}
+        src = DataCenter()
+        src.doc = self.src_files[r'Cradle to Grave']
+
         headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
                    'Voice Mails',
                    'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
@@ -285,60 +306,110 @@ class SlaReport(AReport):
                    'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
                    'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
                    'PCA']
-        test_header = ['I/C Presented', 'I/C Answered', 'Average Incoming Duration']
-        test_output = Sheet(colnames=['I/C Presented', 'I/C Answered', 'Average Incoming Duration'])
-        # print(dumps(self.settings['Clients'], indent=4))
-        for sheet_name in self.src_files[r'Cradle to Grave'].sheet_names():
-
-            # Wrap this into some kind of caching system
-            if sheet_name in json_layer.keys():
-                data = json_layer[sheet_name]
-            else:
-                data = self.jsonify_sla(sheet_name)
-                json_layer[sheet_name] = data
-                # print(dumps(data, indent=4))
-                # print(data['Receiving Party'], type(data['Receiving Party']))
-                # Check if client for report
-                # TODO perhaps expand this check to also exclude after hours/not answered calls in same try block
+        test_header = [
+            'I/C Presented', 'I/C Answered', 'I/C Lost', 'Incoming Answered (%)',
+            'Incoming Lost (%)', 'Average Incoming Duration', 'Average Wait Answered',
+            'Average Wait Lost',
+        ]
+        test_output = Sheet(colnames=test_header)
+        # print(src)
+        for key, data in src:
             try:
-                #         print(data['Receiving Party'], type(data['Receiving Party']))
-                # client_data = self.settings['Clients'][str(data['Receiving Party'])]
-                pass
-            except KeyError:
-                # print('Key Error')
-                pass
-            else:
-                # ADD or Update
-                row_name = str(data['Receiving Party'])
-                if row_name in test_output.rownames:
-                    print('trying to increment')
+                if data['Call Direction'] and data['Receiving Party']:
+                    row_name = str(data['Receiving Party'])
+                    print('Inbound ', key, row_name)
                     test_output[row_name, 'I/C Presented'] += 1
-                    test_output[row_name, 'I/C Answered'] += 1
-                    # test_output[row_name, 'I/C Lost'] += 1
+                    if data['Answered']:
+                        test_output[row_name, 'I/C Answered'] += 1
+                        test_output[row_name, 'Average Wait Answered'].append(data['Talking Duration'])
+                    else:
+                        test_output[row_name, 'I/C Lost'] += 1
+                        test_output[row_name, 'Average Wait Lost'].append(data['Call Duration'])
+
                     test_output[row_name, 'Average Incoming Duration'].append(data['Talking Duration'])
-                    print('incremented')
+                    # print('Incremented ', row_name)
                 else:
-                    print('creating row')
-                    test_output.extend_rows(
-                        OrderedDict(
-                            [
-                                (row_name, [1, 1, [data['Talking Duration']]])
-                            ]
-                        )
+                    print('Outbound ', key)
+            except ValueError as e:
+                print(e, 'Building row for ', row_name)
+                # This can be standardized by using metadata associated to the column name
+                test_output.extend_rows(
+                    OrderedDict(
+                        [
+                            (
+                                row_name, [
+                                    1,  # Presented
+                                    1 if data['Answered'] else 0,  # Answered
+                                    0 if data['Answered'] else 1,  # Lost
+                                    0,  # % answered
+                                    0,  # % lost
+                                    [data['Talking Duration']],  # avg inc
+                                    [data['Call Duration'] - data['Talking Duration']],  # avg ans
+                                    [data['Call Duration']]  # avg lost
+                                ]
+                            )
+                        ]
                     )
-        print(dumps(json_layer, indent=4, default=self.util.datetime_handler))
+                )
+
+
+            # else:
+            #     # ADD or Update
+            #     row_name = str(data['Receiving Party'])
+            #     if row_name in test_output.rownames:
+            #         print('trying to increment')
+            #         test_output[row_name, 'I/C Presented'] += 1
+            #         test_output[row_name, 'I/C Answered'] += 1
+            #         test_output[row_name, 'I/C Lost'] += 1
+            #         test_output[row_name, 'Incoming Answered (%)'] += 1
+            #         test_output[row_name, 'Incoming Lost (%)'] += 1
+            #         test_output[row_name, 'Average Incoming Duration'].append(data['Talking Duration'])
+            #         test_output[row_name, 'Average Wait Answered'] += 1
+            #         test_output[row_name, 'Average Wait Lost'] += 1
+            #         print('incremented')
+            #     else:
+            #         print('creating row')
+        print('i am making programmatic columns')
+        for column, src_column in [('Incoming Answered (%)', 'I/C Answered'), ('Incoming Lost (%)', 'I/C Lost')]:
+            for rowname in test_output.rownames:
+                test_output[rowname, column] = test_output[rowname, src_column] / test_output[rowname, 'I/C Presented']
+
         print('i should be entering squash')
-        for row in test_output.rownames:
-            print('about to squash')
-            test_delta = [item for item in test_output[row, 'Average Incoming Duration'] if isinstance(item, timedelta)]
-            test_output[row, 'Average Incoming Duration'] = str(
-                sum(
-                    test_delta,
-                    timedelta(0)
-                ) / len(test_delta)
-            )
-            print('supposedly buttoned up a row')
-            # print(test_output[row, 'Duration'])
+        for column in test_output.colnames:
+            for rowname in test_output.rownames:
+                try:
+                    test_delta = [item for item in test_output[rowname, column]]
+                except TypeError:
+                    pass
+                else:
+                    try:
+                        total_sum = sum(test_delta, timedelta(0))
+                    except TypeError:
+                        total_sum = sum(test_delta)
+
+                    try:
+                        test_output[rowname, column] = str(
+                            total_sum / len(test_delta)
+                        )
+                    except ZeroDivisionError:
+                        test_output[rowname, column] = 0
+                    # test_output[rowname, column] = str(
+                    #     sum(
+                    #         test_delta,
+                    #         timedelta(0)
+                    #     ) / len(test_delta)
+                    # )
+            # for row in test_output.rownames:
+            #     print('about to squash')
+            #     test_delta = [item for item in test_output[row, 'Average Incoming Duration'] if isinstance(item, timedelta)]
+            #     test_output[row, 'Average Incoming Duration'] = str(
+            #         sum(
+            #             test_delta,
+            #             timedelta(0)
+            #         ) / len(test_delta)
+            #     )
+            #     print('supposedly buttoned up a row')
+                # print(test_output[row, 'Duration'])
         print(test_output)
         # for client, client_num, full_service in self.process_gen('Clients'):
         #     print(client, client_num, full_service)
@@ -437,6 +508,7 @@ class SlaReport(AReport):
 
     def jsonify_sla(self, sheet_name):
         sheet = self.src_files[r'Cradle to Grave'][sheet_name]
+        # self.print_record(sheet.to_records())
         return {
             'Call Duration': sum([item for item in sheet.column['Event Duration'] if isinstance(item, timedelta)],
                                  timedelta(0)),

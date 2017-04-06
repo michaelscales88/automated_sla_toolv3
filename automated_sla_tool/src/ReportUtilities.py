@@ -217,10 +217,13 @@ class ReportUtilities(UtilityObject):
             print('Could not parse date_time: {dt}'.format(dt=dt))
 
     # TODO beef this up to handle multiple kinds of files
+    # TODO create a dict with functions mapped to the ext
     @staticmethod
     def context_manager(file_name, ext):
+        print('Opening', file_name)
         with open(file_name, mode='rb') as file_object:
-            return get_book(file_content=file_object, file_type=ext)
+            file_content = file_object.read()
+            return get_book(file_content=file_content, file_type=ext)
 
     def clean_dir(self):
         # Should get spc characters and del characters from settings
@@ -270,17 +273,18 @@ class ReportUtilities(UtilityObject):
 
     # TODO this need to be able to handle more data types than excel
     # TODO 2: this should also download files
-    def load_data(self, report):
+    @staticmethod
+    def load_data(report):
         print('testing load_data')
 
         ld = Loader()
         ld.connection = report
         ld.cwd = report.src_doc_path
 
-        self.bind_settings = report.settings['Header Formats']
+        # self.bind_settings = report.settings['Header Formats']
 
         for f_name, path, ext in ld.load_or_dl(report.req_src_files):
-            print(f_name, path, ext)
+            print(f_name, path)
             try:
                 file = ReportUtilities.context_manager(path, ext)
                 ReportUtilities.prepare_excel(file)
@@ -294,7 +298,7 @@ class ReportUtilities(UtilityObject):
                 ReportUtilities.prepare_excel(file)
             yield f_name, file
 
-        self.bind_settings = []
+        # self.bind_settings = []
         print('test complete')
 
     @staticmethod
