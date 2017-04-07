@@ -139,7 +139,7 @@ class MainFrame(QMainWindow):
             if self.main_widget.widget(index).windowTitle() == args.title:
                 self.main_widget.setCurrentIndex(index)
                 return
-        tab = TableWidget(file=args.file, window_title=args.title)
+        tab = TableWidget(file=args.base, window_title=args.title)
         self.main_widget.addTab(tab, args.title)
 
     def close_tab(self, index):

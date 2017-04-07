@@ -3,7 +3,9 @@ from os.path import dirname, abspath
 
 class ReportTemplate(object):
     def __init__(self):
-        self.path = dirname(dirname(abspath(__file__)))
+        self._path = dirname(dirname(abspath(__file__)))
+        self._name = None
+        self._ext = None
         self.src_files = {}
         self._inr = None
         self._util = None
@@ -11,6 +13,10 @@ class ReportTemplate(object):
         self._settings = None
         self._output = None
         self.req_src_files = None
+
+    @property
+    def path(self):
+        return self._path
 
     @property
     def interval(self):

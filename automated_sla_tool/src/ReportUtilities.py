@@ -1,5 +1,5 @@
 from datetime import datetime, date, time, timedelta
-from os import listdir, rename
+from os import listdir, rename, startfile
 from dateutil.parser import parse
 from pyexcel import Book, Sheet, get_book
 from subprocess import Popen
@@ -7,7 +7,6 @@ from re import split, sub
 from os.path import join, splitext, basename
 from pywinauto.findwindows import find_window, WindowNotFoundError
 from pywinauto.controls.hwndwrapper import HwndWrapper
-
 
 from automated_sla_tool.src.UtilityObject import UtilityObject
 from automated_sla_tool.src.factory import Loader
@@ -20,7 +19,6 @@ class UniqueDict(dict):
 
 
 class BoundSettings(object):
-
     def __init__(self):
         self._bound_settings = []
         self._cwd = None
@@ -43,7 +41,6 @@ class BoundSettings(object):
 
 
 class ReportUtilities(UtilityObject):
-
     def __init__(self):
         super().__init__()
         self._bound_settings = BoundSettings()
@@ -363,9 +360,84 @@ class ReportUtilities(UtilityObject):
         return row[-2] == row[-3]
 
     @staticmethod
-    def open_directory(tgt_dir):
+    def open_focus(target, p_type='explorer'):
         try:
-            HwndWrapper(find_window(title=basename(tgt_dir))).set_focus()
+            HwndWrapper(find_window(title=ReportUtilities.base(target))).set_focus()
         except WindowNotFoundError:
-            Popen('explorer "{path}"'.format(path=tgt_dir))
+            Popen('{process} "{path}"'.format(
+                process=p_type,
+                path=target)
+            )
+
+    @staticmethod
+    def open_directory(tgt_dir):
+        ReportUtilities.open_focus(tgt_dir)
         input('Any key to continue.')
+
+    @staticmethod
+    def full_path(full_path=None, report=None):
+        folder_path = ReportUtilities.resolve_path(
+            report=report,
+            tgt_path=full_path
+        )
+        file_name = ReportUtilities.resolve_name(
+            report=report,
+            file_name=ReportUtilities.base(full_path)
+        )
+        return join(folder_path, file_name)
+
+    @staticmethod
+    def start(full_path=None, report=None):
+        if full_path:
+            pass
+        else:
+            full_path = ReportUtilities.full_path(full_path, report)
+        ReportUtilities.open_focus(full_path)
+
+    @staticmethod
+    def resolve_name(report=None, file_name=None, f_ext='xlsx'):
+        try:
+            file_string = ReportUtilities.compare_two(
+                (file_name, file_name),
+                (hasattr(report, 'settings'), report.settings['file_fmt'])
+            )
+            # if str_fmt:
+            #     file_string = str_fmt.format(date=report.date.strftime("%m%d%Y"))
+            # else:
+            #     file_string = '{date}_{type}'.format(date=report.date, type=report.type)
+            if file_string is None:
+                print('raising value')
+                raise ValueError()
+        except ValueError:
+            print("Couldn't find a name\n"
+                  "to save file")
+        except AttributeError:
+            print('ReportUtilities.resolve_name: \n'
+                  'Check report is correct type')
+        else:
+            print('exiting as expected')
+            return '{f_string}.{fmt}'.format(f_string=file_string,
+                                             fmt=f_ext)
+
+    @staticmethod
+    def resolve_path(report=None, tgt_path=None, sub_dir=None):
+        try:
+            tgt_path = ReportUtilities.compare_two(
+                (tgt_path, tgt_path),
+                (hasattr(report, 'save_path'), report.save_path)
+            )
+            if tgt_path and sub_dir:
+                path = join(tgt_path, sub_dir)
+            elif tgt_path and hasattr(report, 'settings'):
+                path = join(tgt_path, report.settings['sub_dir_fmt'])
+            else:
+                raise ValueError()
+        except ValueError:
+            print('No location provided '
+                  'to save file: {name} {type}'.format(name=report.date,
+                                                       type=report.type))
+        except AttributeError:
+            print('ReportUtilities.resolve_path: \n'
+                  'Check report is correct type')
+        else:
+            return path

@@ -6,6 +6,7 @@ from automated_sla_tool.src.ReportTemplate import ReportTemplate
 from automated_sla_tool.src.ReportUtilities import ReportUtilities
 from automated_sla_tool.src.FinalReport import FinalReport
 from automated_sla_tool.src.AppSettings import AppSettings
+from automated_sla_tool.src.DataCenter import DataCenter
 
 
 class UniqueDict(dict):
@@ -18,6 +19,7 @@ class AReport(ReportTemplate):
     def __init__(self, rpt_inr=None, test_mode=False):
         super().__init__()
         self.test_mode = test_mode
+        self.data_center = DataCenter()
         self.util = ReportUtilities()
         self.interval = rpt_inr if rpt_inr else self.manual_input()
         self.settings = AppSettings(app=self)
@@ -40,6 +42,18 @@ class AReport(ReportTemplate):
         else:
             self.util_datetime = None
             self.day_of_wk = None
+
+    @property
+    def date(self):
+        return self.output.date
+
+    @property
+    def type(self):
+        return self.output.type
+
+    @property
+    def save_path(self):
+        return self.output.save_path
 
     # TODO abstract this -> *args
     # TODO 2: error handling for BadZipFile error from openpyxl. handles corrupted files
@@ -76,11 +90,13 @@ class AReport(ReportTemplate):
                 raise SystemExit()
 
     # TODO if output is completed then open should open that file
-    def open(self, user_string=None, sub_dir=None, alt_dir=None):
-        self._output.open(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
+    def open(self):
+        # self._output.open(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
+        self.data_center.dispatch(self)
 
     def save(self, user_string=None, sub_dir=None, alt_dir=None):
-        self._output.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
+        # self._output.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
+        self.data_center.save(self.output, self.util.full_path(report=self))
 
     def open_src_dir(self):
         file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=dirname(self.path),

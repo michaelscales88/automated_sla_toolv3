@@ -27,8 +27,6 @@ class SlaReport(AReport):
             print('Building a report for {date}'.format(date=self._inr))
             self.load_and_prepare()
             self.sla_report = {}
-            if self.test_mode:
-                self.json_layer = {}
 
     '''
     UI Section
@@ -44,7 +42,7 @@ class SlaReport(AReport):
         else:
             self.extract_report_information()
             self.process_report()
-            self.save_report()
+            self.save()
 
     def run_test(self):
         self.process_report2()
@@ -526,20 +524,23 @@ class SlaReport(AReport):
             'Call Direction': 1 if sheet.column['Receiving Party'][0] == 'Ringing' else 2
         }
 
-    def save_report(self):
-        if self.test_mode:
-            return
-        else:
-            # TODO build this into manifest E.g. tgt delivery
-            self.validate_final_report()
-            super().save(user_string=self._settings['file_fmt'],
-                         sub_dir=self._settings['sub_dir_fmt'])
-            try:
-                super().save(user_string=self._settings['file_fmt'],
-                             sub_dir=self._settings['sub_dir_fmt'],
-                             alt_dir=self._settings['network_tgt_dir'])
-            except OSError:
-                print('passing os_error')
+    # def save_report(self):
+    #     if self.test_mode:
+    #         print(self._settings['file_fmt'])
+    #         print(self._settings['sub_dir_fmt'])
+    #         print(self._settings['network_tgt_dir'])
+    #         return
+    #     else:
+    #         # TODO build this into manifest E.g. tgt delivery
+    #         self.validate_final_report()
+    #         super().save(user_string=self._settings['file_fmt'],
+    #                      sub_dir=self._settings['sub_dir_fmt'])
+    #         try:
+    #             super().save(user_string=self._settings['file_fmt'],
+    #                          sub_dir=self._settings['sub_dir_fmt'],
+    #                          alt_dir=self._settings['network_tgt_dir'])
+    #         except OSError:
+    #             print('passing os_error')
 
     '''
     SlaReport Functions
@@ -763,8 +764,7 @@ class SlaReport(AReport):
     def __del__(self):
         try:
             if self.output.finished and int(input('1 to open file: ')) is 1:
-                super().open(user_string=self._settings['file_fmt'],
-                             sub_dir=self._settings['sub_dir_fmt'])
+                self.open()
         except (ValueError, FileNotFoundError):
             pass
 

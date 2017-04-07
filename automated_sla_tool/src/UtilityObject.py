@@ -1,4 +1,5 @@
 from os import makedirs
+from os.path import dirname, basename
 
 
 class UtilityObject(object):
@@ -41,3 +42,28 @@ class UtilityObject(object):
     @staticmethod
     def make_dir(the_dir):
         makedirs(the_dir, exist_ok=True)
+
+    @staticmethod
+    def dir(full_path):
+        try:
+            return dirname(full_path)
+        except TypeError:
+            return None
+
+    @staticmethod
+    def base(full_path):
+        try:
+            return basename(full_path)
+        except TypeError:
+            return None
+
+    @staticmethod
+    def return_true(*args):
+        return [items[1] for items in args if isinstance(items, tuple) and items[0]]
+
+    @staticmethod
+    def compare_two(arg1, arg2):
+        return {
+            arg1[0]: arg1[1] if isinstance(arg1, tuple) else False,
+            arg2[0]: arg2[1] if isinstance(arg2, tuple) else False
+            }.get(True, 'Both False')

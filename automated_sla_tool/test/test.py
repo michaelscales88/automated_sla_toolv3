@@ -3,7 +3,7 @@ from dateutil.parser import parse
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.UtilityObject import UtilityObject
 import pyexcel as pe
-from automated_sla_tool.src.FinalReport import FinalReport
+from automated_sla_tool.src.ReportUtilities import ReportUtilities
 from automated_sla_tool.src.TupleKeyDict import TupleKeyDict
 import os
 import re
@@ -282,6 +282,14 @@ class Test(object):
 
 
 def test():
+    # test = ReportUtilities()
+    # test.open_focus('excel', FILEPATH)
+    # test.open_directory(FILEPATH)
+    # test.open_directory(r"C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0320")
+    # test.open_directory(r"C:\Users\mscales\Desktop\Development\automated_sla_tool\Attachment Archive\2017\0320")
+    # test.open_directory(r"M:\Help Desk\Daily SLA Report")
+    # test.open_directory(FILEPATH)
+    # return
     # now = datetime.now().time()
     # later = (datetime.now() + timedelta(minutes=30)).time()
     # both = now + later

@@ -53,6 +53,18 @@ class DataCenter(object):
             self.json_layer[key] = data
         return data
 
+    def save(self, file, full_path):
+        try:
+            file.save_as(filename=full_path)
+        except FileNotFoundError:
+            self.util.make_dir(
+                self.util.dir(full_path)
+            )
+            file.save_as(filename=full_path)
+
+    def dispatch(self, file):
+        self.util.start(report=file)
+
     def __repr__(self):
         return str(dumps(self.json_layer, indent=4, default=self.util.datetime_handler))
 
