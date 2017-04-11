@@ -53,6 +53,8 @@ class DataCenter(object):
             self.json_layer[key] = data
         return data
 
+    # Currently using settings file to control the extension for saving
+    # TODO beef this up to identify the extension type from the file type
     def save(self, file, full_path):
         try:
             file.save_as(filename=full_path)
@@ -61,6 +63,8 @@ class DataCenter(object):
                 self.util.dir(full_path)
             )
             file.save_as(filename=full_path)
+        except OSError:
+            print('encountered an issue saving the file')
 
     def dispatch(self, file):
         self.util.start(report=file)

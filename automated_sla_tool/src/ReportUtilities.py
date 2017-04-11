@@ -368,21 +368,24 @@ class ReportUtilities(UtilityObject):
                 process=p_type,
                 path=target)
             )
+        except FileNotFoundError:
+            print('File: {target} does not exist.'.format(target=target))
 
     @staticmethod
     def open_directory(tgt_dir):
         ReportUtilities.open_focus(tgt_dir)
         input('Any key to continue.')
 
+    # TODO this is actually confusing as hell. need to update this to be more programmatic
     @staticmethod
-    def full_path(full_path=None, report=None):
+    def full_path(base_path=None, report=None):
         folder_path = ReportUtilities.resolve_path(
             report=report,
-            tgt_path=full_path
+            tgt_path=base_path
         )
         file_name = ReportUtilities.resolve_name(
             report=report,
-            file_name=ReportUtilities.base(full_path)
+            file_name=ReportUtilities.base(base_path)
         )
         return join(folder_path, file_name)
 
@@ -391,7 +394,7 @@ class ReportUtilities(UtilityObject):
         if full_path:
             pass
         else:
-            full_path = ReportUtilities.full_path(full_path, report)
+            full_path = ReportUtilities.full_path(report=report)
         ReportUtilities.open_focus(full_path)
 
     @staticmethod
@@ -419,6 +422,7 @@ class ReportUtilities(UtilityObject):
             return '{f_string}.{fmt}'.format(f_string=file_string,
                                              fmt=f_ext)
 
+    # TODO probably need to merge  tgt_path and sub_dir for simplicity
     @staticmethod
     def resolve_path(report=None, tgt_path=None, sub_dir=None):
         try:
@@ -441,3 +445,23 @@ class ReportUtilities(UtilityObject):
                   'Check report is correct type')
         else:
             return path
+
+    # These could go into a separate class of available report functions
+    # The action library could use inspect.ismethod to name and make available
+    # all the functions for building a report
+    @staticmethod
+    def get_min(obj):
+        return min(obj)
+
+    @staticmethod
+    def get_max(obj):
+        return max(obj)
+
+    @staticmethod
+    def get(sheet, row, column):
+        return sheet[row, column]
+
+    @staticmethod
+    def get_sum(column):
+        return sum([item for item in column if isinstance(item, timedelta)],
+                   timedelta(0))

@@ -3,15 +3,13 @@ from datetime import time, timedelta, date
 from dateutil.parser import parse
 from collections import defaultdict, OrderedDict
 from pyexcel import Sheet
-from operator import add
-from functools import reduce
 
+
+# TODO all instances that are being used should come from factory
 from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
 from automated_sla_tool.src.factory import Downloader
-from unicodedata import normalize, decomposition
-from datetime import datetime
 from automated_sla_tool.src.DataCenter import DataCenter
 
 from json import dumps
@@ -42,6 +40,7 @@ class SlaReport(AReport):
         else:
             self.extract_report_information()
             self.process_report()
+            self.validate_final_report()
             self.save()
 
     def run_test(self):
@@ -294,8 +293,7 @@ class SlaReport(AReport):
     # TODO pyexcel auto dt, int, and strings for summing timestamps
     # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
-        src = DataCenter()
-        src.doc = self.src_files[r'Cradle to Grave']
+        self.data_center.doc = self.src_files[r'Cradle to Grave']
 
         headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
                    'Voice Mails',
@@ -310,45 +308,96 @@ class SlaReport(AReport):
             'Average Wait Lost',
         ]
         test_output = Sheet(colnames=test_header)
-        # print(src)
-        for key, data in src:
-            try:
-                if data['Call Direction'] and data['Receiving Party']:
-                    row_name = str(data['Receiving Party'])
-                    print('Inbound ', key, row_name)
-                    test_output[row_name, 'I/C Presented'] += 1
-                    if data['Answered']:
-                        test_output[row_name, 'I/C Answered'] += 1
-                        test_output[row_name, 'Average Wait Answered'].append(data['Talking Duration'])
-                    else:
-                        test_output[row_name, 'I/C Lost'] += 1
-                        test_output[row_name, 'Average Wait Lost'].append(data['Call Duration'])
 
-                    test_output[row_name, 'Average Incoming Duration'].append(data['Talking Duration'])
-                    # print('Incremented ', row_name)
-                else:
-                    print('Outbound ', key)
-            except ValueError as e:
-                print(e, 'Building row for ', row_name)
-                # This can be standardized by using metadata associated to the column name
-                test_output.extend_rows(
-                    OrderedDict(
-                        [
-                            (
-                                row_name, [
-                                    1,  # Presented
-                                    1 if data['Answered'] else 0,  # Answered
-                                    0 if data['Answered'] else 1,  # Lost
-                                    0,  # % answered
-                                    0,  # % lost
-                                    [data['Talking Duration']],  # avg inc
-                                    [data['Call Duration'] - data['Talking Duration']],  # avg ans
-                                    [data['Call Duration']]  # avg lost
-                                ]
-                            )
-                        ]
-                    )
-                )
+        # TEST EVENT DRIVER
+        event_row = self.settings['Event']['Condition']['row']
+        event_column = self.settings['Event']['Condition']['column']
+        event_target = self.settings['Event']['Condition']['target_event']
+        event_condition = self.settings['Event']['Condition']['condition']
+        action_lib = {
+            'min': self.util.get_min,
+            'max': self.util.get_max,
+            'get': self.util.get,
+            'sum': self.util.get_sum
+        }
+        x = 0
+        for key, data in self.data_center:
+            sample_layer = {
+
+            }
+            self.data_center.print_record(data)
+            print(key)
+            sheet = self.src_files[r'Cradle to Grave'][key]
+            condition_met = sheet[event_row, event_column] == event_target
+            print('Target matched:', condition_met)
+            if condition_met:
+                sample_layer[event_condition] = condition_met
+
+                for behavior_name, behavior_conditions in self.settings['Event']['Behavior'].items():
+                    print(behavior_name)
+                    action_name = behavior_conditions['action']
+                    print(action_name, type(action_name))
+                    behavior_column = behavior_conditions['column']
+                    print(behavior_column)
+                    action = action_lib[action_name]
+                    if action_name == 'get':
+                        sample_layer[behavior_column] = action(sheet, behavior_conditions['row'], behavior_column)
+                    else:
+                        sample_layer[behavior_column] = action(sheet.column[behavior_column])
+                    # behavior_row = behavior_conditions['row']
+                    # behavior_column = behavior_conditions['column']
+                    # behavior_target = behavior_conditions['target_event']
+                    # sample_layer[behavior_column] = sheet[behavior_row, behavior_column]
+                self.data_center.print_record(sample_layer)
+            if x == 3:
+                break
+            else:
+                x += 1
+
+
+
+
+
+
+        # print(src)
+        # for key, data in self.data_center:
+        #     try:
+        #         if data['Call Direction'] and data['Receiving Party']:
+        #             row_name = str(data['Receiving Party'])
+        #             print('Inbound ', key, row_name)
+        #             test_output[row_name, 'I/C Presented'] += 1
+        #             if data['Answered']:
+        #                 test_output[row_name, 'I/C Answered'] += 1
+        #                 test_output[row_name, 'Average Wait Answered'].append(data['Talking Duration'])
+        #             else:
+        #                 test_output[row_name, 'I/C Lost'] += 1
+        #                 test_output[row_name, 'Average Wait Lost'].append(data['Call Duration'])
+        #
+        #             test_output[row_name, 'Average Incoming Duration'].append(data['Talking Duration'])
+        #             # print('Incremented ', row_name)
+        #         else:
+        #             print('Outbound ', key)
+        #     except ValueError as e:
+        #         print(e, 'Building row for ', row_name)
+        #         # This can be standardized by using metadata associated to the column name
+        #         test_output.extend_rows(
+        #             OrderedDict(
+        #                 [
+        #                     (
+        #                         row_name, [
+        #                             1,  # Presented
+        #                             1 if data['Answered'] else 0,  # Answered
+        #                             0 if data['Answered'] else 1,  # Lost
+        #                             0,  # % answered
+        #                             0,  # % lost
+        #                             [data['Talking Duration']],  # avg inc
+        #                             [data['Call Duration'] - data['Talking Duration']],  # avg ans
+        #                             [data['Call Duration']]  # avg lost
+        #                         ]
+        #                     )
+        #                 ]
+        #             )
+        #         )
 
 
             # else:
@@ -503,26 +552,6 @@ class SlaReport(AReport):
         # self.add_row(total_row)
         # self.output.name_rows_by_column(0)
         # self.output.finished = True
-
-    def jsonify_sla(self, sheet_name):
-        sheet = self.src_files[r'Cradle to Grave'][sheet_name]
-        # self.print_record(sheet.to_records())
-        return {
-            'Call Duration': sum([item for item in sheet.column['Event Duration'] if isinstance(item, timedelta)],
-                                 timedelta(0)),
-            'Start Time': min(sheet.column['Start Time']),
-            'End Time': max(sheet.column['End Time']),
-            'Answered': 'Talking' in sheet.column['Event Type'],
-            'Talking Duration': sum(
-                [e_time for e_type, e_time in
-                 zip(sheet.column['Event Type'], sheet.column['Event Duration']) if
-                 e_type == 'Talking' and isinstance(e_time, timedelta)],
-                timedelta(0)
-            ),
-            'Receiving Party': self.util.phone_number(sheet.column['Receiving Party'][0]),
-            'Calling Party': self.util.phone_number(sheet.column['Calling Party'][0]),
-            'Call Direction': 1 if sheet.column['Receiving Party'][0] == 'Ringing' else 2
-        }
 
     # def save_report(self):
     #     if self.test_mode:
@@ -760,13 +789,6 @@ class SlaReport(AReport):
         sheet = self.src_files[r'Cradle to Grave'][call_id.replace(':', ' ')]
         hunt_index = sheet.column['Event Type'].index('Ringing')
         return sheet.column['Receiving Party'][hunt_index]
-
-    def __del__(self):
-        try:
-            if self.output.finished and int(input('1 to open file: ')) is 1:
-                self.open()
-        except (ValueError, FileNotFoundError):
-            pass
 
 
 class Client:

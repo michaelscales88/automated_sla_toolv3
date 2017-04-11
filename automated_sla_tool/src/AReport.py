@@ -1,4 +1,5 @@
-from os.path import dirname, join, isfile
+from os.path import dirname, join, isfile, abspath
+from os import getcwd
 from datetime import timedelta, datetime, time, date
 from dateutil.parser import parse
 
@@ -89,14 +90,21 @@ class AReport(ReportTemplate):
                 ), flush=True)
                 raise SystemExit()
 
-    # TODO if output is completed then open should open that file
     def open(self):
-        # self._output.open(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
         self.data_center.dispatch(self)
 
-    def save(self, user_string=None, sub_dir=None, alt_dir=None):
-        # self._output.save(str_fmt=user_string, tgt_path=alt_dir, sub_dir=sub_dir)
-        self.data_center.save(self.output, self.util.full_path(report=self))
+    def save(self):
+        if not self.test_mode:
+            for save_name, save_location in self.settings['Save Targets'].items():
+                print('Saving', save_name)
+                self.data_center.save(
+                    file=self.output,
+                    full_path=save_location
+                )
+                print('Successfully saved', save_name)
+
+    def __del__(self):
+        self.open()
 
     def open_src_dir(self):
         file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=dirname(self.path),
@@ -108,6 +116,8 @@ class AReport(ReportTemplate):
 
     # # TODO push this into ReportUtilities
     # def clean_src_loc(self, spc_ch, del_ch):
+    #     Ex. Call  self.clean_src_loc(spc_ch=['-', '_'],
+    #                        del_ch=['%', r'\d+'])
     #     # TODO today test this more... doesn't merge/delete original file
     #     file_list = [f for f in listdir(self.src_doc_path) if f.endswith((".xlsx", ".xls"))]
     #     for f in file_list:
@@ -119,59 +129,6 @@ class AReport(ReportTemplate):
     #         new_f = join(self.src_doc_path, r'{f_name}{ext}'.format(f_name=f_name,
     #                                                                 ext=ext))
     #         rename(old_f, new_f)
-
-    # # TODO push this into ReportUtilities
-    # def loader(self, unloaded_files, need_to_dl=False):
-    #     if need_to_dl:
-    #         self.dl_src_files(files=unloaded_files)
-    #         got_downloads = True
-    #     else:
-    #         got_downloads = False
-    #     loaded_files = {}
-    #     self.clean_src_loc(spc_ch=['-', '_'],
-    #                        del_ch=['%', r'\d+'])
-    #     for f_name in reversed(unloaded_files):
-    #         src_f = glob(r'{f_path}*.*'.format(f_path=join(self.src_doc_path, f_name)))
-    #         if len(src_f) is 1:
-    #             loaded_files[f_name] = src_f[0]
-    #             unloaded_files.remove(f_name)
-    #     return (loaded_files
-    #             if (len(unloaded_files) is 0 or got_downloads) else
-    #             {**loaded_files, **self.loader(unloaded_files, need_to_dl=True)})
-    #
-    # # TODO push this into ReportUtilities
-    # def dl_src_files(self, files):
-    #     if self._output.finished:
-    #         return
-    #     else:
-    #         # TODO this should be using SlaSrcHunter.get_f_list
-    #         self.download_chronicall_files(file_list=files)
-    #         # src_file_directory = listdir(self.src_doc_path)
-    #         # for file in src_file_directory:
-    #         #     if file.endswith(".xls"):
-    #         #         self.copy_and_convert(self.src_doc_path, src_file_directory)
-    #         #         break
-
-    # Report Utilities
-
-    def manual_input(self):
-        pass
-
-    # def filter_chronicall_reports(self, workbook):
-    #     try:
-    #         del workbook['Summary']
-    #     except KeyError:
-    #         pass
-    #     for sheet_name in reversed(workbook.sheet_names()):
-    #         sheet = workbook.sheet_by_name(sheet_name)
-    #         del sheet.row[self.util.header_filter]
-    #         sheet.name_rows_by_column(0)
-    #         sheet.name_columns_by_row(0)
-    #         try:
-    #             self.chck_rpt_dates(sheet)
-    #         except ValueError:
-    #             workbook.remove_sheet(sheet_name)
-    #     return workbook
 
     def print_output(self):
         print(self.output)
