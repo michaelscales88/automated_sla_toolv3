@@ -10,7 +10,7 @@ from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
 from automated_sla_tool.src.factory import Downloader
-from automated_sla_tool.src.DataCenter import DataCenter
+from automated_sla_tool.src.FnLib import FnLib
 
 from json import dumps
 
@@ -293,72 +293,46 @@ class SlaReport(AReport):
     # TODO pyexcel auto dt, int, and strings for summing timestamps
     # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
+        # fn_lib = FnLib()
         self.data_center.doc = self.src_files[r'Cradle to Grave']
 
-        headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
-                   'Voice Mails',
-                   'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
-                   'Average Wait Answered',
-                   'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
-                   'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
-                   'PCA']
-        test_header = [
-            'I/C Presented', 'I/C Answered', 'I/C Lost', 'Incoming Answered (%)',
-            'Incoming Lost (%)', 'Average Incoming Duration', 'Average Wait Answered',
-            'Average Wait Lost',
-        ]
-        test_output = Sheet(colnames=test_header)
+        # headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
+        #            'Voice Mails',
+        #            'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
+        #            'Average Wait Answered',
+        #            'Average Wait Lost', 'Calls Ans Within 15', 'Calls Ans Within 30', 'Calls Ans Within 45',
+        #            'Calls Ans Within 60', 'Calls Ans Within 999', 'Call Ans + 999', 'Longest Waiting Answered',
+        #            'PCA']
+        # test_header = [
+        #     'I/C Presented', 'I/C Answered', 'I/C Lost', 'Incoming Answered (%)',
+        #     'Incoming Lost (%)', 'Average Incoming Duration', 'Average Wait Answered',
+        #     'Average Wait Lost',
+        # ]
+        # test_output = Sheet(colnames=test_header)
+        #
+        # # TEST EVENT DRIVER
+        # event_row = self.settings['Event']['Condition']['row']
+        # event_column = self.settings['Event']['Condition']['column']
+        # event_target = self.settings['Event']['Condition']['target_event']
+        # event_condition = self.settings['Event']['Condition']['condition']
+        # action_lib = {
+        #     'min': fn_lib.get_min,
+        #     'max': fn_lib.get_max,
+        #     'get': fn_lib.get,
+        #     'sum': fn_lib.get_sum
+        # }
+        # x = 0
+        sample_layer = self.test_worker()
+        # self.data_center.print_record(sample_layer)
+        for dc, sample in zip(self.data_center, sorted(sample_layer.items())):
+            (key, value) = dc
+            (key2, value2) = sample
+            print(key, key2)
+            self.data_center.print_record(value)
+            # print(sample)
+            self.data_center.print_record(value2)
 
-        # TEST EVENT DRIVER
-        event_row = self.settings['Event']['Condition']['row']
-        event_column = self.settings['Event']['Condition']['column']
-        event_target = self.settings['Event']['Condition']['target_event']
-        event_condition = self.settings['Event']['Condition']['condition']
-        action_lib = {
-            'min': self.util.get_min,
-            'max': self.util.get_max,
-            'get': self.util.get,
-            'sum': self.util.get_sum
-        }
-        x = 0
-        for key, data in self.data_center:
-            sample_layer = {
-
-            }
-            self.data_center.print_record(data)
-            print(key)
-            sheet = self.src_files[r'Cradle to Grave'][key]
-            condition_met = sheet[event_row, event_column] == event_target
-            print('Target matched:', condition_met)
-            if condition_met:
-                sample_layer[event_condition] = condition_met
-
-                for behavior_name, behavior_conditions in self.settings['Event']['Behavior'].items():
-                    print(behavior_name)
-                    action_name = behavior_conditions['action']
-                    print(action_name, type(action_name))
-                    behavior_column = behavior_conditions['column']
-                    print(behavior_column)
-                    action = action_lib[action_name]
-                    if action_name == 'get':
-                        sample_layer[behavior_column] = action(sheet, behavior_conditions['row'], behavior_column)
-                    else:
-                        sample_layer[behavior_column] = action(sheet.column[behavior_column])
-                    # behavior_row = behavior_conditions['row']
-                    # behavior_column = behavior_conditions['column']
-                    # behavior_target = behavior_conditions['target_event']
-                    # sample_layer[behavior_column] = sheet[behavior_row, behavior_column]
-                self.data_center.print_record(sample_layer)
-            if x == 3:
-                break
-            else:
-                x += 1
-
-
-
-
-
-
+            # self.data_center.print_record(value2)
         # print(src)
         # for key, data in self.data_center:
         #     try:
@@ -416,48 +390,48 @@ class SlaReport(AReport):
             #         print('incremented')
             #     else:
             #         print('creating row')
-        print('i am making programmatic columns')
-        for column, src_column in [('Incoming Answered (%)', 'I/C Answered'), ('Incoming Lost (%)', 'I/C Lost')]:
-            for rowname in test_output.rownames:
-                test_output[rowname, column] = test_output[rowname, src_column] / test_output[rowname, 'I/C Presented']
-
-        print('i should be entering squash')
-        for column in test_output.colnames:
-            for rowname in test_output.rownames:
-                try:
-                    test_delta = [item for item in test_output[rowname, column]]
-                except TypeError:
-                    pass
-                else:
-                    try:
-                        total_sum = sum(test_delta, timedelta(0))
-                    except TypeError:
-                        total_sum = sum(test_delta)
-
-                    try:
-                        test_output[rowname, column] = str(
-                            total_sum / len(test_delta)
-                        )
-                    except ZeroDivisionError:
-                        test_output[rowname, column] = 0
-                    # test_output[rowname, column] = str(
-                    #     sum(
-                    #         test_delta,
-                    #         timedelta(0)
-                    #     ) / len(test_delta)
-                    # )
-            # for row in test_output.rownames:
-            #     print('about to squash')
-            #     test_delta = [item for item in test_output[row, 'Average Incoming Duration'] if isinstance(item, timedelta)]
-            #     test_output[row, 'Average Incoming Duration'] = str(
-            #         sum(
-            #             test_delta,
-            #             timedelta(0)
-            #         ) / len(test_delta)
-            #     )
-            #     print('supposedly buttoned up a row')
-                # print(test_output[row, 'Duration'])
-        print(test_output)
+        # print('i am making programmatic columns')
+        # for column, src_column in [('Incoming Answered (%)', 'I/C Answered'), ('Incoming Lost (%)', 'I/C Lost')]:
+        #     for rowname in test_output.rownames:
+        #         test_output[rowname, column] = test_output[rowname, src_column] / test_output[rowname, 'I/C Presented']
+        #
+        # print('i should be entering squash')
+        # for column in test_output.colnames:
+        #     for rowname in test_output.rownames:
+        #         try:
+        #             test_delta = [item for item in test_output[rowname, column]]
+        #         except TypeError:
+        #             pass
+        #         else:
+        #             try:
+        #                 total_sum = sum(test_delta, timedelta(0))
+        #             except TypeError:
+        #                 total_sum = sum(test_delta)
+        #
+        #             try:
+        #                 test_output[rowname, column] = str(
+        #                     total_sum / len(test_delta)
+        #                 )
+        #             except ZeroDivisionError:
+        #                 test_output[rowname, column] = 0
+        #             # test_output[rowname, column] = str(
+        #             #     sum(
+        #             #         test_delta,
+        #             #         timedelta(0)
+        #             #     ) / len(test_delta)
+        #             # )
+        #     # for row in test_output.rownames:
+        #     #     print('about to squash')
+        #     #     test_delta = [item for item in test_output[row, 'Average Incoming Duration'] if isinstance(item, timedelta)]
+        #     #     test_output[row, 'Average Incoming Duration'] = str(
+        #     #         sum(
+        #     #             test_delta,
+        #     #             timedelta(0)
+        #     #         ) / len(test_delta)
+        #     #     )
+        #     #     print('supposedly buttoned up a row')
+        #         # print(test_output[row, 'Duration'])
+        # print(test_output)
         # for client, client_num, full_service in self.process_gen('Clients'):
         #     print(client, client_num, full_service)
         #     one = two = None
@@ -553,23 +527,22 @@ class SlaReport(AReport):
         # self.output.name_rows_by_column(0)
         # self.output.finished = True
 
-    # def save_report(self):
-    #     if self.test_mode:
-    #         print(self._settings['file_fmt'])
-    #         print(self._settings['sub_dir_fmt'])
-    #         print(self._settings['network_tgt_dir'])
-    #         return
-    #     else:
-    #         # TODO build this into manifest E.g. tgt delivery
-    #         self.validate_final_report()
-    #         super().save(user_string=self._settings['file_fmt'],
-    #                      sub_dir=self._settings['sub_dir_fmt'])
-    #         try:
-    #             super().save(user_string=self._settings['file_fmt'],
-    #                          sub_dir=self._settings['sub_dir_fmt'],
-    #                          alt_dir=self._settings['network_tgt_dir'])
-    #         except OSError:
-    #             print('passing os_error')
+    # TODO this would be cool if I could leverage mapping to perform each cmd concurrently
+    def test_worker(self):
+        from automated_sla_tool.src.DataWorker import DataWorker
+        worker = DataWorker()
+        _exec = worker.prepare(self)
+        # print('enterering sheets test')
+        json_layer = {}
+        for sheet_name in self.src_files[r'Cradle to Grave'].sheet_names():
+            sheet = self.src_files[r'Cradle to Grave'][sheet_name]
+            # print('entering cmd test', sheet_name)
+            json_sheet = {}
+            for row, cmds in _exec.items():
+                json_sheet[row] = cmds['fn'](sheet, **cmds['parameters'])
+            # print('printing records')
+            json_layer[sheet_name] = json_sheet
+        return json_layer
 
     '''
     SlaReport Functions

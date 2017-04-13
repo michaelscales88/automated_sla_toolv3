@@ -104,7 +104,8 @@ class AReport(ReportTemplate):
                 print('Successfully saved', save_name)
 
     def __del__(self):
-        self.open()
+        if not self.test_mode:
+            self.open()
 
     def open_src_dir(self):
         file_dir = r'{dir}\{sub}\{yr}\{tgt}'.format(dir=dirname(self.path),

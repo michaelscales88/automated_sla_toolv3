@@ -449,19 +449,19 @@ class ReportUtilities(UtilityObject):
     # These could go into a separate class of available report functions
     # The action library could use inspect.ismethod to name and make available
     # all the functions for building a report
-    @staticmethod
-    def get_min(obj):
-        return min(obj)
-
-    @staticmethod
-    def get_max(obj):
-        return max(obj)
-
-    @staticmethod
-    def get(sheet, row, column):
-        return sheet[row, column]
-
-    @staticmethod
-    def get_sum(column):
-        return sum([item for item in column if isinstance(item, timedelta)],
-                   timedelta(0))
+    # @staticmethod
+    # def get_min(obj):
+    #     return min(obj)
+    #
+    # @staticmethod
+    # def get_max(obj):
+    #     return max(obj)
+    #
+    # @staticmethod
+    # def get(sheet, row, column):
+    #     return sheet[row, column]
+    #
+    # @staticmethod
+    # def get_sum(column):
+    #     return sum([item for item in column if isinstance(item, timedelta)],
+    #                timedelta(0))

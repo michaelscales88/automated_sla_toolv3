@@ -75,6 +75,8 @@ class DataCenter(object):
     def print_record(self, record):
         print(dumps(record, indent=4, default=self.util.datetime_handler))
 
+    # TODO Modify this to use the __iter__ for the current src
+    # e.g. return <current doc>.__iter__()
     def __iter__(self):
         for key, data in sorted(self.json_layer.items()):
             yield key, data
