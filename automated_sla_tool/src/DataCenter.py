@@ -38,7 +38,8 @@ class DataCenter(object):
 
     def cache(self, key):
         return {
-            row: cmds['fn'](self.job[key], **cmds['parameters']) for row, cmds in self.worker
+            row: DataCenter.call(sheet=self.job[key], **cmds) for row, cmds in self.worker
+            # row: cmds['fn'](self.job[key], **cmds['parameters']) for row, cmds in self.worker
         }
         # return {
         #     'Call Duration': sum([item for item in self.doc[key].column['Event Duration'] if isinstance(item, timedelta)],
@@ -70,6 +71,14 @@ class DataCenter(object):
             file.save_as(filename=full_path)
         except OSError:
             print('encountered an issue saving the file')
+
+    # TODO this seems to be building a new worker each time
+    @staticmethod
+    def call(sheet=None, fn=None, parameters=None, behavior=None):
+        print('inside call')
+        # rtn_fn = behavior.get('Return Type', None)
+        rtn_val = fn(sheet, **parameters)
+        return rtn_val  # rtn_fn(rtn_val) if rtn_fn else rtn_val
 
     def dispatcher(self, file):
         for target, path in file.settings['Open Targets'].items():

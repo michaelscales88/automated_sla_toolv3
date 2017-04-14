@@ -39,9 +39,12 @@ class DataWorker(object):
         for row, cmds in self.commands(obj):
             pass
 
+    # TODO add a way to bind fn to behavior or parameters
     def _link(self, *words):
         fn = self.fn_lib[words[0]]
         parameters = DataWorker.bind_keyword(words[1], words[2])
+        print('Testings behavior')
+        print([word for word in words[3:]])
         behavior = words[3:]
         return {'fn': fn, 'parameters': parameters, 'behavior': behavior}
 

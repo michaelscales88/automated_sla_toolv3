@@ -10,7 +10,6 @@ from automated_sla_tool.src.BucketDict import BucketDict
 from automated_sla_tool.src.AReport import AReport
 from automated_sla_tool.src.utilities import valid_dt
 from automated_sla_tool.src.factory import Downloader
-from automated_sla_tool.src.FnLib import FnLib
 
 from json import dumps
 
@@ -294,6 +293,7 @@ class SlaReport(AReport):
     # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
         self.data_center.job = self
+        print('about to iterate data center')
         for sheet_name, data_dict in self.data_center:
             print(sheet_name, data_dict)
         # headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
