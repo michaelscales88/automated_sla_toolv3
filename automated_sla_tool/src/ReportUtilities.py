@@ -390,11 +390,8 @@ class ReportUtilities(UtilityObject):
         return join(folder_path, file_name)
 
     @staticmethod
-    def start(full_path=None, report=None):
-        if full_path:
-            pass
-        else:
-            full_path = ReportUtilities.full_path(report=report)
+    def start(full_path):
+        print(full_path)
         ReportUtilities.open_focus(full_path)
 
     @staticmethod
@@ -446,22 +443,3 @@ class ReportUtilities(UtilityObject):
         else:
             return path
 
-    # These could go into a separate class of available report functions
-    # The action library could use inspect.ismethod to name and make available
-    # all the functions for building a report
-    # @staticmethod
-    # def get_min(obj):
-    #     return min(obj)
-    #
-    # @staticmethod
-    # def get_max(obj):
-    #     return max(obj)
-    #
-    # @staticmethod
-    # def get(sheet, row, column):
-    #     return sheet[row, column]
-    #
-    # @staticmethod
-    # def get_sum(column):
-    #     return sum([item for item in column if isinstance(item, timedelta)],
-    #                timedelta(0))

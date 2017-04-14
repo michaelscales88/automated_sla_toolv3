@@ -293,9 +293,9 @@ class SlaReport(AReport):
     # TODO pyexcel auto dt, int, and strings for summing timestamps
     # TODO 2: this will require adding Schema Event Type conversion data to work for dB and src doc
     def process_report2(self):
-        # fn_lib = FnLib()
-        self.data_center.doc = self.src_files[r'Cradle to Grave']
-
+        self.data_center.job = self
+        for sheet_name, data_dict in self.data_center:
+            print(sheet_name, data_dict)
         # headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
         #            'Voice Mails',
         #            'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
@@ -322,15 +322,15 @@ class SlaReport(AReport):
         #     'sum': fn_lib.get_sum
         # }
         # x = 0
-        sample_layer = self.test_worker()
+        # sample_layer = self.test_worker()
         # self.data_center.print_record(sample_layer)
-        for dc, sample in zip(self.data_center, sorted(sample_layer.items())):
-            (key, value) = dc
-            (key2, value2) = sample
-            print(key, key2)
-            self.data_center.print_record(value)
-            # print(sample)
-            self.data_center.print_record(value2)
+        # for dc, sample in zip(self.data_center, sorted(sample_layer.items())):
+        #     (key, value) = dc
+        #     (key2, value2) = sample
+        #     print(key, key2)
+        #     self.data_center.print_record(value)
+        #     # print(sample)
+        #     self.data_center.print_record(value2)
 
             # self.data_center.print_record(value2)
         # print(src)
@@ -530,8 +530,11 @@ class SlaReport(AReport):
     # TODO this would be cool if I could leverage mapping to perform each cmd concurrently
     def test_worker(self):
         from automated_sla_tool.src.DataWorker import DataWorker
-        worker = DataWorker()
-        _exec = worker.prepare(self)
+        print('trying to make worker')
+        worker = DataWorker(target=self)
+        print('made worker')
+        _exec = worker.commands(self)
+        print('prepped worker')
         # print('enterering sheets test')
         json_layer = {}
         for sheet_name in self.src_files[r'Cradle to Grave'].sheet_names():

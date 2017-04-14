@@ -91,7 +91,7 @@ class AReport(ReportTemplate):
                 raise SystemExit()
 
     def open(self):
-        self.data_center.dispatch(self)
+        self.data_center.dispatcher(self)
 
     def save(self):
         if not self.test_mode:

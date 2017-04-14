@@ -3,6 +3,7 @@ from json import dumps
 
 
 from automated_sla_tool.src.ReportUtilities import ReportUtilities
+from automated_sla_tool.src.DataWorker import DataWorker
 
 
 class DataCenter(object):
@@ -12,49 +13,53 @@ class DataCenter(object):
     # Reports should be able to request data and have DataCenter prepare and make available
     def __init__(self):
         # this would actually be a dB
+        # dB should probably be table like:
+        # columns: report_type
+        # row as date: report, report, report
+        # DataWorker can fill the report for any report it knows how to make
         self.json_layer = {}
-        self._doc = None
+        self._job = None
         self.util = ReportUtilities()
-    
+        self._worker = None
+
     @property
-    def doc(self):
-        return self._doc
+    def worker(self):
+        return self._worker
+
+    @property
+    def job(self):
+        return self._job
         
-    @doc.setter
-    def doc(self, doc):
-        if self.doc is None:
-            self._doc = doc
-            for sheet_name in doc.sheet_names():
-                self.get_data(sheet_name)
+    @job.setter
+    def job(self, obj):
+        if self.job is None:
+            self._job = obj.src_files[r'Cradle to Grave']
+            self._worker = DataWorker(target=obj)
 
     def cache(self, key):
         return {
-            'Call Duration': sum([item for item in self.doc[key].column['Event Duration'] if isinstance(item, timedelta)],
-                                 timedelta(0)),
-            'Start Time': min(self.doc[key].column['Start Time']),
-            'End Time': max(self.doc[key].column['End Time']),
-            'Answered': 'Talking' in self.doc[key].column['Event Type'],
-            'Talking Duration': sum(
-                [e_time for e_type, e_time in
-                 zip(self.doc[key].column['Event Type'], self.doc[key].column['Event Duration']) if
-                 e_type == 'Talking' and isinstance(e_time, timedelta)],
-                timedelta(0)
-            ),
-            'Receiving Party': self.util.phone_number(self.doc[key].column['Receiving Party'][0]),
-            'Calling Party': self.util.phone_number(self.doc[key].column['Calling Party'][0]),
-            'Call Direction': 1 if self.doc[key].column['Receiving Party'][0] == 'Ringing' else 2
+            row: cmds['fn'](self.job[key], **cmds['parameters']) for row, cmds in self.worker
         }
-    
-    def get_data(self, key):
-        try:
-            data = self.json_layer[key]
-        except KeyError:
-            data = self.cache(key)
-            self.json_layer[key] = data
-        return data
+        # return {
+        #     'Call Duration': sum([item for item in self.doc[key].column['Event Duration'] if isinstance(item, timedelta)],
+        #                          timedelta(0)),
+        #     'Start Time': min(self.doc[key].column['Start Time']),
+        #     'End Time': max(self.doc[key].column['End Time']),
+        #     'Answered': 'Talking' in self.doc[key].column['Event Type'],
+        #     'Talking Duration': sum(
+        #         [e_time for e_type, e_time in
+        #          zip(self.doc[key].column['Event Type'], self.doc[key].column['Event Duration']) if
+        #          e_type == 'Talking' and isinstance(e_time, timedelta)],
+        #         timedelta(0)
+        #     ),
+        #     'Receiving Party': self.util.phone_number(self.doc[key].column['Receiving Party'][0]),
+        #     'Calling Party': self.util.phone_number(self.doc[key].column['Calling Party'][0]),
+        #     'Call Direction': 1 if self.doc[key].column['Receiving Party'][0] == 'Ringing' else 2
+        # }
 
     # Currently using settings file to control the extension for saving
     # TODO beef this up to identify the extension type from the file type
+    # TODO 2: this + dispatched can be staticmethod-ed with a little work on AReport.save()
     def save(self, file, full_path):
         try:
             file.save_as(filename=full_path)
@@ -66,8 +71,10 @@ class DataCenter(object):
         except OSError:
             print('encountered an issue saving the file')
 
-    def dispatch(self, file):
-        self.util.start(report=file)
+    def dispatcher(self, file):
+        for target, path in file.settings['Open Targets'].items():
+            print('Trying to open:', target)
+            self.util.start(path)
 
     def __repr__(self):
         return str(dumps(self.json_layer, indent=4, default=self.util.datetime_handler))
@@ -78,5 +85,10 @@ class DataCenter(object):
     # TODO Modify this to use the __iter__ for the current src
     # e.g. return <current doc>.__iter__()
     def __iter__(self):
-        for key, data in sorted(self.json_layer.items()):
-            yield key, data
+        for sheet_name in self.job.sheet_names():
+            data = self.json_layer.get(
+                sheet_name,
+                self.cache(sheet_name)
+            )
+            yield sheet_name, data
+

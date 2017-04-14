@@ -6,30 +6,45 @@ from automated_sla_tool.src.FnLib import FnLib
 
 class DataWorker(object):
 
-    def __init__(self):
+    def __init__(self, target=None):
+        self._commands = {}
         self.fn_lib = FnLib()
+        self.commands(target)
+        self.current_target = target
 
     @staticmethod
     def my_business(obj):
         try:
             return obj.settings['JSON'].items()
         except AttributeError:
-            return False
+            return ()
 
     @staticmethod
     def bind_keyword(keywords, bindings):
         return dict(zip(keywords.split(':'), bindings.split(':')))
 
-    def prepare(self, obj):
-        parsed_cmds = OrderedDict()
-        for key, values in DataWorker.my_business(obj):
-            parsed_cmds[key] = self._link(*values)
-        else:
-            print('in else')
-        return parsed_cmds
+    def commands(self, obj):
+        parsed_commands = self._commands.get(
+            obj.__module__,
+            {
+                key: self._link(*values) for key, values in DataWorker.my_business(obj)
+            }
+        )
+        self._commands[obj.__module__] = parsed_commands
+        for row, cmds in parsed_commands.items():
+            yield row, cmds
+
+    # This could be a way for datworker to make reports
+    def execute(self, obj):
+        for row, cmds in self.commands(obj):
+            pass
 
     def _link(self, *words):
         fn = self.fn_lib[words[0]]
         parameters = DataWorker.bind_keyword(words[1], words[2])
         behavior = words[3:]
         return {'fn': fn, 'parameters': parameters, 'behavior': behavior}
+
+    def __iter__(self):
+        for row, cmds in self.commands(self.current_target):
+            yield row, cmds
