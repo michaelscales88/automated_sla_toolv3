@@ -327,6 +327,13 @@ def test():
     #     print(hasattr(items, 'items'))
 
     # Active Testing
+
+    # test = {
+    #     x: fn_test() for x in range(5)
+    # }
+    #
+    # print(dumps(test, indent=4))
+    # return
     my_ui = Ui()
     my_ui.object = SlaReport(test_mode=True)
     # my_ui.object = ps_write()

@@ -123,11 +123,14 @@ class ReportUtilities(UtilityObject):
 
     @staticmethod
     def datetime_handler(x):
+        # print(type(x))
         if isinstance(x, datetime):
             return x.isoformat()
         elif isinstance(x, timedelta):
             return str(x)
-        raise TypeError("Unknown type")
+        else:
+            return str(x)
+        # raise TypeError("Unknown type")
 
     @staticmethod
     def apply_format_to_wb(wb, filters=(), one_filter=None):

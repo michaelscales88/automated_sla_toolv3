@@ -1,7 +1,10 @@
 from collections import OrderedDict
+from json import dumps
+from datetime import datetime
 
 
 from automated_sla_tool.src.FnLib import FnLib
+from automated_sla_tool.src.ReportUtilities import ReportUtilities
 
 
 class DataWorker(object):
@@ -24,12 +27,19 @@ class DataWorker(object):
         return dict(zip(keywords.split(':'), bindings.split(':')))
 
     def commands(self, obj):
-        parsed_commands = self._commands.get(
-            obj.__module__,
-            {
+        try:
+            parsed_commands = self._commands[obj.__module__]    # unsure why this works, but .get doesn't
+        except KeyError:
+            parsed_commands = {
                 key: self._link(*values) for key, values in DataWorker.my_business(obj)
             }
-        )
+        # parsed_commands = self._commands.get(
+        #     obj.__module__,
+        #     {
+        #         key: self._link(*values) for key, values in DataWorker.my_business(obj)
+        #     }
+        # )
+        # print(parsed_commands)
         self._commands[obj.__module__] = parsed_commands
         for row, cmds in parsed_commands.items():
             yield row, cmds
@@ -43,10 +53,10 @@ class DataWorker(object):
     def _link(self, *words):
         fn = self.fn_lib[words[0]]
         parameters = DataWorker.bind_keyword(words[1], words[2])
-        print('Testings behavior')
-        print([word for word in words[3:]])
-        behavior = words[3:]
-        return {'fn': fn, 'parameters': parameters, 'behavior': behavior}
+        # print('Inside _link', datetime.today().time(), flush=True)
+        # print([word for word in words[3:]])
+        behaviors = tuple(self.fn_lib[word] for word in words[3:])
+        return {'fn': fn, 'parameters': parameters, 'behaviors': behaviors}
 
     def __iter__(self):
         for row, cmds in self.commands(self.current_target):

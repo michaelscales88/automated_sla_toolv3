@@ -8,6 +8,8 @@ class FnLib(object):
         except AttributeError:
             print('No item found FnLib')
 
+    # These are fn
+
     @staticmethod
     def get_min(sheet, column=None):
         return min(sheet.column[column])
@@ -39,3 +41,25 @@ class FnLib(object):
              if matched_item[0] == key_val],
             timedelta(0)
         )
+
+    # These are behaviors
+
+    @staticmethod
+    def phone_number(mixed_string):
+        only_digits = [ch for ch in str(mixed_string) if ch.isdigit()]
+        try:
+            return int(
+                str(
+                    ''.join(
+                        only_digits[1:]
+                        if len(only_digits) > 7 and only_digits[0] == 1
+                        else only_digits
+                    )
+                )
+            )
+        except ValueError:
+            return None
+
+    @staticmethod
+    def custom_voicemail():
+        pass

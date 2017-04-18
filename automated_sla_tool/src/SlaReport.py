@@ -2,7 +2,6 @@ import operator
 from datetime import time, timedelta, date
 from dateutil.parser import parse
 from collections import defaultdict, OrderedDict
-from pyexcel import Sheet
 
 
 # TODO all instances that are being used should come from factory
@@ -70,7 +69,7 @@ class SlaReport(AReport):
         self.util.apply_format_to_sheet(sheet=self.src_files[r'Call Details'],
                                         filters=call_details_filters)
         self.compile_call_details()
-        self.src_files[r'Call Details'].name = 'call_details' # this is a hack for the Client Accum
+        self.src_files[r'Call Details'].name = 'call_details'   # this is a hack for the Client Accum
         self.src_files[r'Group Abandoned Calls'] = self.util.collate_wb_to_sheet(
             wb=self.src_files[r'Group Abandoned Calls']
         )
@@ -295,7 +294,15 @@ class SlaReport(AReport):
         self.data_center.job = self
         print('about to iterate data center')
         for sheet_name, data_dict in self.data_center:
-            print(sheet_name, data_dict)
+            print(sheet_name)
+            self.data_center.print_record(data_dict)
+
+    def __getitem__(self, item):
+        pass
+
+    def __repr__(self):
+        # This might be better as a julian date or integer 1-365
+        return '{module} {unique}'.format(module=self.__module__, unique=self.interval)
         # headers = ['I/C Presented', 'I/C Answered', 'I/C Lost',
         #            'Voice Mails',
         #            'Incoming Answered (%)', 'Incoming Lost (%)', 'Average Incoming Duration',
@@ -527,25 +534,6 @@ class SlaReport(AReport):
         # self.output.name_rows_by_column(0)
         # self.output.finished = True
 
-    # TODO this would be cool if I could leverage mapping to perform each cmd concurrently
-    def test_worker(self):
-        from automated_sla_tool.src.DataWorker import DataWorker
-        print('trying to make worker')
-        worker = DataWorker(target=self)
-        print('made worker')
-        _exec = worker.commands(self)
-        print('prepped worker')
-        # print('enterering sheets test')
-        json_layer = {}
-        for sheet_name in self.src_files[r'Cradle to Grave'].sheet_names():
-            sheet = self.src_files[r'Cradle to Grave'][sheet_name]
-            # print('entering cmd test', sheet_name)
-            json_sheet = {}
-            for row, cmds in _exec.items():
-                json_sheet[row] = cmds['fn'](sheet, **cmds['parameters'])
-            # print('printing records')
-            json_layer[sheet_name] = json_sheet
-        return json_layer
 
     '''
     SlaReport Functions
@@ -812,7 +800,8 @@ class Client:
     def no_lost(self):
         return len(self.lost_calls) == 0
 
-    def convert_datetime_seconds(self, datetime_obj):
+    @staticmethod
+    def convert_datetime_seconds(datetime_obj):
         return 60 * (datetime_obj.hour * 60) + datetime_obj.minute * 60 + datetime_obj.second
 
     def extract_call_details(self, call_details):
@@ -867,7 +856,8 @@ class Client:
         return self.get_avg_duration(current_duration=sum(self.wait_answered),
                                      call_group=self.wait_answered)
 
-    def get_avg_duration(self, current_duration=None, call_group=None):
+    @staticmethod
+    def get_avg_duration(current_duration=None, call_group=None):
         return_value = current_duration
         try:
             return_value //= len(call_group)
